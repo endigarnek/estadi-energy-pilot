@@ -308,7 +308,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                     plan["night"] = target_plan
                 proposed = propose(
                     now=now, window=tariff_window, soc=soc,
-                    target_soc=adjusted, model=model,
+                    target=adjusted, model=model,
                     grid_headroom_kw=guard.allowed_charge_kw,
                     power_limit_kw=float(selected[CONF_CHARGE_LIMIT]),
                     preferred_kw=float(selected[CONF_PREFERRED_CHARGE]),
