@@ -234,7 +234,7 @@ class HealthSensor(CoordinatorEntity, SensorEntity):
 ENERGY_V2_SENSORS = (
     ("grid_import", "Pobór z przyłącza", "kW"),
     ("grid_headroom", "Dostępny zapas mocy przyłącza", "kW"),
-    ("grid_charge_cap", "Bezpieczna moc ładowania — wstępna", "kW"),
+    ("grid_charge_cap", "Orientacyjny limit ładowania (bez sterowania)", "kW"),
     ("grid_status", "Grid Guard — status", None),
     ("grid_reason", "Grid Guard — przyczyna", None),
     ("tariff", "Taryfa", None),
