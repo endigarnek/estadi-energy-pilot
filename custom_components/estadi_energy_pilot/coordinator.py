@@ -330,6 +330,13 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                 "Dzień wolny lub brak taniego okna — wymagany pełny symulator 48h"
             )
         v2_info["current_soc_pct"] = round(soc, 1)
+        # Never advertise a charging decision while grid polarity is
+        # unverified, when limits are unknown, or on whole-day cheap holidays.
+        plan["recommended"] = bool(
+            plan.get("recommended") and guard.allowed_charge_kw is not None
+            and guard.allowed_charge_kw >= 3
+            and tariff_band == "cheap" and not is_day_off(now.date())
+        )
         plan.update(history)
         plan["available"] = True
         plan["temperature_source"] = "hourly" if temperatures else temperature_source
