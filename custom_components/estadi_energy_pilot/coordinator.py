@@ -60,6 +60,10 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         watts = value * (1000 if unit == "kW" else 1)
         return watts if isfinite(watts) and 0 <= watts <= 100000 else None
 
+    def _kw_or_none(self, key: str):
+        watts = self._power_w(key)
+        return round(watts / 1000, 2) if watts is not None else None
+
     def _signed_power_w(self, key: str):
         entity_id = self._selected_settings.get(key)
         state = self.hass.states.get(entity_id) if entity_id else None
@@ -156,6 +160,12 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             "prices_confirmed": prices is not None,
             "automation_enabled": False,
             "charging_schedule": None,
+            "live": {
+                "pv_kw": self._kw_or_none(CONF_PV_POWER),
+                "home_kw": self._kw_or_none(CONF_HOME_POWER),
+                "heat_pump_kw": self._kw_or_none(CONF_HEAT_PUMP_POWER),
+                "ev_kw": self._kw_or_none(CONF_EV_POWER),
+            },
         }
         attrs = []
         for key in (CONF_SOLCAST_TODAY, CONF_SOLCAST_TOMORROW, CONF_SOLCAST_DAY3):
