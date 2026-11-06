@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.exceptions import HomeAssistantError
@@ -12,7 +13,9 @@ from .const import (
     DOMAIN, CONF_BATTERY_SOC, CONF_PV_POWER, CONF_HOME_POWER,
     CONF_EV_POWER, CONF_HEAT_PUMP_POWER,
 )
-from .dashboard_export import render_dashboard, render_mini_widget, export_files
+from .dashboard_export import (
+    render_dashboard, render_mini_widget, export_files, FORECAST_CARD_RESOURCE,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,7 +70,7 @@ class ExportDashboardButton(ButtonEntity):
     the inverter, or overwrites an earlier export/user customization.
     """
     _attr_has_entity_name = True
-    _attr_name = "Wygeneruj pulpit i miniwidżet YAML"
+    _attr_name = "Wygeneruj pulpit, miniwidżet i wykres 48h"
     _attr_icon = "mdi:view-dashboard-edit"
 
     def __init__(self, coordinator, entry):
@@ -81,6 +84,7 @@ class ExportDashboardButton(ButtonEntity):
         }
         self._attr_extra_state_attributes = {
             "status": "Nie wygenerowano w tej sesji",
+            "adres_zasobu_lovelace": FORECAST_CARD_RESOURCE,
             "wymaga_wklejenia_do_pulpitu": True,
             "nie_modyfikuje_istniejacych_dashboardow": True,
         }
@@ -125,10 +129,13 @@ class ExportDashboardButton(ButtonEntity):
     async def async_press(self) -> None:
         ids, sources = self._map_entities()
         try:
+            script = await self.coordinator.hass.async_add_executor_job(
+                Path(__file__).with_name("forecast_card.js").read_text, "utf-8",
+            )
             full = render_dashboard(ids, sources)
             mini = render_mini_widget(ids, sources)
             paths = await self.coordinator.hass.async_add_executor_job(
-                export_files, self.coordinator.hass.config.path(), full, mini,
+                export_files, self.coordinator.hass.config.path(), full, mini, script,
             )
         except (ValueError, OSError, RuntimeError) as exc:
             self._attr_extra_state_attributes = {
@@ -146,6 +153,9 @@ class ExportDashboardButton(ButtonEntity):
             "status": "Wygenerowano",
             "pulpit_yaml": paths["dashboard"],
             "miniwidzet_yaml": paths["mini"],
+            "karta_js": paths["forecast_js"],
+            "adres_zasobu_lovelace": paths["forecast_resource_url"],
+            "zarejestruj_zasob_jako": "Moduł JavaScript",
             "liczba_encji_pilota": len(ids),
             "liczba_zewnetrznych_czujnikow": len(sources),
             "wygenerowano_o": datetime.now(timezone.utc).isoformat(),
