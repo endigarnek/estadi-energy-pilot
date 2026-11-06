@@ -239,6 +239,9 @@ ENERGY_V2_SENSORS = (
     ("grid_charge_cap", "Orientacyjny limit ładowania (bez sterowania)", "kW"),
     ("grid_status", "Grid Guard — status", None),
     ("grid_reason", "Grid Guard — przyczyna", None),
+    ("grid_phase_status", "Grid Guard — kontrola faz", None),
+    ("grid_last_check", "Grid Guard — ostatni odczyt", None),
+    ("grid_current_charge", "Grid Guard — moc ładowania magazynu", "kW"),
     ("tariff", "Taryfa", None),
     ("tariff_zone", "Aktualna strefa taryfowa", None),
     ("tariff_price", "Cena w aktualnej strefie", "PLN/kWh"),
@@ -328,6 +331,9 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
             "grid_charge_cap": g.get("allowed_charge_kw"),
             "grid_status": g.get("state"),
             "grid_reason": g.get("reason"),
+            "grid_phase_status": g.get("phase_status"),
+            "grid_last_check": g.get("guard_last_checked"),
+            "grid_current_charge": g.get("current_charge_kw"),
             "tariff": d.get("tariff"),
             "tariff_zone": d.get("tariff_zone"),
             "tariff_price": d.get("price_current_pln_kwh"),
@@ -381,8 +387,16 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
                 "taryfa": d.get("tariff"),
                 "automatyzacja_wlaczona": False,
             }
-        if self._key == "grid_status":
-            return {"szczegoly": d.get("grid"), "automatyzacja_wlaczona": False}
+        if self._key in ("grid_status", "grid_phase_status"):
+            g = d.get("grid", {})
+            return {
+                "szczegoly": g,
+                "stan_zrodel": g.get("source_status", {}),
+                "kontrola_faz": g.get("phase_status"),
+                "limity_pradu_faz_a": g.get("nominal_phase_limits_a"),
+                "czy_mozna_sterowac": False,
+                "automatyzacja_wlaczona": False,
+            }
         if self._key == "plan_status":
             return {"harmonogram": d.get("charging_schedule"),
                     "strefa": d.get("tariff_zone"),
