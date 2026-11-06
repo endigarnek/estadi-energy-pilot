@@ -10,10 +10,11 @@ from typing import Iterable, Any
 from .const import (
     CONF_SOLCAST_TODAY, CONF_SOLCAST_TOMORROW, CONF_SOLCAST_DAY3,
     CONF_BATTERY_SOC, CONF_OUTDOOR_TEMP, CONF_WEATHER,
-    CONF_PV_POWER, CONF_HOME_POWER, CONF_HEAT_PUMP_POWER, CONF_EV_POWER,
+    CONF_PV_POWER, CONF_HOME_POWER, CONF_HEAT_PUMP_POWER, CONF_EV_POWER, CONF_GRID_POWER,
 )
 
 POWER_PREFERRED = {
+    CONF_GRID_POWER: ("sensor.deye_grid_power",),
     CONF_PV_POWER: ("sensor.deye_pv_power",),
     CONF_HOME_POWER: ("sensor.deye_load_power",),
     CONF_HEAT_PUMP_POWER: ("sensor.shellyem3_08f9e051e0b0_channel_b_power",),
