@@ -40,18 +40,18 @@ def make_history(days=10, ev_at=None, home_at=None):
 
 class LearningTests(unittest.TestCase):
     def test_need_seven_complete_days(self):
-        profile = learning.build_household_profile(make_history(3), date(2026, 11, 1))
+        profile = learning.build_household_profile(make_history(3), date(2026, 10, 20))
         self.assertEqual(profile["status"], "uczy_sie")
         self.assertEqual(profile["days_complete"], 3)
 
     def test_ev_spikes_are_not_learned_as_home(self):
-        profile = learning.build_household_profile(make_history(10, ev_at=23), date(2026, 11, 1))
+        profile = learning.build_household_profile(make_history(10, ev_at=23), date(2026, 10, 20))
         self.assertEqual(profile["days_complete"], 10)
         self.assertEqual(profile["ev_hours_excluded"], 10)
         self.assertTrue(all(v["p50_kwh"] < 1 for k, v in profile["hourly"].items()))
 
     def test_appliances_increase_p90_without_electric_car(self):
-        profile = learning.build_household_profile(make_history(10, home_at=18), date(2026, 11, 1))
+        profile = learning.build_household_profile(make_history(10, home_at=18), date(2026, 10, 20))
         self.assertEqual(profile["status"], "gotowy")
         self.assertEqual(profile["hourly"]["weekday_18"]["p50_kwh"], 2.5)
 
@@ -59,18 +59,18 @@ class LearningTests(unittest.TestCase):
         rows = make_history(10)
         for row in rows.values():
             row["coverage"]["ev"] = {}
-        profile = learning.build_household_profile(rows, date(2026, 11, 1))
+        profile = learning.build_household_profile(rows, date(2026, 10, 20))
         self.assertEqual(profile["status"], "uczy_sie")
         self.assertEqual(profile["days_complete"], 0)
 
     def test_24_hour_projection_requires_complete_bins(self):
-        profile = learning.build_household_profile(make_history(10), date(2026, 11, 1))
+        profile = learning.build_household_profile(make_history(10), date(2026, 10, 20))
         result = learning.next_24h_profile(profile, datetime(2026, 11, 6, 10, tzinfo=ZoneInfo("Europe/Warsaw")))
         self.assertTrue(result["available"])
         self.assertEqual(result["total_p50_kwh"], 12.0)
 
     def test_missing_history_never_makes_up_zero(self):
-        result = learning.next_24h_profile(learning.build_household_profile({}, date(2026, 11, 1)),
+        result = learning.next_24h_profile(learning.build_household_profile({}, date(2026, 10, 20)),
                                            datetime(2026, 11, 6, 10, tzinfo=ZoneInfo("Europe/Warsaw")))
         self.assertFalse(result["available"])
         self.assertIsNone(result["total_p50_kwh"])
