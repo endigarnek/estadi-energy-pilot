@@ -19,6 +19,10 @@ from .const import (
     CONF_PV_DISCOUNT, CONF_EFFICIENCY, CONF_MARGIN, CONF_MILD_W, CONF_COLD_W,
     CONF_NIGHT_START, CONF_NIGHT_END, CONF_MIDDAY_START, CONF_AFTERNOON_END,
     CONF_FORECAST_SOLAR_ENTRY,
+    CONF_NOMINAL_KWH, CONF_SOH, CONF_MIN_SOC, CONF_USER_MAX_SOC,
+    CONF_CORRECTION, CONF_GRID_POWER, CONF_GRID_LIMIT, CONF_GRID_BUFFER,
+    CONF_GRID_IMPORT_SIGN, CONF_BATTERY_POWER, CONF_BATTERY_CHARGE_SIGN, CONF_CHARGE_LIMIT, CONF_PREFERRED_CHARGE,
+    CONF_TARIFF, CONF_PRICE_CHEAP, CONF_PRICE_PEAK, CONF_PRICE_EVENING,
 )
 from .discovery import detect_entities, missing_required_sources
 from .forecast_entry import available_entries, preferred_entry, forecast_config_schema
@@ -26,7 +30,7 @@ from .forecast_entry import available_entries, preferred_entry, forecast_config_
 
 ENTITY_KEYS = (
     CONF_PV_POWER, CONF_HOME_POWER, CONF_HEAT_PUMP_POWER, CONF_EV_POWER,
-    CONF_BATTERY_SOC, CONF_OUTDOOR_TEMP, CONF_SOLCAST_TODAY,
+    CONF_GRID_POWER, CONF_BATTERY_POWER, CONF_BATTERY_SOC, CONF_OUTDOOR_TEMP, CONF_SOLCAST_TODAY,
     CONF_SOLCAST_TOMORROW, CONF_SOLCAST_DAY3, CONF_WEATHER,
 )
 
@@ -87,7 +91,7 @@ class EstadiEnergyPilotConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             schema[vol.Required(CONF_FORECAST_SOLAR_ENTRY)] = vol.In(
                 forecast_config_schema(self.hass)
             )
-        schema[vol.Required(CONF_CAPACITY)] = numeric(1, 200, 0.1)
+        schema[vol.Required(CONF_NOMINAL_KWH, default=28)] = numeric(1, 200, 0.1)
         schema[vol.Required(CONF_BASE_W, default=DEFAULTS[CONF_BASE_W])] = numeric(0, 20000, 50)
 
         known = [detected[key] for key in ENTITY_KEYS if key in detected]
@@ -116,6 +120,12 @@ class PilotOptionsFlow(OptionsFlow):
             if show_advanced:
                 self._quick_changes = submitted
                 return await self.async_step_advanced()
+            if submitted[CONF_MIN_SOC] >= submitted[CONF_USER_MAX_SOC]:
+                return self.async_show_form(
+                    step_id="init", data_schema=self._quick_schema(),
+                    errors={"base": "invalid_battery"},
+                    description_placeholders={"detected_count": str(len(suggested_entities(self.hass)))},
+                )
             return self.async_create_entry(
                 data={**self.config_entry.options, **submitted},
             )
@@ -130,9 +140,12 @@ class PilotOptionsFlow(OptionsFlow):
     def _quick_schema(self):
         values = {**DEFAULTS, **self.config_entry.data, **self.config_entry.options}
         return vol.Schema({
-            vol.Required(CONF_CAPACITY, default=values[CONF_CAPACITY]): numeric(1, 200, 0.1),
-            vol.Required(CONF_BASE_W, default=values[CONF_BASE_W]): numeric(0, 20000, 50),
-            vol.Required(CONF_RESERVE, default=values[CONF_RESERVE]): numeric(5, 80),
+            vol.Required(CONF_NOMINAL_KWH, default=values[CONF_NOMINAL_KWH]): numeric(1, 200, 0.1),
+            vol.Required(CONF_MIN_SOC, default=values[CONF_MIN_SOC]): numeric(0, 95, 1),
+            vol.Required(CONF_USER_MAX_SOC, default=values[CONF_USER_MAX_SOC]): numeric(10, 100, 1),
+            vol.Required(CONF_GRID_LIMIT, default=values[CONF_GRID_LIMIT]): numeric(1, 40, 0.1),
+            vol.Required(CONF_TARIFF, default=values[CONF_TARIFF]): vol.In(("G12w", "G13")),
+            vol.Required(CONF_CORRECTION, default=values[CONF_CORRECTION]): numeric(-15, 15, 1),
             vol.Optional("advanced", default=False): bool,
         })
 
@@ -145,10 +158,10 @@ class PilotOptionsFlow(OptionsFlow):
                 **getattr(self, "_quick_changes", {}),
                 **user_input,
             }
-            if (proposed[CONF_RESERVE] >= proposed[CONF_MAX_SOC]
-                    or proposed[CONF_NIGHT_END] >= proposed[CONF_MIDDAY_START]
-                    or proposed[CONF_MIDDAY_START] >= proposed[CONF_AFTERNOON_END]
-                    or proposed[CONF_AFTERNOON_END] >= proposed[CONF_NIGHT_START]):
+            if (proposed[CONF_MIN_SOC] >= proposed[CONF_USER_MAX_SOC]
+                    or proposed[CONF_GRID_BUFFER] >= proposed[CONF_GRID_LIMIT]
+                    or proposed[CONF_PREFERRED_CHARGE] > proposed[CONF_CHARGE_LIMIT]
+                    ):
                 return self.async_show_form(
                     step_id="advanced",
                     data_schema=self._schema(),
@@ -174,19 +187,31 @@ class PilotOptionsFlow(OptionsFlow):
             **getattr(self, "_quick_changes", {}),
         }
         schema = {
-            vol.Required(CONF_CAPACITY, default=values[CONF_CAPACITY]): numeric(1, 200, 0.1),
+            vol.Required(CONF_NOMINAL_KWH, default=values[CONF_NOMINAL_KWH]): numeric(1, 200, 0.1),
+            vol.Required(CONF_SOH, default=values[CONF_SOH]): numeric(50, 100, 0.5),
+            vol.Required(CONF_MIN_SOC, default=values[CONF_MIN_SOC]): numeric(0, 95, 1),
+            vol.Required(CONF_USER_MAX_SOC, default=values[CONF_USER_MAX_SOC]): numeric(10, 100, 1),
+            vol.Required(CONF_CORRECTION, default=values[CONF_CORRECTION]): numeric(-15, 15, 1),
+            vol.Required(CONF_GRID_LIMIT, default=values[CONF_GRID_LIMIT]): numeric(1, 40, 0.1),
+            vol.Required(CONF_GRID_BUFFER, default=values[CONF_GRID_BUFFER]): numeric(0, 10, 0.1),
+            vol.Required(CONF_GRID_IMPORT_SIGN, default=values[CONF_GRID_IMPORT_SIGN]): vol.In({
+                0: "Niepotwierdzony znak importu",
+                1: "Wartość dodatnia oznacza import",
+                -1: "Wartość ujemna oznacza import",
+            }),
+            vol.Required(CONF_BATTERY_CHARGE_SIGN, default=values[CONF_BATTERY_CHARGE_SIGN]): vol.In({0: 'Nieznany', 1: 'Dodatni = ładowanie', -1: 'Ujemny = ładowanie'}),
+            vol.Required(CONF_CHARGE_LIMIT, default=values[CONF_CHARGE_LIMIT]): numeric(1, 20, 0.5),
+            vol.Required(CONF_PREFERRED_CHARGE, default=values[CONF_PREFERRED_CHARGE]): numeric(1, 20, 0.5),
+            vol.Required(CONF_TARIFF, default=values[CONF_TARIFF]): vol.In(("G12w", "G13")),
+            vol.Required(CONF_PRICE_CHEAP, default=values[CONF_PRICE_CHEAP]): numeric(0, 10, 0.01),
+            vol.Required(CONF_PRICE_PEAK, default=values[CONF_PRICE_PEAK]): numeric(0, 10, 0.01),
+            vol.Required(CONF_PRICE_EVENING, default=values[CONF_PRICE_EVENING]): numeric(0, 10, 0.01),
             vol.Required(CONF_BASE_W, default=values[CONF_BASE_W]): numeric(0, 20000, 50),
-            vol.Required(CONF_RESERVE, default=values[CONF_RESERVE]): numeric(5, 80),
-            vol.Required(CONF_MAX_SOC, default=values[CONF_MAX_SOC]): numeric(20, 100),
             vol.Required(CONF_PV_DISCOUNT, default=values[CONF_PV_DISCOUNT]): numeric(0, 60),
             vol.Required(CONF_EFFICIENCY, default=values[CONF_EFFICIENCY]): numeric(50, 100),
             vol.Required(CONF_MARGIN, default=values[CONF_MARGIN]): numeric(0, 10, 0.1),
             vol.Required(CONF_MILD_W, default=values[CONF_MILD_W]): numeric(0, 8000, 50),
             vol.Required(CONF_COLD_W, default=values[CONF_COLD_W]): numeric(0, 12000, 50),
-            vol.Required(CONF_NIGHT_START, default=values[CONF_NIGHT_START]): numeric(17, 23),
-            vol.Required(CONF_NIGHT_END, default=values[CONF_NIGHT_END]): numeric(1, 12),
-            vol.Required(CONF_MIDDAY_START, default=values[CONF_MIDDAY_START]): numeric(10, 16),
-            vol.Required(CONF_AFTERNOON_END, default=values[CONF_AFTERNOON_END]): numeric(11, 20),
         }
         schema.update(_entity_fields(values))
         forecast_entries = available_entries(self.hass)

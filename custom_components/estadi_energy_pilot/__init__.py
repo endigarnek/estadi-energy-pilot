@@ -9,7 +9,7 @@ from datetime import timedelta
 from .const import DOMAIN
 from .coordinator import EnergyPilotCoordinator
 
-PLATFORMS = ["sensor", "binary_sensor", "button"]
+PLATFORMS = ["sensor", "binary_sensor", "button", "number"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

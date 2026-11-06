@@ -18,7 +18,8 @@
           "home_power": "Deye home load power (W)",
           "heat_pump_power": "Heat pump measured power (W)",
           "ev_power": "EV charger corrected real power (W)",
-          "forecast_solar_entry": "Forecast.Solar: choose installation (when several exist)"
+          "forecast_solar_entry": "Forecast.Solar: choose installation (when several exist)",
+          "battery_nominal_kwh": "Nominal battery capacity (kWh)"
         }
       }
     }
@@ -32,7 +33,13 @@
           "battery_capacity_kwh": "Usable battery capacity (kWh)",
           "base_load_w": "Average home power EXCLUDING heat pump (W)",
           "reserve_soc": "Battery reserve SOC (%)",
-          "advanced": "Show advanced settings and all entities"
+          "advanced": "Show advanced settings and all entities",
+          "battery_nominal_kwh": "Nominal battery capacity (kWh)",
+          "battery_min_soc": "Minimum SOC (%)",
+          "battery_max_soc": "Maximum SOC (%)",
+          "grid_connection_limit_kw": "Grid limit (kW)",
+          "tariff_profile": "Current tariff",
+          "battery_reserve_correction_pp": "Reserve correction (pp)"
         }
       },
       "advanced": {
@@ -62,12 +69,30 @@
           "battery_soc": "Deye battery SOC (%)",
           "outdoor_temp": "Outdoor temperature (°C)",
           "weather_entity": "Hourly weather forecast (optional)",
-          "forecast_solar_entry": "Forecast.Solar: selected configuration"
+          "forecast_solar_entry": "Forecast.Solar: selected configuration",
+          "battery_nominal_kwh": "Nominal battery capacity (kWh)",
+          "battery_soh_pct": "Estimated SoH (%)",
+          "battery_min_soc": "Minimum SOC (%)",
+          "battery_max_soc": "Maximum SOC (%)",
+          "battery_reserve_correction_pp": "Reserve correction (pp)",
+          "grid_connection_limit_kw": "Grid limit (kW)",
+          "grid_safety_buffer_kw": "Grid reserve (kW)",
+          "grid_import_sign": "Signed grid power",
+          "battery_charge_sign": "Signed battery charge power",
+          "battery_preferred_max_charge_kw": "Planning charging cap (kW)",
+          "battery_preferred_charge_kw": "Preferred charge power (kW)",
+          "tariff_profile": "Current tariff",
+          "tariff_price_cheap": "Cheap price (PLN/kWh), 0=unknown",
+          "tariff_price_peak": "Peak price (PLN/kWh), 0=unknown",
+          "tariff_price_evening": "Evening peak price (PLN/kWh), 0=unknown",
+          "grid_power": "Grid power sensor",
+          "battery_power": "Battery power sensor"
         }
       }
     },
     "error": {
-      "invalid_schedule": "Check time windows and SOC range."
+      "invalid_schedule": "Check time windows and SOC range.",
+      "invalid_battery": "Minimum SOC must be below maximum SOC."
     }
   }
 }

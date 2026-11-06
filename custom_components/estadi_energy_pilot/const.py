@@ -1,6 +1,6 @@
 """ESTADI Energy Pilot constants."""
 DOMAIN = "estadi_energy_pilot"
-INTEGRATION_VERSION = "0.2.7"
+INTEGRATION_VERSION = "0.3.0"
 CONF_SOLCAST_TODAY = "solcast_today"
 CONF_SOLCAST_TOMORROW = "solcast_tomorrow"
 CONF_SOLCAST_DAY3 = "solcast_day3"
@@ -25,8 +25,40 @@ CONF_NIGHT_START = "night_start"
 CONF_NIGHT_END = "night_end"
 CONF_MIDDAY_START = "midday_start"
 CONF_AFTERNOON_END = "afternoon_end"
+CONF_NOMINAL_KWH = "battery_nominal_kwh"
+CONF_SOH = "battery_soh_pct"
+CONF_MIN_SOC = "battery_min_soc"
+CONF_USER_MAX_SOC = "battery_max_soc"
+CONF_CORRECTION = "battery_reserve_correction_pp"
+CONF_GRID_POWER = "grid_power"
+CONF_BATTERY_POWER = "battery_power"
+CONF_BATTERY_CHARGE_SIGN = "battery_charge_sign"
+CONF_GRID_IMPORT_SIGN = "grid_import_sign"
+CONF_GRID_LIMIT = "grid_connection_limit_kw"
+CONF_GRID_BUFFER = "grid_safety_buffer_kw"
+CONF_CHARGE_LIMIT = "battery_preferred_max_charge_kw"
+CONF_PREFERRED_CHARGE = "battery_preferred_charge_kw"
+CONF_TARIFF = "tariff_profile"
+CONF_PRICE_CHEAP = "tariff_price_cheap"
+CONF_PRICE_PEAK = "tariff_price_peak"
+CONF_PRICE_EVENING = "tariff_price_evening"
 DEFAULTS = {
     CONF_CAPACITY: 15.0,
+    CONF_NOMINAL_KWH: 28,
+    CONF_SOH: 100,
+    CONF_MIN_SOC: 10,
+    CONF_USER_MAX_SOC: 100,
+    CONF_CORRECTION: 0,
+    CONF_GRID_IMPORT_SIGN: 0,
+    CONF_BATTERY_CHARGE_SIGN: 0,
+    CONF_GRID_LIMIT: 15,
+    CONF_GRID_BUFFER: 2,
+    CONF_CHARGE_LIMIT: 10,
+    CONF_PREFERRED_CHARGE: 5,
+    CONF_TARIFF: "G12w",
+    CONF_PRICE_CHEAP: 0,
+    CONF_PRICE_PEAK: 0,
+    CONF_PRICE_EVENING: 0,
     CONF_BASE_W: 400,
     CONF_RESERVE: 20,
     CONF_MAX_SOC: 95,
