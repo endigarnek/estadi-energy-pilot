@@ -361,7 +361,7 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
         stress_plan = stress.get("plan") or {}
         pump_model = d.get("heat_pump_learning") or {}
         pump_preview = pump_model.get("preview_48h") or {}
-        calibration = d.get("calibration") or {
+        calibration = d.get("calibration") or {}
         house_calibration = calibration.get("load") or {}
         pv_calibration = calibration.get("pv") or {}
         ev_calibration = calibration.get("ev") or {}
