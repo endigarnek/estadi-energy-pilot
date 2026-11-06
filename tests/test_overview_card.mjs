@@ -43,22 +43,25 @@ test("overview registers a live card and read-only copy", () => {
   const card = make({
     soc: 64, pv: 5000, home: 1532, ev: 320, pump: 846,
     grid_import: 2.4, grid_limit: 15, grid_headroom: 11.6,
-    grid_status: "ok", health_status: "on", tariff_zone: "cheap",
+    grid_status: "ok", health_status: "Działa", tariff_zone: "cheap",
   });
   const html = card.shadowRoot.innerHTML;
   assert.match(html, /5 kW/);
   assert.match(html, /1,53/);
   assert.match(html, /15 kW/);
-  assert.match(html, /bez sterowania Deye/);
-  assert.match(html, /Nie sumujemy ich ponownie/);
+  assert.match(html, /Sterowanie Deye: wyłączone/);
+  assert.match(html, /EV i pompa są już w Deye Load/);
+  assert.match(html, /Bilans chwilowy/);
+  assert.match(html, /gauge/);
 });
 
 test("unknown import is never represented as 0 kW or a full progress bar", () => {
   const card = make({soc: 10, grid_import: "unknown", grid_status: "blokada"});
   const html = card.shadowRoot.innerHTML;
-  assert.match(html, /⚠ Grid Guard: blokada/);
+  assert.match(html, /Grid Guard wymaga weryfikacji/);
+  assert.match(html, /Grid Guard: blokada/);
   assert.match(html, /— \/ — kW/);
-  assert.match(html, /class="fill gridfill" style="width:0%"/);
+  assert.match(html, /class="progress grid-progress"[^>]*><i style="width:0%"/);
 });
 
 test("updating entity values changes live card without generating YAML", () => {
@@ -70,4 +73,34 @@ test("updating entity values changes live card without generating YAML", () => {
   assert.notEqual(next, first);
   assert.match(next, /75%/);
   assert.match(next, /20 kW/);
+});
+
+test("a failure state is not falsely marked healthy", () => {
+  const card = make({health_status: "Nie działa", grid_status: "brak kalibracji"});
+  const html = card.shadowRoot.innerHTML;
+  assert.match(html, /System: Nie działa/);
+  assert.match(html, /status warning/);
+  assert.doesNotMatch(html, /Odczyty aktywne/);
+});
+
+test("PV zero is valid at night, while an unknown SOC is not zero percent", () => {
+  const card = make({pv: 0, home: 1532, soc: "unavailable"});
+  const html = card.shadowRoot.innerHTML;
+  assert.match(html, /0 W/);
+  assert.match(html, /Magazyn SOC/);
+  assert.match(html, /Stan magazynu: —/);
+  assert.doesNotMatch(html, /Stan magazynu: 0%/);
+});
+
+test("escapes untrusted grid text and never renders HTML from sensor states", () => {
+  const card = make({grid_status: '<img src=x onerror="evil()">', health_status: "Błąd"});
+  assert.doesNotMatch(card.shadowRoot.innerHTML, /<img/);
+  assert.match(card.shadowRoot.innerHTML, /&lt;img/);
+});
+
+test("no write actions or external requests in main card", () => {
+  const source = fs.readFileSync(filepath, "utf-8");
+  for (const forbidden of ["hass.callService", "number.set_value", "switch.turn_on", "fetch(", "XMLHttpRequest"]) {
+    assert.equal(source.includes(forbidden), false, forbidden);
+  }
 });
