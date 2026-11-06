@@ -5,12 +5,15 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.event import async_track_time_interval
 from datetime import timedelta
+from pathlib import Path
+import logging
 
 from .const import DOMAIN, CONF_EV_TOPOLOGY
 from .house_learning import resolve_ev_topology
 from .coordinator import EnergyPilotCoordinator
 
 PLATFORMS = ["sensor", "binary_sensor", "button", "number"]
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -28,6 +31,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # Only installations already activated by an explicit export have a
+    # checksum manifest. Keep their managed YAML current after a HACS update
+    # without touching manually edited or legacy dashboards.
+    await _async_sync_existing_dashboard(hass, entry, coordinator)
     # A periodic watchdog updates the health sensor even if normal polling
     # silently stops; it never sends commands to Deye.
     entry.async_on_unload(
@@ -59,3 +66,25 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Apply edited tuning immediately without reloading the integration."""
     await hass.data[DOMAIN][entry.entry_id].async_request_refresh()
+
+
+async def _async_sync_existing_dashboard(hass: HomeAssistant, entry: ConfigEntry,
+                                         coordinator: EnergyPilotCoordinator) -> None:
+    """Refresh generated YAML after HA restart only when the owner opted in."""
+    marker = Path(hass.config.path(".estadi-energy-pilot-managed.json"))
+    if not await hass.async_add_executor_job(marker.is_file):
+        return
+    from .button import ExportDashboardButton
+
+    try:
+        _, _, paths = await ExportDashboardButton(
+            coordinator, entry
+        ).async_generate_managed_files()
+    except Exception:
+        # UI errors must never interrupt Home Assistant energy monitoring.
+        # export_files protects all owner edits with content checksums.
+        _LOGGER.exception(
+            "Nie odświeżono zarządzanego pulpitu ESTADI; zachowano istniejące pliki"
+        )
+    else:
+        _LOGGER.info("Odświeżono zarządzany pulpit ESTADI po restarcie: %s", paths)
