@@ -27,6 +27,7 @@ from .grid_guard import calculate_grid_guard
 from .tariffs import tariff_zone, next_cheap_window, zone_prices, is_day_off
 from .charge_planner import propose
 from .house_learning import build_house_profile, resolve_ev_topology
+from .simulation_48h import simulate_48h
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -311,6 +312,32 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             _LOGGER.error("Cannot calculate energy plan: %s", err)
             return {**history, "available": False,
                     "reason": "Błędne ustawienia — sprawdź konfigurację"}
+        # Independent 48-hour forecast. Never issue inverter commands here.
+        # Current EV draw is included ONLY in the first 15-minute slot:
+        # future sessions cannot be deduced from the instantaneous reading.
+        try:
+            simulation = simulate_48h(
+                now=now, pv_slots=pv_slots, temps=temperatures, learning=learned,
+                model=model, start_soc=soc, current_temp=outdoor_temp,
+                tariff=tariff, baseload_w=float(selected[CONF_BASE_W]),
+                mild_w=float(selected[CONF_MILD_W]),
+                cold_w=float(selected[CONF_COLD_W]),
+                pv_discount_pct=float(selected[CONF_PV_DISCOUNT]),
+                efficiency_pct=float(selected[CONF_EFFICIENCY]),
+                battery_max_kw=float(selected[CONF_CHARGE_LIMIT]),
+                grid_limit_kw=float(selected[CONF_GRID_LIMIT]),
+                ev_now_kw=self._kw_or_none(CONF_EV_POWER),
+                prices=prices,
+            )
+            v2_info["simulation_48h"] = simulation
+        except (ValueError, TypeError, KeyError, ZeroDivisionError) as err:
+            _LOGGER.warning("48h simulation unavailable: %s", err)
+            v2_info["simulation_48h"] = {
+                "status": "blad_danych",
+                "reason": f"Nie można obliczyć symulacji: {type(err).__name__}",
+                "timeline_hours": [],
+                "forecast_hours": 0,
+            }
         # Old energy windows use a simple daily model. Weekend planning and
         # household learning will be implemented by the 48h simulation engine.
         if tariff_window and not is_day_off(tariff_window[0].date()):
