@@ -11,6 +11,8 @@ from math import ceil, isfinite
 from statistics import median
 from typing import Any
 
+from .tariffs import is_day_off
+
 MAX_DAYS = 30
 MIN_COVERAGE_H = .9
 MIN_DAY_HOURS = 22
@@ -97,7 +99,7 @@ def analyze_load_history(history_days: dict, today: date) -> dict:
     evaluated_days = set()
     for pos, (day, hours) in enumerate(complete):
         peers = [past for prior, past in complete[:pos]
-                 if (prior.weekday() >= 5) == (day.weekday() >= 5)]
+                 if is_day_off(prior) == is_day_off(day)]
         if len(peers) < MIN_TRAIN_DAYS:
             continue
         scored = 0
@@ -151,7 +153,7 @@ def analyze_ev_history(history_days: dict, today: date) -> dict:
     kinds = {}
     for kind in ("weekday", "weekend"):
         matching = [hours for day, hours in complete
-                    if (day.weekday() >= 5) == (kind == "weekend")]
+                    if is_day_off(day) == (kind == "weekend")]
         hour_rows = []
         for hour in range(24):
             observed = [row[hour] for row in matching if row[hour] is not None]
