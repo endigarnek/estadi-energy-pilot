@@ -46,6 +46,7 @@ SENSORS = (
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities([VersionSensor(entry)] +
+                       [HealthSensor(coordinator, entry, kind) for kind in ("status", "last_refresh", "last_success", "refresh_count", "error_count", "last_duration_ms")] +
                        [PilotSensor(coordinator, entry, description) for description in SENSORS] +
                        [HistorySensor(coordinator, entry, key, title, unit, field) for key, title, unit, field in HISTORY_SENSORS])
 
@@ -161,4 +162,69 @@ class VersionSensor(SensorEntity):
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": "ESTADI Energy Pilot",
             "manufacturer": "ESTADI",
+        }
+
+
+class HealthSensor(CoordinatorEntity, SensorEntity):
+    """A health probe independent of whether the PV plan is available."""
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:heart-pulse"
+    _NAMES = {
+        "status": "Stan systemu",
+        "last_refresh": "Ostatnie odświeżenie",
+        "last_success": "Ostatni poprawny plan",
+        "refresh_count": "Liczba odświeżeń",
+        "error_count": "Liczba błędów",
+        "last_duration_ms": "Czas ostatniego odświeżenia",
+    }
+
+    def __init__(self, coordinator, entry, kind):
+        super().__init__(coordinator)
+        self._kind = kind
+        self._attr_name = self._NAMES[kind]
+        self._attr_unique_id = f"{entry.entry_id}_health_{kind}"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "ESTADI Energy Pilot",
+            "manufacturer": "ESTADI",
+        }
+        if kind == "last_duration_ms":
+            self._attr_native_unit_of_measurement = "ms"
+
+    @property
+    def native_value(self):
+        health = self.coordinator.diagnostics()
+        kind = self._kind
+        if kind == "status":
+            return {
+                "ok": "Działa",
+                "warning": "Ograniczony",
+                "error": "Błąd",
+                "brak_odswiezania": "Brak odświeżania",
+                "start": "Uruchamianie",
+            }.get(health["status"], "Nieznany")
+        fields = {
+            "last_refresh": "last_completed",
+            "last_success": "last_success",
+            "refresh_count": "refresh_count",
+            "error_count": "error_count",
+            "last_duration_ms": "duration_ms",
+        }
+        return health.get(fields[kind])
+
+    @property
+    def extra_state_attributes(self):
+        if self._kind != "status":
+            return None
+        info = self.coordinator.diagnostics()
+        return {
+            "przyczyna": info["reason"],
+            "ostatnia_proba": info["last_attempt"],
+            "ostatnie_odswiezenie": info["last_completed"],
+            "ostatni_poprawny_plan": info["last_success"],
+            "wiek_odswiezenia_s": info["age_seconds"],
+            "liczba_odswiezen": info["refresh_count"],
+            "liczba_bledow": info["error_count"],
+            "czas_odswiezenia_ms": info["duration_ms"],
+            "dziennik_ostatnich_zdarzen": info["events"],
         }

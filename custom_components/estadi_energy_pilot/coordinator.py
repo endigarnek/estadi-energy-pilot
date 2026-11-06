@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import timedelta
 from math import isfinite
 
@@ -19,6 +20,7 @@ from .forecast_entry import preferred_entry
 from .discovery import detect_entities
 from .weather_temperature import weather_temperature_c
 from .source_diagnostics import read_numeric, select_nonempty_sources
+from .health import HealthJournal
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,9 +32,12 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         self._selected_settings: dict = {}
         self.storage = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.history")
         self.history = HistoryBook()
+        self.health_store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.health")
+        self.health = HealthJournal()
 
     async def async_initialize(self) -> None:
         self.history = HistoryBook(await self.storage.async_load())
+        self.health = HealthJournal(await self.health_store.async_load())
 
     def _power_w(self, key: str) -> float | None:
         """Only measure energy when the power sensor explicitly reports W/kW."""
@@ -61,7 +66,33 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             return None
         return value if isfinite(value) and -1000000 < value < 1000000 else None
 
+    def diagnostics(self):
+        return self.health.view(dt_util.utcnow())
+
     async def _async_update_data(self):
+        started = time.monotonic()
+        self.health.attempt(dt_util.utcnow())
+        try:
+            data = await self._async_collect_data()
+            if not data.get("available"):
+                status, reason = "warning", data.get("reason", "Brak pełnych danych")
+            elif not data.get("night").can_calculate or not data.get("afternoon").can_calculate:
+                status, reason = "warning", data.get("forecast_error") or "Niepełna prognoza PV — brak pełnego planu"
+            else:
+                status, reason = "ok", "Wszystkie wymagane odczyty i cele SOC dostępne"
+        except Exception as err:
+            _LOGGER.exception("ESTADI Energy Pilot refresh failed")
+            status, reason = "error", f"Błąd odświeżenia: {type(err).__name__}"
+            data = {"available": False, "reason": reason}
+        self.health.finish(
+            dt_util.utcnow(), status, reason,
+            elapsed_ms=round((time.monotonic() - started) * 1000),
+        )
+        self.health_store.async_delay_save(self.health.export, 60)
+        data["health"] = self.diagnostics()
+        return data
+
+    async def _async_collect_data(self):
         selected = {**DEFAULTS, **select_nonempty_sources(
             detect_entities(self.hass.states.async_all()),
             {**self.entry.data, **self.entry.options},
