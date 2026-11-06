@@ -1,8 +1,10 @@
 {
   "domain": "estadi_energy_pilot",
   "name": "ESTADI Energy Pilot",
-  "version": "0.1.1",
-  "codeowners": ["@endigarnek"],
+  "version": "0.2.0b1",
+  "codeowners": [
+    "@endigarnek"
+  ],
   "dependencies": [],
   "requirements": [],
   "config_flow": true,
