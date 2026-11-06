@@ -117,6 +117,24 @@ class DashboardExportTests(unittest.TestCase):
         self.assertIn("Nie traktuj tego jako prawdopodobieństwa", full)
         self.assertIn("Żadna korekta nie jest stosowana automatycznie", full)
 
+    def test_heat_pump_learned_bands_and_preview_are_in_dashboard(self):
+        entries = {
+            **ENTITIES,
+            "pump_learn_status": "sensor.owner_heat_pump_learning",
+            "pump_learn_days": "sensor.owner_heat_pump_days",
+            "pump_learn_hours": "sensor.owner_heat_pump_hours",
+            "pump_learn_mae": "sensor.owner_heat_pump_mae",
+            "pump_preview_learned": "sensor.owner_heat_pump_new",
+            "pump_preview_legacy": "sensor.owner_heat_pump_old",
+        }
+        result = mod.render_dashboard(entries, SOURCES)
+        self.assertIn("sensor.owner_heat_pump_learning", result)
+        self.assertIn("sensor.owner_heat_pump_new", result)
+        self.assertIn("model_wyuczony_w_zakresach", result)
+        self.assertIn("porownanie_48h", result)
+        self.assertIn("tylko podgląd", result)
+        self.assertIn("Temperatura a zużycie pompy", result)
+
     def test_mini_widget_small_self_contained(self):
         mini = mod.render_mini_widget(ENTITIES, SOURCES)
         self.assertIn("sensor.energy_status_renamed_by_owner", mini)
