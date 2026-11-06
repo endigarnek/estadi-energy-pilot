@@ -245,6 +245,27 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
         "*Deye Load zawiera pompę i EV. Brak temperatury albo mocy pompy nie jest zerem. "
         "Do oceny COP potrzeba dodatkowych pomiarów ciepła, których tutaj nie ma.*"
     ) if pump_id else "Brak sensora stanu uczenia pompy; zaktualizuj integrację."
+    excess_id = eid("pump_excess_status")
+    pump_excess_text = (
+        "**Diagnostyka wyłącznie z pomiarów historycznych — bez sterowania.**\n\n"
+        "Stan: **{{ states(" + _quote(excess_id) + ") }}**.\n\n"
+        "{% set row = state_attr(" + _quote(excess_id) + ", 'ostatnie_okresy') or [] %}\n"
+        "Porównano **{{ states(" + _quote(eid("pump_excess_hours")) + ") }} godzin** "
+        "z wcześniejszymi dniami o podobnej temperaturze.\n\n"
+        "Wykryte okresy: **{{ states(" + _quote(eid("pump_excess_events")) + ") }}** "
+        "· oszacowana nadwyżka: **{{ states(" + _quote(eid("pump_excess_kwh")) + ") }} kWh**.\n\n"
+        "| Początek | Godzin | Zużycie | Nadwyżka |\n"
+        "|:--|--:|--:|--:|\n"
+        "{% for ev in row[-10:] %}\n"
+        "| {{ ev.get('start', '—') }} | {{ ev.get('hours', '—') }} "
+        "| {{ ev.get('actual_kwh', '—') }} kWh "
+        "| {{ ev.get('estimated_excess_kwh', '—') }} kWh |\n"
+        "{% endfor %}\n\n"
+        "*Przyczyna pozostaje nieustalona. Podwyższony pobór może towarzyszyć "
+        "CWU, odszranianiu, grzałce lub innym trybom, ale nie jest dowodem żadnego z nich. "
+        "Bez pomiarów stanu sprężarki/CWU nie liczymy cykli. "
+        "Gdy brakuje historii, liczba zdarzeń pozostaje nieokreślona — nie jest zerem.*"
+    ) if excess_id else "Brak sensora oceny nadwyżek pompy."
     cards = [
         _markdown("Centrum sterowania — podgląd", header),
         _tiles("Stan instalacji", _existing(
@@ -311,6 +332,13 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                        ("Nowa prognoza pompy (kWh)", "pump_preview_learned"),
                        ("Dotychczasowa prognoza (kWh)", "pump_preview_legacy")]), 3),
         _markdown("Temperatura a zużycie pompy — model empiryczny", pump_text),
+        _tiles("Pompa — kontrola podwyższonego poboru", _existing(
+            entities, [("Stan analizy", "pump_excess_status"),
+                       ("Porównane godziny", "pump_excess_hours"),
+                       ("Podejrzane okresy", "pump_excess_events"),
+                       ("Nadwyżka poboru", "pump_excess_kwh"),
+                       ("Ostatni okres", "pump_excess_last")]), 3),
+        _markdown("Pompa — historyczne okresy zwiększonego poboru", pump_excess_text),
         _markdown("Co jeśli auto znowu będzie się ładować?", ev_risk_text),
         _markdown("Dry-run — decyzje i wyjaśnienia", dry_text),
         _markdown("Jak trafnie przewidujemy?", accuracy_text),

@@ -30,6 +30,8 @@ SENSOR_KEYS = (
     "dry_run_action", "dry_run_power", "dry_run_days",
     "accuracy_status", "economic_status", "economic_base_cost",
     "economic_plan_cost", "economic_import_delta",
+    "pump_excess_status", "pump_excess_hours", "pump_excess_events",
+    "pump_excess_kwh", "pump_excess_last",
     "pump_learn_status", "pump_learn_days", "pump_learn_hours",
     "pump_learn_bands", "pump_learn_mae", "pump_preview_status",
     "pump_preview_learned", "pump_preview_legacy", "pump_preview_delta",
