@@ -68,14 +68,18 @@
       const soc = this._num("soc"), pv = this._num("pv"), home = this._num("home");
       const ev = this._num("ev"), pump = this._num("pump");
       const importKw = this._num("grid_import"), headroom = this._num("grid_headroom");
+      const configuredLimit = this._num("grid_limit");
+      const gridLimit = configuredLimit !== null && configuredLimit > 0 ? configuredLimit : null;
       const charge = this._num("smart_charge_power"), target = this._num("smart_charge_target");
       const zone = this._state("tariff_zone"), nextCheap = this._state("next_cheap");
       const health = this._state("health_status"), guard = this._state("grid_status");
       const pctSoc = soc === null ? 0 : Math.max(0, Math.min(100, soc));
-      const pctGrid = importKw === null ? 0 : Math.max(0, Math.min(100, importKw / 15 * 100));
+      const pctGrid = importKw === null ? 0 : Math.max(0, Math.min(100, importKw / (gridLimit || 1) * 100));
       const statusText = !health || health === "unknown" || health === "unavailable" ?
         "Brak potwierdzenia odczytów" :
         /on|działa|ok|ready|true/i.test(health) ? "Odczyty aktywne" : "Sprawdź stan instalacji";
+      const guardWarning = !guard || guard === "unknown" || guard === "unavailable" ||
+        /blokad|brak|fail|error|stop|niesprawdz/i.test(guard);
       const guardText = !guard || guard === "unknown" || guard === "unavailable" ?
         "Brak wiarygodnego odczytu sieci" : esc(guard);
       const isCheap = zone === "cheap";
@@ -152,11 +156,12 @@
       '<article class="surface"><h2>Magazyn i obciążenie przyłącza</h2>' +
       '<div class="progress-caption"><span>Poziom magazynu</span><strong>' + esc(pct(soc).value) + '%</strong></div>' +
       '<div class="track"><div class="fill" style="width:' + pctSoc + '%"></div></div>' +
-      '<div class="progress-caption"><span>Import względem limitu 15 kW</span>' +
-      '<strong>' + esc(kW(importKw).value) + ' / 15 kW</strong></div>' +
+      '<div class="progress-caption"><span>Import względem limitu przyłącza</span>' +
+      '<strong>' + esc(kW(importKw).value) + ' / ' +
+      esc(gridLimit === null ? '—' : format(gridLimit, 2)) + ' kW</strong></div>' +
       '<div class="track"><div class="fill gridfill" style="width:' + pctGrid + '%"></div></div>' +
-      '<div class="minor">Dostępny zapas: <strong>' + esc(kW(headroom).value) +
-      (headroom === null ? '' : ' kW') + '</strong>. ' + guardText +
+      '<div class="minor ' + (guardWarning ? 'warn' : '') + '">Dostępny zapas: <strong>' + esc(kW(headroom).value) +
+      (headroom === null ? '' : ' kW') + '</strong>. ' + (guardWarning ? '⚠ Grid Guard: ' : 'Grid Guard: ') + guardText +
       '. Wizualny wskaźnik nie zastępuje zabezpieczenia elektrycznego.</div>' +
       '<div class="two"><div class="small-tile"><label>Ładowanie auta</label><b>' +
       esc(watts(ev).value) + ' ' + esc(watts(ev).unit) + '</b></div>' +
