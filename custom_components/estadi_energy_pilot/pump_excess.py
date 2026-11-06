@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from .heat_pump_learning import (
-    _fit, _hourly_pairs, MIN_DAYS,
+    _fit, _hourly_pairs, MIN_BIN_DAYS,
 )
 
 # Demand at least 0.65 extra kWh over the historical P50 per valid hour,
@@ -120,7 +120,7 @@ def inspect_pump_excess(days: dict[str, Any], today: date) -> dict:
     return {
         "status": "oceniono_odchylenia" if ready else "zbieranie_danych",
         "historical_days_seen": len(dates),
-        "minimum_days_before_band": MIN_DAYS,
+        "minimum_days_before_band": MIN_BIN_DAYS,
         "hours_with_temperature_and_energy": observed_hours,
         "hours_compared_with_older_days": scored_hours,
         "days_evaluated": len(eligible_days),
