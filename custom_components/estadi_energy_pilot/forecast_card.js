@@ -125,16 +125,23 @@
         else this._choose(clamp((this._active ?? 0) + (event.key === "ArrowRight" ? 1 : -1),
                                 0, this._data.length - 1));
       });
-      // Pointer selection also works on mobile without a mouse hover.
-      this.shadowRoot.addEventListener("pointermove", (event) => {
-        if (event.pointerType === "touch" || !this._data.length) return;
-        const area = event.target.closest("[data-plot]");
-        if (!area) return;
-        const bounds = area.getBoundingClientRect();
-        if (!bounds.width) return;
-        const fraction = clamp((event.clientX - bounds.left) / bounds.width, 0, 1);
-        this._choose(Math.round(fraction * (this._data.length - 1)));
+      // Touch taps select a point; mouse hover offers a live preview.
+      this.shadowRoot.addEventListener("pointerdown", (event) => {
+        this._pickPointer(event);
       });
+      this.shadowRoot.addEventListener("pointermove", (event) => {
+        if (event.pointerType !== "touch") this._pickPointer(event);
+      });
+    }
+
+    _pickPointer(event) {
+      if (!this._data.length || !event.target?.closest) return;
+      const area = event.target.closest("[data-plot]");
+      if (!area) return;
+      const bounds = area.getBoundingClientRect();
+      if (!bounds.width) return;
+      const fraction = clamp((event.clientX - bounds.left) / bounds.width, 0, 1);
+      this._choose(Math.round(fraction * (this._data.length - 1)));
     }
 
     _choose(index) {
