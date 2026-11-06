@@ -11,5 +11,5 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/endigarnek/estadi-energy-pilot/issues",
   "requirements": [],
-  "version": "0.2.6"
+  "version": "0.2.7"
 }
