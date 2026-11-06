@@ -21,6 +21,10 @@ from .discovery import detect_entities
 from .weather_temperature import weather_temperature_c
 from .source_diagnostics import read_numeric, select_nonempty_sources
 from .health import HealthJournal
+from .battery_model import BatteryModel
+from .grid_guard import calculate_grid_guard
+from .tariffs import tariff_zone, next_cheap_window, zone_prices
+from .charge_planner import propose
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,6 +58,20 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             return None
         watts = value * (1000 if unit == "kW" else 1)
         return watts if isfinite(watts) and 0 <= watts <= 100000 else None
+
+    def _signed_power_w(self, key: str):
+        entity_id = self._selected_settings.get(key)
+        state = self.hass.states.get(entity_id) if entity_id else None
+        if state is None or state.state in ("unknown", "unavailable"):
+            return None
+        unit = state.attributes.get("unit_of_measurement")
+        if unit not in ("W", "kW"):
+            return None
+        try:
+            value = float(state.state) * (1000 if unit == "kW" else 1)
+        except (TypeError, ValueError):
+            return None
+        return value if isfinite(value) and -100000 <= value <= 100000 else None
 
     def _entity_value(self, key: str) -> float | None:
         entity_id = self._selected_settings.get(key)
