@@ -19,7 +19,7 @@ from .const import (
     CONF_PV_DISCOUNT, CONF_EFFICIENCY, CONF_MARGIN, CONF_MILD_W, CONF_COLD_W,
     CONF_NIGHT_START, CONF_NIGHT_END, CONF_MIDDAY_START, CONF_AFTERNOON_END,
 )
-from .discovery import detect_entities
+from .discovery import detect_entities, missing_required_sources
 
 
 ENTITY_KEYS = (
@@ -70,13 +70,11 @@ class EstadiEnergyPilotConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         schema = {}
-        required = (CONF_SOLCAST_TODAY, CONF_SOLCAST_TOMORROW,
-                    CONF_BATTERY_SOC, CONF_OUTDOOR_TEMP)
-        for key in required:
+        for key in missing_required_sources(detected):
             if not detected.get(key):
                 schema[vol.Required(key)] = entity_field()
 
-        schema[vol.Required(CONF_CAPACITY, default=DEFAULTS[CONF_CAPACITY])] = numeric(1, 200, 0.1)
+        schema[vol.Required(CONF_CAPACITY)] = numeric(1, 200, 0.1)
         schema[vol.Required(CONF_BASE_W, default=DEFAULTS[CONF_BASE_W])] = numeric(0, 20000, 50)
 
         known = [detected[key] for key in ENTITY_KEYS if key in detected]
