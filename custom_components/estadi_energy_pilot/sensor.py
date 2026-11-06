@@ -260,6 +260,13 @@ ENERGY_V2_SENSORS = (
     ("sim_home_kwh", "Symulacja 48h — zużycie domu", "kWh"),
     ("sim_grid_peak", "Symulacja 48h — szczyt importu", "kW"),
     ("sim_cost", "Symulacja 48h — koszt importu", "PLN"),
+    ("smart_charge_status", "Inteligentne ładowanie — stan", None),
+    ("smart_charge_power", "Inteligentne ładowanie — proponowana moc", "kW"),
+    ("smart_charge_start", "Inteligentne ładowanie — godzina startu", None),
+    ("smart_charge_finish", "Inteligentne ładowanie — przewidywany koniec", None),
+    ("smart_charge_target", "Inteligentne ładowanie — cel SOC", "%"),
+    ("smart_charge_energy", "Inteligentne ładowanie — energia z sieci", "kWh"),
+    ("smart_charge_peak", "Inteligentne ładowanie — szczyt poboru", "kW"),
 )
 
 
@@ -295,7 +302,15 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
         ))
         sim = d.get("simulation_48h") or {}
         cautious = sim.get("cautious") or {}
+        smart = d.get("optimized_schedule") or {}
         values = {
+            "smart_charge_status": smart.get("status", "brak_danych"),
+            "smart_charge_power": smart.get("power_kw"),
+            "smart_charge_start": smart.get("start"),
+            "smart_charge_finish": smart.get("finish_estimated"),
+            "smart_charge_target": smart.get("target_soc"),
+            "smart_charge_energy": smart.get("grid_charge_kwh"),
+            "smart_charge_peak": smart.get("grid_peak_kw"),
             "sim_status": sim.get("status", "brak_danych"),
             "sim_quality": sim.get("quality"),
             "sim_hours": sim.get("forecast_hours"),
@@ -329,6 +344,21 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         d = (self.coordinator.data or {}).get("energy_2_0", {})
+        if self._key == "smart_charge_status":
+            smart = d.get("optimized_schedule") or {}
+            return {
+                "przyczyna": smart.get("reason"),
+                "prognozowany_soc_na_koniec": smart.get("end_soc"),
+                "przydzielona_moc_kw": smart.get("power_kw"),
+                "pobor_szacowany_kw": smart.get("grid_peak_kw"),
+                "limit_roboczy_kw": smart.get("soft_limit_kw"),
+                "energia_z_sieci_kwh": smart.get("grid_charge_kwh"),
+                "warianty_ladowania": smart.get("alternatives", []),
+                "ograniczenia": smart.get("limitations", []),
+                "auto_wyłączone": True,
+                "czy_wykonano_sterowanie": False,
+                "wykres_48h": "Symulacja 48h — stan",
+            }
         if self._key == "sim_status":
             sim = d.get("simulation_48h") or {}
             return {
@@ -347,6 +377,7 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
                 "moc_biezaca": d.get("live"),
                 "grid_guard": d.get("grid"),
                 "cel_i_start": d.get("charging_schedule"),
+                "plan_15min": d.get("optimized_schedule"),
                 "taryfa": d.get("tariff"),
                 "automatyzacja_wlaczona": False,
             }
