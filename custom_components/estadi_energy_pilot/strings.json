@@ -86,7 +86,8 @@
           "tariff_price_peak": "Cena drogiej strefy zł/kWh (0: nieznana)",
           "tariff_price_evening": "Cena wieczornego szczytu G13 (0: nieznana)",
           "grid_power": "Moc importu / eksportu Deye (W)",
-          "battery_power": "Moc magazynu Deye (W)"
+          "battery_power": "Moc magazynu Deye (W)",
+          "ev_home_load_topology": "Samochód: czy moc EV jest wliczona do zużycia Deye Load?"
         }
       }
     },
