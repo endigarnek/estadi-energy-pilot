@@ -142,7 +142,7 @@ def inspect_tou(states: Iterable[Any], now: datetime) -> dict:
     }
     possible_unmapped = sorted([
         entity_id for entity_id in index
-        if re.match(r"^(sensor|number|select|time|switch)\\.", entity_id)
+        if re.match(r"^(sensor|number|select|time|switch)\.", entity_id)
         and any(marker in entity_id for marker in ("deye", "time_of_use", "tou"))
         and any(marker in entity_id for marker in ("program", "time_of_use", "tou"))
         and entity_id not in identified_ids and entity_id not in GLOBALS
