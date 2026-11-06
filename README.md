@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.4.2 (beta)
+# ESTADI Energy Pilot — wersja 0.4.3 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,18 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+## Wersja 0.4.3 — pompa ciepła uczy się rzeczywistego zużycia według temperatury
+
+Moduł `history.py` **od wersji 0.4.3** zapisuje świeże rzeczywiste pomiary temperatury zewnętrznej (°C) razem z energią elektryczną pompy. Co godzinę zbiera pokrycie czasu dla obu źródeł. Brak odczytu nie jest traktowany jako 0, przerwy ponad 30 minut nie są uzupełniane, a temperatura z pogody nie zostaje automatycznie podmieniona za pomiar lokalnego czujnika. Dawnych danych nie uzupełniamy wstecz.
+
+`heat_pump_learning.py` analizuje **do 30 dni** historii, wyznacza medianę mocy i P90 dla zakresów temperatur oraz ocenia błąd na kolejnych dniach **bez trenowania na dniu testowym**. Minimum 7 pełnych dni, 48 sparowanych godzin i 2 wyuczone zakresy temperatur. Pokazuje także **różnicę energii kWh przez 48h** między wyuczonym modelem a dotychczasowym algorytmem — wyłącznie w godzinach, gdy mamy prognozę pogody i wyuczony zakres. Nigdy nie wymyśla brakujących godzin.
+
+Dodano 9 sensorów HA: postęp uczenia, sparowane godziny, pasma temperatur, błąd MAE, nowa prognoza pompy, dotychczasowa prognoza i ich różnica. Eksportowany pulpit uzyskał sekcję **„Pompa ciepła — uczenie z temperatury”**.
+
+**[Instrukcja i warunki działania nowego modelu pompy](docs/HEAT_PUMP_043.md)**.
+
+**Ważne:** wersja 0.4.3 **nie zastępuje jeszcze starego modelu w planowaniu SOC ani w ekonomice**. Sam fakt związku między temperaturą a poborem prądu nie pozwala ocenić COP lub pracy CWU. Nie wykonuje żadnych poleceń do Deye, EV i pompy.
 
 ## Wersja 0.4.2 — kalibracja prognoz na historii i ryzyko przyszłego EV
 

@@ -34,6 +34,7 @@ from .dry_run import DryRunJournal, evaluate_dry_run
 from .forecast_accuracy import AccuracyJournal
 from .scenario_economics import compare_scenarios
 from .load_calibration import analyze_load_history, analyze_ev_history, pv_bias_guidance
+from .heat_pump_learning import train_heat_pump, preview_48h
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -77,6 +78,19 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             return None
         watts = value * (1000 if unit == "kW" else 1)
         return watts if isfinite(watts) and 0 <= watts <= 100000 else None
+
+    def _fresh_power_w(self, key: str, now: datetime,
+                       max_age_seconds: int = 1800) -> float | None:
+        """Use concurrent pump readings only for training new temperature pairs."""
+        entity_id = self._selected_settings.get(key)
+        state = self.hass.states.get(entity_id) if entity_id else None
+        stamp = (getattr(state, "last_reported", None) or
+                 getattr(state, "last_updated", None))
+        if (not isinstance(stamp, datetime) or stamp.tzinfo is None or
+                not 0 <= (now.astimezone(timezone.utc) -
+                          stamp.astimezone(timezone.utc)).total_seconds() <= max_age_seconds):
+            return None
+        return self._power_w(key)
 
     def _kw_or_none(self, key: str):
         watts = self._power_w(key)
@@ -352,13 +366,31 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             else:
                 forecast_error = "Zaktualizuj Home Assistant: brak akcji Forecast.Solar get_forecast"
 
+        # A genuine outdoor temperature sensor is required for training.
+        # Weather fallback remains available to forecast, but is NOT silently
+        # mixed into the historical observed-temperature calibration.
+        temp_entity = selected.get(CONF_OUTDOOR_TEMP)
+        temperature_state = self.hass.states.get(temp_entity) if temp_entity else None
+        measured_temperature, temp_reason = read_numeric(
+            temperature_state, "°C", -45, 55
+        )
+        # A stale HA state is not a fresh concurrent observation.
+        stamp = (getattr(temperature_state, "last_reported", None) or
+                 getattr(temperature_state, "last_updated", None))
+        if (measured_temperature is None or not isinstance(stamp, datetime) or
+                stamp.tzinfo is None or
+                not 0 <= (dt_util.utcnow() - stamp.astimezone(timezone.utc)).total_seconds() <= 1800):
+            measured_temperature = None
+            if temp_reason == "OK":
+                temp_reason = "Pomiar temperatury nieaktualny (>30 min)"
         self.history.lock_forecast(now, pv_slots, source=forecast_source)
         self.history.sample(
             now,
             pv=self._power_w(CONF_PV_POWER),
             home=self._power_w(CONF_HOME_POWER),
-            heat_pump=self._power_w(CONF_HEAT_PUMP_POWER),
+            heat_pump=self._fresh_power_w(CONF_HEAT_PUMP_POWER, dt_util.utcnow()),
             ev=self._power_w(CONF_EV_POWER),
+            outdoor_temp=measured_temperature,
         )
         self.storage.async_delay_save(self.history.export, 60)
         ev_topology = resolve_ev_topology(selected.get(CONF_EV_TOPOLOGY))
@@ -405,10 +437,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         soc, soc_reason = read_numeric(
             self.hass.states.get(soc_entity) if soc_entity else None, "%", 0, 100
         )
-        temp_entity = selected.get(CONF_OUTDOOR_TEMP)
-        outdoor_temp, temp_reason = read_numeric(
-            self.hass.states.get(temp_entity) if temp_entity else None, "°C", -70, 65
-        )
+        outdoor_temp = measured_temperature
         temperature_source = "sensor" if outdoor_temp is not None else "weather"
         weather_entity = selected.get(CONF_WEATHER)
         weather_reason = "nie przypisano encji pogodowej"
@@ -473,6 +502,26 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             _LOGGER.error("Cannot calculate energy plan: %s", err)
             return {**history, "available": False,
                     "reason": "Błędne ustawienia — sprawdź konfigurację"}
+        # Historical outdoor-temperature/pump power pairing starts from
+        # version 0.4.3: older days cannot be backfilled reliably. Until
+        # enough measured weather and pump energy exist, no learned estimate.
+        heat_pump_learning = train_heat_pump(
+            self.history.days, now.date(),
+            mild_w=float(selected[CONF_MILD_W]),
+            cold_w=float(selected[CONF_COLD_W]),
+        )
+        heat_pump_learning["preview_48h"] = preview_48h(
+            now, temperatures, outdoor_temp, heat_pump_learning,
+            mild_w=float(selected[CONF_MILD_W]),
+            cold_w=float(selected[CONF_COLD_W]),
+        )
+        heat_pump_learning["temperature_sensor"] = (
+            temp_entity if measured_temperature is not None else None
+        )
+        heat_pump_learning["measured_temperature_c"] = measured_temperature
+        heat_pump_learning["sensor_status"] = temp_reason
+        v2_info["heat_pump_learning"] = heat_pump_learning
+
         # Independent 48-hour forecast. Never issue inverter commands here.
         # Current EV draw is included ONLY in the first 15-minute slot:
         # future sessions cannot be deduced from the instantaneous reading.

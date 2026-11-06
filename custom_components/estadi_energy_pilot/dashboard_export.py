@@ -216,6 +216,35 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
         "*Żadna korekta nie jest stosowana automatycznie. "
         "Deye Load obejmuje auto i pompę, więc odejmujemy je z bazy domu.*"
     ) if calib_id else "Nie znaleziono sensora kalibracji."
+    pump_id = eid("pump_learn_status")
+    pump_text = (
+        "**Model pompy — tylko podgląd, NIE sterowanie.**\n\n"
+        "Stan: **{{ states(" + _quote(pump_id) + ") }}**\n\n"
+        "{% set model = state_attr(" + _quote(pump_id) + ", 'model_wyuczony_w_zakresach') or {} %}\n"
+        "{% set quality = state_attr(" + _quote(pump_id) + ", 'jakosc') or 'wstępny' %}\n"
+        "{% set preview = state_attr(" + _quote(pump_id) + ", 'porownanie_48h') or {} %}\n"
+        "**Ocena historyczna:** {{ quality }} · "
+        "{{ states(" + _quote(eid("pump_learn_days")) + ") }} pełnych dni · "
+        "{{ states(" + _quote(eid("pump_learn_hours")) + ") }} godzin pomiarów.\n\n"
+        "| Zakres temperatur | Moc typowa (W) | P90 (W) | Godziny |\n"
+        "|:--|--:|--:|--:|\n"
+        "{% for key, row in model.items() %}\n"
+        "| {{ row.get('temperatura_min_c') }}…{{ row.get('temperatura_max_c') }}°C "
+        "| {{ row.get('srednia_moc_p50_w') }} "
+        "| {{ row.get('srednia_moc_p90_w') }} "
+        "| {{ row.get('godziny') }} |\n"
+        "{% endfor %}\n\n"
+        "**Porównanie prognoz tylko dla godzin ze znaną pogodą i wyuczonym zakresem:**\n\n"
+        "| Wyuczony model | Dotychczasowy model | Rozbieżność |\n"
+        "|--:|--:|--:|\n"
+        "| {{ preview.get('prognoza_nauczona_kwh', '—') }} kWh "
+        "| {{ preview.get('prognoza_dotychczasowa_kwh', '—') }} kWh "
+        "| {{ preview.get('roznica_kwh', '—') }} kWh |\n\n"
+        "Obserwowane godziny prognozy: "
+        "**{{ preview.get('porownywalne_godziny', 0) }} / 48**.\n\n"
+        "*Deye Load zawiera pompę i EV. Brak temperatury albo mocy pompy nie jest zerem. "
+        "Do oceny COP potrzeba dodatkowych pomiarów ciepła, których tutaj nie ma.*"
+    ) if pump_id else "Brak sensora stanu uczenia pompy; zaktualizuj integrację."
     cards = [
         _markdown("Centrum sterowania — podgląd", header),
         _tiles("Stan instalacji", _existing(
@@ -274,6 +303,14 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                        ("Historyczne ryzyko EV", "calibration_ev_status"),
                        ("Kompletne dni EV", "calibration_ev_days")]), 3),
         _markdown("Jak uczymy się z rzeczywistych pomiarów", calibration_text),
+        _tiles("Pompa ciepła — uczenie z temperatury", _existing(
+            entities, [("Stan uczenia", "pump_learn_status"),
+                       ("Dni pomiarów", "pump_learn_days"),
+                       ("Godziny sparowane", "pump_learn_hours"),
+                       ("Błąd na późniejszych dniach", "pump_learn_mae"),
+                       ("Nowa prognoza pompy (kWh)", "pump_preview_learned"),
+                       ("Dotychczasowa prognoza (kWh)", "pump_preview_legacy")]), 3),
+        _markdown("Temperatura a zużycie pompy — model empiryczny", pump_text),
         _markdown("Co jeśli auto znowu będzie się ładować?", ev_risk_text),
         _markdown("Dry-run — decyzje i wyjaśnienia", dry_text),
         _markdown("Jak trafnie przewidujemy?", accuracy_text),

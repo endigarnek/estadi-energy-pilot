@@ -295,6 +295,15 @@ ENERGY_V2_SENSORS = (
     ("economic_terminal_delta", "Opłacalność — różnica końcowego SOC", "pp"),
     ("economic_estimate", "Opłacalność — porównywalna różnica salda", "PLN"),
     ("calibration_status", "Kalibracja — stan oceny modelu domu", None),
+    ("pump_learn_status", "Pompa — stan uczenia temperatury", None),
+    ("pump_learn_days", "Pompa — kompletne dni pomiarów temperatury", None),
+    ("pump_learn_hours", "Pompa — godziny sparowane z temperaturą", "h"),
+    ("pump_learn_bands", "Pompa — wyuczone zakresy temperatury", None),
+    ("pump_learn_mae", "Pompa — błąd prognozy poboru", "kWh"),
+    ("pump_preview_status", "Pompa — stan porównania 48h", None),
+    ("pump_preview_learned", "Pompa — model wyuczony 48h", "kWh"),
+    ("pump_preview_legacy", "Pompa — dotychczasowy model 48h", "kWh"),
+    ("pump_preview_delta", "Pompa — różnica prognozy 48h", "kWh"),
     ("calibration_load_mae", "Kalibracja — błąd profilu domu", "kWh"),
     ("calibration_load_wape", "Kalibracja — WAPE profilu domu", "%"),
     ("calibration_load_tested", "Kalibracja — przetestowane godziny", None),
@@ -350,6 +359,8 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
         economic_plan = economy.get("plan") or {}
         stress = economy.get("ev_stress") or {}
         stress_plan = stress.get("plan") or {}
+        pump_model = d.get("heat_pump_learning") or {}
+        pump_preview = pump_model.get("preview_48h") or {}
         calibration = d.get("calibration") or {}
         house_calibration = calibration.get("load") or {}
         pv_calibration = calibration.get("pv") or {}
@@ -367,6 +378,15 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
         pv_accuracy = accuracy.get("pv") or {}
         outcomes = accuracy.get("obserwacje_celu") or {}
         values = {
+            "pump_learn_status": pump_model.get("status", "brak_danych"),
+            "pump_learn_days": pump_model.get("days_complete"),
+            "pump_learn_hours": pump_model.get("valid_hours"),
+            "pump_learn_bands": pump_model.get("learned_bands"),
+            "pump_learn_mae": pump_model.get("mae_kwh_h"),
+            "pump_preview_status": pump_preview.get("status", "brak_danych"),
+            "pump_preview_learned": pump_preview.get("prognoza_nauczona_kwh"),
+            "pump_preview_legacy": pump_preview.get("prognoza_dotychczasowa_kwh"),
+            "pump_preview_delta": pump_preview.get("roznica_kwh"),
             "calibration_status": house_calibration.get("status", "brak_danych"),
             "calibration_load_mae": house_calibration.get("mae_kwh_hour"),
             "calibration_load_wape": house_calibration.get("wape_pct"),
@@ -451,6 +471,23 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         d = (self.coordinator.data or {}).get("energy_2_0", {})
+        if self._key == "pump_learn_status":
+            pump = d.get("heat_pump_learning") or {}
+            return {
+                "model_wyuczony_w_zakresach": pump.get("bands", {}),
+                "wymagania": pump.get("requirements", {}),
+                "jakosc": pump.get("quality"),
+                "godziny_testowane": pump.get("holdout_hours"),
+                "dni_testowane": pump.get("holdout_days"),
+                "odchylenie_modelu_kwh_h": pump.get("bias_actual_minus_model_kwh_h"),
+                "zrodlo_temperatury": pump.get("temperature_sensor"),
+                "pomiar_temperatury_c": pump.get("measured_temperature_c"),
+                "status_czujnika": pump.get("sensor_status"),
+                "porownanie_48h": pump.get("preview_48h"),
+                "automatyczne_ustawianie_pompy": False,
+                "automatyczna_zmiana_planu_magazynu": False,
+                "uwagi": pump.get("note"),
+            }
         if self._key == "calibration_status":
             calibration = d.get("calibration") or {}
             return {
