@@ -14,6 +14,7 @@ from homeassistant.util import dt as dt_util
 from .const import *  # noqa: F403
 from .engine import get_all_plans, parse_pv_slots, parse_weather_slots
 from .history import HistoryBook
+from .discovery import detect_entities
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=timedelta(minutes=15))
         self.entry = entry
+        self._selected_settings: dict = {}
         self.storage = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.history")
         self.history = HistoryBook()
 
@@ -30,8 +32,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
 
     def _power_w(self, key: str) -> float | None:
         """Only measure energy when the power sensor explicitly reports W/kW."""
-        settings = {**self.entry.data, **self.entry.options}
-        entity_id = settings.get(key)
+        entity_id = self._selected_settings.get(key)
         state = self.hass.states.get(entity_id) if entity_id else None
         if not state or state.state in ("unknown", "unavailable"):
             return None
@@ -46,7 +47,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         return watts if isfinite(watts) and 0 <= watts <= 100000 else None
 
     def _entity_value(self, key: str) -> float | None:
-        entity_id = {**self.entry.data, **self.entry.options}.get(key)
+        entity_id = self._selected_settings.get(key)
         state = self.hass.states.get(entity_id) if entity_id else None
         if state is None or state.state in ("unknown", "unavailable"):
             return None
@@ -57,7 +58,9 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         return value if isfinite(value) and -1000000 < value < 1000000 else None
 
     async def _async_update_data(self):
-        selected = {**DEFAULTS, **self.entry.data, **self.entry.options}
+        selected = {**DEFAULTS, **detect_entities(self.hass.states.async_all()),
+                    **self.entry.data, **self.entry.options}
+        self._selected_settings = selected
         now = dt_util.now()
         attrs = []
         for key in (CONF_SOLCAST_TODAY, CONF_SOLCAST_TOMORROW, CONF_SOLCAST_DAY3):

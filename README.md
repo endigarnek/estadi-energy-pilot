@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja testowa 0.2.0b1
+# ESTADI Energy Pilot — wersja 0.2.1
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -40,6 +40,22 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 - Model nie obejmuje CWU, odmrażania, aut elektrycznych, indywidualnego harmonogramu pompy ani cen energii.
 - Brak aktualnej prognozy lub pomiarów uniemożliwia wyliczenie zalecanego ładowania.
 
+
+
+## Wersja 0.2.1 — automatyczny wybór czujników
+
+Po aktualizacji do **0.2.1** czujniki rozpoznawane są automatycznie, jeśli wciąż istnieją w Home Assistant i raportują właściwe jednostki:
+
+| Pomiar | Automatycznie wybierana encja |
+|---|---|
+| Deye: produkcja PV (moc) | `sensor.deye_pv_power` |
+| Deye: zużycie domu (moc) | `sensor.deye_load_power` |
+| Pompa ciepła: moc elektryczna | `sensor.shellyem3_08f9e051e0b0_channel_b_power` |
+| Ładowarka EV: rzeczywista moc | `sensor.moc_ladowarki_poprawna` |
+
+W kreatorze oraz na stronie **Ustawienia → Urządzenia i usługi → ESTADI Energy Pilot → Konfiguruj** moduł podpowiada również jednoznacznie rozpoznane encje **Solcast, SOC Deye i temperatury zewnętrznej**. Jeśli jest więcej pasujących encji albo brak poprawnej jednostki, pole zostaje puste — system niczego nie zgaduje. Wcześniej zapisane ręczne wybory mają pierwszeństwo.
+
+**Nie usuwaj dotychczasowej integracji!** Po aktualizacji moduł zacznie korzystać ze znalezionych czterech czujników również w już istniejącej konfiguracji. Jeżeli chcesz przejrzeć lub zmienić źródła danych, wybierz **Konfiguruj** i zatwierdź. Pojemność użyteczną magazynu trzeba potwierdzić ręcznie — nie da się jej bezpiecznie wywnioskować z samych nazw sensorów. **Wersja nadal nie steruje Deye**.
 
 ## Nowość 0.2 — historia prognoz i ładowarki EV
 

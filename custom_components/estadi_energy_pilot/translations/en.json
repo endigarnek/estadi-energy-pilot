@@ -3,8 +3,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect Solcast, battery and weather",
-        "description": "Version 0.1: recommendations only, no inverter control. Heat pump consumption is modeled, not measured.",
+        "title": "Connect sensors — automatic detection",
+        "description": "Detected Deye, heat pump and EV sensors are preselected when available. Check battery capacity and any missing fields. This version does not control the inverter.",
         "data": {
           "solcast_today": "Solcast forecast today",
           "solcast_tomorrow": "Solcast forecast tomorrow",
@@ -26,7 +26,7 @@
     "step": {
       "init": {
         "title": "Charging and forecast settings",
-        "description": "Configure tariff windows, battery limits, and heat pump power model.",
+        "description": "Known entities are auto-selected. Edit any sensor, confirm battery capacity, and adjust tariff settings.",
         "data": {
           "base_load_w": "Average home power EXCLUDING heat pump (W)",
           "reserve_soc": "Battery reserve SOC (%)",
@@ -43,7 +43,14 @@
           "pv_power": "Deye PV power (W)",
           "home_power": "Deye home load power (W)",
           "heat_pump_power": "Heat pump measured power (W)",
-          "ev_power": "EV charger corrected real power (W)"
+          "ev_power": "EV charger corrected real power (W)",
+          "battery_capacity_kwh": "Usable battery capacity (kWh)",
+          "solcast_today": "Solcast forecast today",
+          "solcast_tomorrow": "Solcast forecast tomorrow",
+          "solcast_day3": "Solcast forecast day 3 (optional)",
+          "battery_soc": "Deye battery SOC (%)",
+          "outdoor_temp": "Outdoor temperature (°C)",
+          "weather_entity": "Hourly weather forecast (optional)"
         }
       }
     },
