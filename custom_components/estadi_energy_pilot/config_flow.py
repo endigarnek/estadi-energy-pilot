@@ -161,10 +161,7 @@ class PilotOptionsFlow(OptionsFlow):
             if (proposed[CONF_MIN_SOC] >= proposed[CONF_USER_MAX_SOC]
                     or proposed[CONF_GRID_BUFFER] >= proposed[CONF_GRID_LIMIT]
                     or proposed[CONF_PREFERRED_CHARGE] > proposed[CONF_CHARGE_LIMIT]
-                    or proposed[CONF_RESERVE] >= proposed[CONF_MAX_SOC]
-                    or proposed[CONF_NIGHT_END] >= proposed[CONF_MIDDAY_START]
-                    or proposed[CONF_MIDDAY_START] >= proposed[CONF_AFTERNOON_END]
-                    or proposed[CONF_AFTERNOON_END] >= proposed[CONF_NIGHT_START]):
+                    ):
                 return self.async_show_form(
                     step_id="advanced",
                     data_schema=self._schema(),
@@ -210,17 +207,11 @@ class PilotOptionsFlow(OptionsFlow):
             vol.Required(CONF_PRICE_PEAK, default=values[CONF_PRICE_PEAK]): numeric(0, 10, 0.01),
             vol.Required(CONF_PRICE_EVENING, default=values[CONF_PRICE_EVENING]): numeric(0, 10, 0.01),
             vol.Required(CONF_BASE_W, default=values[CONF_BASE_W]): numeric(0, 20000, 50),
-            vol.Required(CONF_RESERVE, default=values[CONF_RESERVE]): numeric(5, 80),
-            vol.Required(CONF_MAX_SOC, default=values[CONF_MAX_SOC]): numeric(20, 100),
             vol.Required(CONF_PV_DISCOUNT, default=values[CONF_PV_DISCOUNT]): numeric(0, 60),
             vol.Required(CONF_EFFICIENCY, default=values[CONF_EFFICIENCY]): numeric(50, 100),
             vol.Required(CONF_MARGIN, default=values[CONF_MARGIN]): numeric(0, 10, 0.1),
             vol.Required(CONF_MILD_W, default=values[CONF_MILD_W]): numeric(0, 8000, 50),
             vol.Required(CONF_COLD_W, default=values[CONF_COLD_W]): numeric(0, 12000, 50),
-            vol.Required(CONF_NIGHT_START, default=values[CONF_NIGHT_START]): numeric(17, 23),
-            vol.Required(CONF_NIGHT_END, default=values[CONF_NIGHT_END]): numeric(1, 12),
-            vol.Required(CONF_MIDDAY_START, default=values[CONF_MIDDAY_START]): numeric(10, 16),
-            vol.Required(CONF_AFTERNOON_END, default=values[CONF_AFTERNOON_END]): numeric(11, 20),
         }
         schema.update(_entity_fields(values))
         forecast_entries = available_entries(self.hass)
