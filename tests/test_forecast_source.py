@@ -40,8 +40,8 @@ class TestForecastSolar(unittest.TestCase):
         self.assertEqual([slot.duration_minutes for slot in slots], [60, 60])
         self.assertEqual([slot.power_kw for slot in slots], [1.8, 3.0])
         p = engine.plan_window(
-            "day", datetime(2026, 11, 7, 9, tzinfo=timezone.utc),
-            datetime(2026, 11, 7, 11, tzinfo=timezone.utc),
+            "day", datetime.fromisoformat("2026-11-07T09:00:00+01:00"),
+            datetime.fromisoformat("2026-11-07T11:00:00+01:00"),
             slots, [], 15, 20, 400, 20, 95, 0, 90, 1, 600, 1200
         )
         self.assertAlmostEqual(p.pv_kwh, 4.8)
