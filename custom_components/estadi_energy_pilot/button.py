@@ -25,4 +25,6 @@ class RefreshNowButton(ButtonEntity):
         }
 
     async def async_press(self):
+        self.coordinator.health.add("info", "MANUAL_REFRESH", "Użytkownik uruchomił odświeżanie")
+        self.coordinator.health_store.async_delay_save(self.coordinator.health.export, 60)
         await self.coordinator.async_request_refresh()
