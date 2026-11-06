@@ -74,7 +74,7 @@
       const zone = this._state("tariff_zone"), nextCheap = this._state("next_cheap");
       const health = this._state("health_status"), guard = this._state("grid_status");
       const pctSoc = soc === null ? 0 : Math.max(0, Math.min(100, soc));
-      const pctGrid = importKw === null ? 0 : Math.max(0, Math.min(100, importKw / (gridLimit || 1) * 100));
+      const pctGrid = importKw === null || gridLimit === null ? 0 : Math.max(0, Math.min(100, importKw / gridLimit * 100));
       const statusText = !health || health === "unknown" || health === "unavailable" ?
         "Brak potwierdzenia odczytów" :
         /on|działa|ok|ready|true/i.test(health) ? "Odczyty aktywne" : "Sprawdź stan instalacji";
