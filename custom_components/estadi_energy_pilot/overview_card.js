@@ -136,6 +136,49 @@
         String(guard) : "brak potwierdzonego odczytu";
       const validSources = pv !== null && home !== null;
 
+      if (this._config.mode === "compact") {
+        const miniMetric = (name, readingValue) =>
+          '<div class="cell"><span>' + escape(name) + '</span><strong>' +
+          escape(readingValue.text) +
+          (readingValue.unit ? '<small>' + escape(readingValue.unit) + '</small>' : '') +
+          '</strong></div>';
+        this.shadowRoot.innerHTML =
+          '<style>:host{display:block;color:var(--primary-text-color,#17212b);font:inherit}' +
+          '*{box-sizing:border-box}ha-card{max-width:560px;margin:0 auto;border-radius:19px;' +
+          'background:var(--ha-card-background,var(--card-background-color,#fff));' +
+          'border:1px solid var(--divider-color,#e2e8ef);overflow:hidden}' +
+          '.head{background:linear-gradient(110deg,#123934,#1a544a);padding:18px 20px;color:#fff}' +
+          '.brand{font-size:10px;letter-spacing:.16em;color:#a7e5cc;font-weight:750}' +
+          '.title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px}' +
+          '.title strong{font-size:19px;letter-spacing:-.03em}.state{font-size:11px;border-radius:20px;' +
+          'padding:6px 10px;background:#ffffff17;text-align:right;max-width:150px;line-height:1.35}' +
+          '.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:' +
+          'var(--divider-color,#e2e8ef)}.cell{padding:15px 18px;background:' +
+          'var(--ha-card-background,var(--card-background-color,#fff));min-width:0}' +
+          '.cell span{font-size:12px;color:var(--secondary-text-color,#627185);display:block}' +
+          '.cell strong{font-size:23px;letter-spacing:-.035em;display:block;margin-top:5px;' +
+          'font-variant-numeric:tabular-nums;white-space:nowrap}' +
+          '.cell small{font-size:12px;margin-left:5px;color:var(--secondary-text-color,#627185);' +
+          'font-weight:500}.foot{font-size:11px;color:var(--secondary-text-color,#627185);' +
+          'padding:12px 18px;line-height:1.5}.warn{color:#bb812d}' +
+          '@media(max-width:380px){.head{padding:15px}.cell{padding:12px}' +
+          '.cell strong{font-size:20px}.title strong{font-size:17px}}' +
+          '</style><ha-card><div class="head"><div class="brand">ESTADI / ENERGY PILOT</div>' +
+          '<div class="title"><strong>Energia w skrócie</strong><span class="state">' +
+          escape(problem ? "⚠ Wymaga uwagi" : "● System działa") +
+          '</span></div></div><div class="grid">' +
+          miniMetric("Produkcja PV", power(pv)) +
+          miniMetric("Zużycie domu", power(home)) +
+          miniMetric("Magazyn SOC", reading(soc, "%", 0)) +
+          miniMetric("Import sieci", reading(importKw, "kW", 2)) +
+          '</div><div class="foot' + (gridUnconfirmed ? ' warn' : '') + '">' +
+          (gridUnconfirmed ?
+            'Grid Guard: niepotwierdzony. Brak odczytu nie oznacza 0 kW. ' : '') +
+          'Deye Load zawiera samochód i pompę. Sterowanie Deye jest wyłączone.' +
+          '</div></ha-card>';
+        return;
+      }
+
       this.shadowRoot.innerHTML =
         '<style>' +
         ':host{display:block;color:var(--primary-text-color,#162032);font:inherit;--border:var(--divider-color,#e4e9ef);' +
