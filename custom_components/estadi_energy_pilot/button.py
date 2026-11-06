@@ -20,7 +20,7 @@ from .dashboard_export import (
 _LOGGER = logging.getLogger(__name__)
 
 SENSOR_KEYS = (
-    "mini_status", "grid_status", "grid_import", "grid_headroom",
+    "mini_status", "grid_status", "grid_import", "grid_limit", "grid_headroom",
     "grid_charge_cap", "grid_phase_status", "grid_reason", "sim_status",
     "sim_soc_end", "sim_soc_min", "sim_soc_min_cautious",
     "sim_pv_kwh", "sim_grid_kwh", "sim_grid_peak", "sim_hours", "sim_quality",
@@ -78,11 +78,7 @@ class RefreshNowButton(ButtonEntity):
 
 
 class ExportDashboardButton(ButtonEntity):
-    """On explicit press, export two Lovelace YAML files into HA /config.
-
-    Never auto-adds Lovelace resources, edits existing dashboards, controls
-    the inverter, or overwrites an earlier export/user customization.
-    """
+    """Export one stable set of managed Lovelace files (never touch owner edits)."""
     _attr_has_entity_name = True
     _attr_name = "Wygeneruj pulpit, miniwidżet i wykres 48h"
     _attr_icon = "mdi:view-dashboard-edit"
@@ -99,7 +95,7 @@ class ExportDashboardButton(ButtonEntity):
         self._attr_extra_state_attributes = {
             "status": "Nie wygenerowano w tej sesji",
             "adres_zasobu_lovelace": FORECAST_CARD_RESOURCE,
-            "wymaga_wklejenia_do_pulpitu": True,
+            "wymaga_jednorazowej_rejestracji_yaml": True,
             "nie_modyfikuje_istniejacych_dashboardow": True,
         }
 
@@ -140,22 +136,31 @@ class ExportDashboardButton(ButtonEntity):
                 sources[key] = entity_id
         return ids, sources
 
-    async def async_press(self) -> None:
+    async def async_generate_managed_files(self):
+        """Safe, idempotent export shared by user action and post-restart sync."""
         ids, sources = self._map_entities()
+        forecast = await self.coordinator.hass.async_add_executor_job(
+            Path(__file__).with_name("forecast_card.js").read_text, "utf-8",
+        )
+        overview = await self.coordinator.hass.async_add_executor_job(
+            Path(__file__).with_name("overview_card.js").read_text, "utf-8",
+        )
+        script = forecast + "\n" + overview
+        full = render_dashboard(ids, sources)
+        mini = render_mini_widget(ids, sources)
+        paths = await self.coordinator.hass.async_add_executor_job(
+            export_files, self.coordinator.hass.config.path(), full, mini, script,
+        )
+        return ids, sources, paths
+
+    async def async_press(self) -> None:
         try:
-            script = await self.coordinator.hass.async_add_executor_job(
-                Path(__file__).with_name("forecast_card.js").read_text, "utf-8",
-            )
-            full = render_dashboard(ids, sources)
-            mini = render_mini_widget(ids, sources)
-            paths = await self.coordinator.hass.async_add_executor_job(
-                export_files, self.coordinator.hass.config.path(), full, mini, script,
-            )
+            ids, sources, paths = await self.async_generate_managed_files()
         except (ValueError, OSError, RuntimeError) as exc:
             self._attr_extra_state_attributes = {
                 "status": "Błąd eksportu",
                 "przyczyna": str(exc)[:240],
-                "wymaga_wklejenia_do_pulpitu": True,
+                "wymaga_jednorazowej_rejestracji_yaml": True,
                 "nie_modyfikuje_istniejacych_dashboardow": True,
             }
             self.async_write_ha_state()
@@ -176,7 +181,9 @@ class ExportDashboardButton(ButtonEntity):
             ],
             "liczba_zewnetrznych_czujnikow": len(sources),
             "wygenerowano_o": datetime.now(timezone.utc).isoformat(),
-            "wymaga_wklejenia_do_pulpitu": True,
+            "wymaga_jednorazowej_rejestracji_yaml": True,
+            "eksport_staly_bez_duplikatow": True,
+            "uwaga": "Po jednorazowej rejestracji YAML pliki są odświeżane także po restarcie HA. Dane odświeżają się na żywo. Pulpit UI z ręcznie wklejonym YAML nie aktualizuje układu z pliku.",
             "nie_modyfikuje_istniejacych_dashboardow": True,
             "nie_zmieniono_deye": True,
         }

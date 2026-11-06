@@ -7,12 +7,15 @@ No frontend add-ons or external services are required.
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import tempfile
 from pathlib import Path
 from textwrap import indent
 from typing import Mapping
 
-FORECAST_CARD_JS = "estadi-energy-pilot-forecast-v040.js"
+FORECAST_CARD_JS = "estadi-energy-pilot-ui-v046.js"
 FORECAST_CARD_RESOURCE = "/local/" + FORECAST_CARD_JS
 
 
@@ -292,15 +295,15 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                        ("Przewidywany koniec", "smart_charge_finish"),
                        ("Energia z sieci", "smart_charge_energy"),
                        ("Powód decyzji", "grid_reason") ])),
-        _graph("Zużycie i produkcja — ostatnie 24h",
+        _graph("Produkcja i zużycie — ostatnie 48h",
                [sources[k] for k in ("source_pv", "source_home",
                                       "source_pump", "source_ev")
-                if sources.get(k)]),
-        _graph("Magazyn — SOC ostatnie 24h",
-               [sources["source_soc"]] if sources.get("source_soc") else []),
-        _graph("Import i zapas przyłącza — ostatnie 24h",
+                if sources.get(k)], hours=48),
+        _graph("Magazyn — SOC ostatnie 48h",
+               [sources["source_soc"]] if sources.get("source_soc") else [], hours=48),
+        _graph("Import i zapas przyłącza — ostatnie 48h",
                [eid(k) for k in ("grid_import", "grid_headroom", "grid_charge_cap")
-                if eid(k)]),
+                if eid(k)], hours=48),
         _tiles("Symulacja magazynu 48h", _existing(
             entities, [("SOC na koniec", "sim_soc_end"),
                        ("Minimalny SOC", "sim_soc_min"),
@@ -366,16 +369,101 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
         "jeszcze Deye ani ładowarką EV; nie obliczamy rzeczywistych oszczędności "
         "bez potwierdzonych przepływów import/eksport i cen rozliczenia."
     ))
+    def view(title: str, path: str, icon: str,
+             groups: list[tuple[str, str, list[str]]],
+             panel: bool = False) -> str:
+        """Use the native HA Sections layout for clear two-column alignment."""
+        header = (
+            "  - title: " + _quote(title) + "\n"
+            "    path: " + path + "\n"
+            "    icon: " + icon + "\n"
+        )
+        if panel:
+            return (header + "    type: panel\n    cards:\n"
+                    + "".join(_card(card) for _, _, items in groups for card in items))
+        result = header + "    type: sections\n    max_columns: 2\n    sections:\n"
+        for heading, heading_icon, selected in groups:
+            if not selected:
+                continue
+            result += (
+                "      - type: grid\n"
+                "        cards:\n"
+                "          - type: heading\n"
+                "            heading: " + _quote(heading) + "\n"
+                "            icon: " + heading_icon + "\n"
+            )
+            for card in selected:
+                result += indent(card.rstrip(), "          ") + "\n"
+        return result
+
+    overview = _modern_overview_card(entities, sources)
     return (
-        "# ESTADI Energy Pilot — pulpit z lokalną kartą 48h (zarejestruj zasób JS w HA)\n"
+        "# ESTADI Energy Pilot — zarządzany pulpit, v0.4.6\n"
         "title: \"ESTADI Energy Pilot\"\n"
         "views:\n"
-        "  - title: \"Energia\"\n"
-        "    path: estadi-energia\n"
-        "    icon: mdi:solar-power\n"
-        "    cards:\n"
-        + "".join(_card(card) for card in cards)
+        + view("Pulpit", "estadi-energia", "mdi:view-dashboard",
+               [("", "", [overview])], panel=True)
+        + view("Historia", "estadi-historia", "mdi:chart-line", [
+            ("Bilans domu", "mdi:home-lightning-bolt",
+             [cards[4]]),
+            ("Magazyn energii", "mdi:battery",
+             [cards[5]]),
+            ("Przyłącze", "mdi:transmission-tower",
+             [cards[6]]),
+            ("Aktualne pomiary", "mdi:gauge",
+             [cards[1]]),
+        ])
+        + view("Prognoza 48h", "estadi-prognoza", "mdi:chart-timeline-variant", [
+            ("Prognoza godzinowa", "mdi:chart-bell-curve-cumulative",
+             [cards[8]]),
+            ("Scenariusz 48 godzin", "mdi:calendar-clock",
+             [cards[7], cards[9]]),
+            ("Kolejne tanie okno", "mdi:clock-outline",
+             [cards[3]]),
+        ])
+        + view("Koszty", "estadi-koszty", "mdi:cash-multiple", [
+            ("Porównanie scenariuszy", "mdi:finance",
+             [cards[10], cards[11]]),
+            ("Niepewność ładowania EV", "mdi:car-electric",
+             [cards[18]]),
+        ])
+        + view("Diagnostyka", "estadi-diagnostyka", "mdi:stethoscope", [
+            ("Stan bezpieczeństwa", "mdi:shield-check-outline",
+             [cards[0], cards[2]]),
+            ("Kalibracja odczytów", "mdi:tune-variant",
+             [cards[12], cards[13]]),
+            ("Model pompy ciepła", "mdi:heat-pump-outline",
+             [cards[14], cards[15]]),
+            ("Nietypowe zużycie pompy", "mdi:chart-bell-curve",
+             [cards[16], cards[17]]),
+            ("Symulacje i trafność", "mdi:clipboard-pulse",
+             [cards[19], cards[20]]),
+            ("Integracja Deye", "mdi:solar-power-variant",
+             cards[21:]),
+        ])
     )
+
+
+def _modern_overview_card(entities: Mapping[str, str], sources: Mapping[str, str]) -> str:
+    mapping = {
+        "soc": sources.get("source_soc"),
+        "pv": sources.get("source_pv"),
+        "home": sources.get("source_home"),
+        "ev": sources.get("source_ev"),
+        "pump": sources.get("source_pump"),
+        "grid_import": entities.get("grid_import"),
+        "grid_limit": entities.get("grid_limit"),
+        "grid_headroom": entities.get("grid_headroom"),
+        "grid_status": entities.get("grid_status"),
+        "health_status": entities.get("health_status"),
+        "tariff_zone": entities.get("tariff_zone"),
+        "next_cheap": entities.get("next_cheap"),
+        "smart_charge_power": entities.get("smart_charge_power"),
+        "smart_charge_target": entities.get("smart_charge_target"),
+    }
+    return ("- type: custom:estadi-energy-overview-card\n" +
+            "".join("  entity_" + key + ": " + _quote(eid) + "\n"
+                    for key, eid in mapping.items() if eid))
 
 
 def _interactive_forecast_card(entity_id: str) -> str:
@@ -386,93 +474,111 @@ def _interactive_forecast_card(entity_id: str) -> str:
             + "  default_series:\n"
             + "    - soc\n"
             + "    - pv\n"
-            + "    - dom\n"
             + "    - import\n"
-            + "    - pompa\n"
             + "    - auto\n")
 
 
 def render_mini_widget(entities: Mapping[str, str], sources: Mapping[str, str]) -> str:
-    """Render compact list of cards for a new HA dashboard view."""
-    status = entities.get("mini_status")
-    if not status:
+    """Compact, responsive and live card — no tiny legacy tile layout."""
+    if not entities.get("mini_status"):
         raise ValueError("Brak sensora Szybki status energii")
-    soc = sources.get("source_soc")
-    content = (
-        "## ⚡ ESTADI Energy Pilot\n"
-        "{{ states(" + _quote(status) + ") }}\n\n"
-        "**Tryb:** doradczy · sterowanie Deye wyłączone\n\n"
-        "**Decyzja testowa:** {{ states(" + _quote(entities.get("dry_run_action", "")) + ") }}\n"
-        "{% set decision = state_attr(" + _quote(entities.get("dry_run_status", "")) + ", 'hipotetyczna_decyzja') or {} %}\n"
-        "**Powód:** {{ decision.get('why', 'Brak danych') }}"
+    card = _modern_overview_card(entities, sources) + "  mode: compact\n"
+    return (
+        "# ESTADI — miniwidżet do osobnego widoku lub skopiowania jako karta\n"
+        "title: \"ESTADI — mini\"\n"
+        "views:\n"
+        "  - title: \"Szybki status\"\n"
+        "    path: estadi-mini\n"
+        "    icon: mdi:battery-charging\n"
+        "    type: panel\n"
+        "    cards:\n"
+        + _card(card)
     )
-    mini = [
-        _markdown("Status", content),
-        _tiles("Teraz", _existing(
-            {**sources, **entities},
-            [("SOC", "source_soc"), ("Import", "grid_import"),
-             ("PV", "source_pv"), ("Auto", "source_ev")]), 2),
-        _entities("Najbliższy plan", _existing(
-            entities, [("Początek", "smart_charge_start"),
-                       ("Docelowy SOC", "smart_charge_target"),
-                       ("Proponowana moc", "smart_charge_power"),
-                       ("Grid Guard", "grid_status") ])),
-    ]
-    return ("# ESTADI Energy Pilot — miniwidżet\n"
-            "title: \"ESTADI — mini\"\n"
-            "views:\n"
-            "  - title: \"Szybki status\"\n"
-            "    path: estadi-mini\n"
-            "    icon: mdi:battery-charging\n"
-            "    cards:\n"
-            + "".join(_card(card) for card in mini))
+
+
+def _digest(content: str) -> str:
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def _write_atomic(path: Path, content: str) -> None:
+    """Write only when changed; replace atomically on the same filesystem."""
+    if path.exists() and path.read_text(encoding="utf-8") == content:
+        return
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=".estadi-tmp-", delete=False
+        ) as temp:
+            temp.write(content)
+            temp.flush()
+            os.fsync(temp.fileno())
+            temp_path = Path(temp.name)
+        os.replace(temp_path, path)
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 def export_files(directory: str | Path, full: str, mini: str,
                  javascript: str | None = None) -> dict[str, str]:
-    """Safely create YAMLs with no overwrite of the owner's existing edits.
+    """Idempotent managed export; never creates -2, -3 or unbounded copies.
 
-    This is triggered only by the explicit 'Eksportuj panel' HA button.
-    The files contain no secret credentials, only entity IDs and Lovelace YAML.
+    Existing legacy exports and the user's manually edited dashboards are left
+    untouched. A checksum manifest tracks only files created by this exporter.
+    If one of those files is later edited by the owner, fail clearly instead
+    of silently overwriting their work or allocating another numbered file.
     """
     root = Path(directory)
     if not root.is_dir():
         raise ValueError("Brak katalogu konfiguracji Home Assistant")
     if not full.strip() or not mini.strip():
         raise ValueError("Pusta konfiguracja pulpitu")
-    targets = {}
-    if javascript is not None:
-        if not javascript.strip() or "estadi-energy-forecast-card" not in javascript:
-            raise ValueError("Nieprawidłowy kod karty prognozy 48h")
-        www = root / "www"
-        www.mkdir(exist_ok=True)
-        resource = www / FORECAST_CARD_JS
-        # Never overwrite user edits; versioned name avoids stale browser cache.
-        try:
-            with resource.open("x", encoding="utf-8") as file:
-                file.write(javascript)
-        except FileExistsError:
-            if resource.read_text(encoding="utf-8") != javascript:
-                raise ValueError(
-                    "Istnieje zmodyfikowany zasób karty. Nie nadpisano: " + str(resource)
-                )
-        targets["forecast_js"] = str(resource)
-        targets["forecast_resource_url"] = FORECAST_CARD_RESOURCE
-    for key, filename, text in (
-        ("dashboard", "estadi-energy-pilot-dashboard.yaml", full),
-        ("mini", "estadi-energy-pilot-mini.yaml", mini),
+    if javascript is not None and (
+        not javascript.strip() or
+        "estadi-energy-forecast-card" not in javascript or
+        "estadi-energy-overview-card" not in javascript
     ):
-        # Never overwrite a customized dashboard. Subsequent exports get -2...
-        for version in range(1, 1000):
-            suffix = "" if version == 1 else f"-{version}"
-            candidate = root / filename.replace(".yaml", f"{suffix}.yaml")
-            try:
-                with candidate.open("x", encoding="utf-8") as output:
-                    output.write(text)
-            except FileExistsError:
-                continue
-            targets[key] = str(candidate)
-            break
-        else:
-            raise RuntimeError("Zbyt wiele istniejących eksportów")
+        raise ValueError("Nieprawidłowy kod kart ESTADI")
+
+    files = {
+        "dashboard": ("estadi-energy-pilot-dashboard-managed.yaml", full),
+        "mini": ("estadi-energy-pilot-mini-managed.yaml", mini),
+    }
+    if javascript is not None:
+        files["forecast_js"] = ("www/" + FORECAST_CARD_JS, javascript)
+    manifest_path = root / ".estadi-energy-pilot-managed.json"
+    if manifest_path.exists():
+        try:
+            previous = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if not isinstance(previous, dict):
+                raise ValueError("Nieprawidłowy rejestr plików zarządzanych")
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError("Uszkodzony rejestr plików ESTADI") from exc
+    else:
+        previous = {}
+
+    # Check every existing target before writing any files.
+    for filename, content in files.values():
+        target = root / filename
+        if target.exists():
+            actual = _digest(target.read_text(encoding="utf-8"))
+            recorded = previous.get(filename)
+            if recorded is None and actual != _digest(content):
+                raise ValueError("Istnieje niezarządzany plik. Nie nadpisano: " + str(target))
+            if recorded is not None and recorded != actual:
+                raise ValueError("Plik zmieniono ręcznie. Nie nadpisano: " + str(target))
+
+    targets: dict[str, str] = {}
+    updated = dict(previous)
+    for key, (filename, content) in files.items():
+        target = root / filename
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _write_atomic(target, content)
+        updated[filename] = _digest(content)
+        targets[key] = str(target)
+    if updated != previous:
+        _write_atomic(manifest_path, json.dumps(updated, sort_keys=True, indent=2) + "\n")
+    if javascript is not None:
+        targets["forecast_resource_url"] = FORECAST_CARD_RESOURCE
     return targets

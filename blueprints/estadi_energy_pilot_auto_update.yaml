@@ -1,0 +1,62 @@
+blueprint:
+  name: ESTADI Energy Pilot — automatyczne aktualizacje
+  description: >
+    Raz dziennie sprawdza wyłącznie wskazaną encję aktualizacji ESTADI
+    z HACS / Home Assistant Marketplace. Instaluje nową wersję, jeśli jest
+    dostępna. Restart Home Assistant jest opcjonalny i domyślnie wyłączony.
+    Zrób kopię zapasową przed włączeniem automatycznych aktualizacji.
+  domain: automation
+  source_url: https://github.com/endigarnek/estadi-energy-pilot/blob/main/blueprints/estadi_energy_pilot_auto_update.yaml
+  input:
+    estadi_update:
+      name: Aktualizacja ESTADI Energy Pilot
+      description: >
+        Wybierz encję update należącą do repozytorium ESTADI Energy Pilot.
+        Nie wybieraj Home Assistant Core ani innego dodatku.
+      selector:
+        entity:
+          filter:
+            domain: update
+    update_time:
+      name: Godzina sprawdzania aktualizacji
+      description: Godzina lokalna Home Assistant (domyślnie 03:45).
+      default: "03:45:00"
+      selector:
+        time: {}
+    restart_after_install:
+      name: Uruchom ponownie Home Assistant po aktualizacji
+      description: >
+        Włącz tylko jeśli automatyczny restart o tej porze jest bezpieczny
+        dla Twoich automatyzacji. Dla integracji Python zwykle jest niezbędny
+        do załadowania nowego kodu.
+      default: false
+      selector:
+        boolean: {}
+
+variables:
+  update_entity: !input estadi_update
+  restart_enabled: !input restart_after_install
+
+triggers:
+  - trigger: time
+    at: !input update_time
+
+conditions:
+  - condition: state
+    entity_id: !input estadi_update
+    state: "on"
+
+actions:
+  - action: update.install
+    target:
+      entity_id: !input estadi_update
+  - wait_template: "{{ is_state(update_entity, 'off') }}"
+    timeout: "00:20:00"
+    continue_on_timeout: false
+  - if:
+      - condition: template
+        value_template: "{{ restart_enabled }}"
+    then:
+      - action: homeassistant.restart
+
+mode: single

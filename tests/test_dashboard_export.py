@@ -108,7 +108,7 @@ class DashboardExportTests(unittest.TestCase):
     def test_resource_export_creates_js_once_and_respects_edits(self):
         full = mod.render_dashboard(ENTITIES, SOURCES)
         mini = mod.render_mini_widget(ENTITIES, SOURCES)
-        javascript = "customElements.define('estadi-energy-forecast-card', class extends HTMLElement {});"
+        javascript = ("customElements.define('estadi-energy-forecast-card', class extends HTMLElement {});" "customElements.define('estadi-energy-overview-card', class extends HTMLElement {});")
         with TemporaryDirectory() as folder:
             first = mod.export_files(folder, full, mini, javascript)
             self.assertEqual(first["forecast_resource_url"], mod.FORECAST_CARD_RESOURCE)
@@ -116,7 +116,9 @@ class DashboardExportTests(unittest.TestCase):
             self.assertEqual(Path(first["forecast_js"]).read_text(), javascript)
             second = mod.export_files(folder, full, mini, javascript)
             self.assertEqual(second["forecast_js"], first["forecast_js"])
-            self.assertNotEqual(second["dashboard"], first["dashboard"])
+            self.assertEqual(second["dashboard"], first["dashboard"])
+            self.assertEqual(second["mini"], first["mini"])
+            self.assertFalse(list(Path(folder).glob("estadi-energy-pilot-dashboard-[0-9]*.yaml")))
             Path(first["forecast_js"]).write_text("owner-custom", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Nie nadpisano"):
                 mod.export_files(folder, full, mini, javascript)
@@ -197,12 +199,14 @@ class DashboardExportTests(unittest.TestCase):
 
     def test_mini_widget_small_self_contained(self):
         mini = mod.render_mini_widget(ENTITIES, SOURCES)
-        self.assertIn("sensor.energy_status_renamed_by_owner", mini)
-        self.assertIn("sensor.energy_dry_run_action", mini)
         self.assertIn("sensor.deye_pv_power", mini)
-        self.assertIn("type: tile", mini)
-        self.assertIn("sterowanie Deye wyłączone", mini)
+        self.assertIn("sensor.deye_load_power", mini)
+        self.assertIn("type: custom:estadi-energy-overview-card", mini)
+        self.assertIn("mode: compact", mini)
+        self.assertIn("type: panel", mini)
         self.assertNotIn("harmonogram_48h", mini)
+        self.assertNotIn("type: tile", mini)
+
 
     def test_missing_core_entities_fail_without_fake_ids(self):
         with self.assertRaisesRegex(ValueError, "sim_status"):
@@ -221,19 +225,44 @@ class DashboardExportTests(unittest.TestCase):
         self.assertIn('sensor.owner_q', yaml)
         self.assertNotIn("None", yaml)
 
-    def test_export_does_not_overwrite_existing_files(self):
+    def test_managed_export_is_idempotent_and_does_not_overwrite_edits(self):
         full = mod.render_dashboard(ENTITIES, SOURCES)
         mini = mod.render_mini_widget(ENTITIES, SOURCES)
         with TemporaryDirectory() as folder:
+            legacy = Path(folder) / "estadi-energy-pilot-dashboard.yaml"
+            legacy.write_text("ręczne zmiany właściciela", encoding="utf-8")
             a = mod.export_files(folder, full, mini)
-            self.assertEqual(Path(a["dashboard"]).read_text(encoding="utf-8"), full)
-            self.assertEqual(Path(a["mini"]).read_text(encoding="utf-8"), mini)
-            Path(a["dashboard"]).write_text("owner edited", encoding="utf-8")
             b = mod.export_files(folder, full, mini)
-            self.assertNotEqual(a["dashboard"], b["dashboard"])
-            self.assertTrue(b["dashboard"].endswith("-2.yaml"))
-            self.assertTrue(b["mini"].endswith("-2.yaml"))
+            self.assertEqual(a, b)
+            self.assertEqual(legacy.read_text(encoding="utf-8"),
+                             "ręczne zmiany właściciela")
+            self.assertEqual(Path(a["dashboard"]).read_text(encoding="utf-8"), full)
+            self.assertTrue(a["dashboard"].endswith("-managed.yaml"))
+            self.assertEqual(len(list(Path(folder).glob("estadi-energy-pilot-dashboard-*.yaml"))), 1)
+            self.assertTrue((Path(folder) / ".estadi-energy-pilot-managed.json").is_file())
+            Path(a["dashboard"]).write_text("owner edited", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Nie nadpisano"):
+                mod.export_files(folder, full, mini)
             self.assertEqual(Path(a["dashboard"]).read_text(), "owner edited")
+
+    def test_managed_export_updates_same_file_when_entity_ids_change(self):
+        with TemporaryDirectory() as folder:
+            original = mod.export_files(folder, "views:\n  - title: A\n",
+                                        "views:\n  - title: Mini\n")
+            newer = mod.export_files(folder, "views:\n  - title: B\n",
+                                     "views:\n  - title: Mini\n")
+            self.assertEqual(newer, original)
+            self.assertIn("title: B", Path(newer["dashboard"]).read_text())
+            self.assertFalse(list(Path(folder).glob("*-2.yaml")))
+
+    def test_modern_overview_is_live_and_separates_diagnostics(self):
+        full = mod.render_dashboard(ENTITIES, SOURCES)
+        self.assertIn("custom:estadi-energy-overview-card", full)
+        self.assertIn("entity_soc: \"sensor.deye_soc_by_owner\"", full)
+        self.assertIn("entity_home: \"sensor.deye_load_power\"", full)
+        self.assertIn("path: estadi-diagnostyka", full)
+        self.assertIn("path: estadi-prognoza", full)
+        self.assertNotIn("sensor.nonexistent", full)
 
     def test_path_is_configuration_dir_not_www_or_integration_dir(self):
         with TemporaryDirectory() as folder:
@@ -259,7 +288,16 @@ class DashboardExportTests(unittest.TestCase):
         mini = yaml.safe_load(mod.render_mini_widget(ENTITIES, SOURCES))
         self.assertEqual(dashboard["views"][0]["path"], "estadi-energia")
         self.assertEqual(mini["views"][0]["path"], "estadi-mini")
-        self.assertGreater(len(dashboard["views"][0]["cards"]), 7)
+        self.assertEqual(len(dashboard["views"]), 5)
+        self.assertEqual(dashboard["views"][0]["type"], "panel")
+        self.assertEqual(dashboard["views"][0]["cards"][0]["type"],
+                         "custom:estadi-energy-overview-card")
+        self.assertEqual(dashboard["views"][1]["type"], "sections")
+        self.assertEqual(dashboard["views"][2]["type"], "sections")
+        self.assertGreater(len(dashboard["views"][4]["sections"]), 4)
+        self.assertTrue(all(section["cards"][0]["type"] == "heading"
+                            for view in dashboard["views"][1:]
+                            for section in view["sections"]))
 
 
 if __name__ == "__main__":

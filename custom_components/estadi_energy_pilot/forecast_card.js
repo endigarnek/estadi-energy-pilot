@@ -16,8 +16,6 @@
     auto: { label: "EV", color: "#64748b", unit: "kWh" },
   });
   const KEYS = Object.keys(SERIES);
-  const WIDTH = 900, HEIGHT = 290, LEFT = 52, RIGHT = 58, TOP = 16, BOTTOM = 38;
-  const PW = WIDTH - LEFT - RIGHT, PH = HEIGHT - TOP - BOTTOM;
   const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[ch]));
@@ -57,11 +55,13 @@
       this.attachShadow({ mode: "open" });
       this._hass = null;
       this._config = {};
-      this._visible = new Set(["soc", "pv", "dom", "import", "pompa", "auto"]);
+      this._visible = new Set(["soc", "pv", "import"]);
       this._active = null;
       this._signature = null;
       this._data = [];
       this._bound = false;
+      this._compact = false;
+      this._resizeObserver = null;
     }
 
     static getStubConfig() {
@@ -72,7 +72,7 @@
       if (!config || typeof config.entity !== "string" || !config.entity.startsWith("sensor.")) {
         throw new Error("ESTADI: wymagane ID encji sensora Symulacja 48h.");
       }
-      const defaults = ["soc", "pv", "dom", "import", "pompa", "auto"];
+      const defaults = ["soc", "pv", "import"];
       const chosen = Array.isArray(config.default_series) ?
         config.default_series.filter((key) => KEYS.includes(key)) : defaults;
       this._config = { entity: config.entity, title: config.title || "Prognoza energii 48h" };
@@ -100,7 +100,10 @@
     getCardSize() { return 7; }
 
     connectedCallback() {
-      if (this._bound) return;
+      if (this._bound) {
+        if (this._resizeObserver) this._resizeObserver.observe(this);
+        return;
+      }
       this._bound = true;
       this.shadowRoot.addEventListener("click", (event) => {
         const button = event.target.closest("button[data-series]");
@@ -132,6 +135,23 @@
       this.shadowRoot.addEventListener("pointermove", (event) => {
         if (event.pointerType !== "touch") this._pickPointer(event);
       });
+      // Adapt chart ticks after layout without polling or unnecessary redraws.
+      if (typeof ResizeObserver === "function" && !this._resizeObserver) {
+        this._resizeObserver = new ResizeObserver((entries) => {
+          const width = entries[0]?.contentRect?.width || 0;
+          if (!width) return;
+          const compact = width < 620;
+          if (compact !== this._compact) {
+            this._compact = compact;
+            this._draw();
+          }
+        });
+        this._resizeObserver.observe(this);
+      }
+    }
+
+    disconnectedCallback() {
+      if (this._resizeObserver) this._resizeObserver.disconnect();
     }
 
     _pickPointer(event) {
@@ -154,6 +174,10 @@
 
     _draw() {
       if (!this.shadowRoot || !this._config.entity) return;
+      const WIDTH = this._compact ? 520 : 900;
+      const HEIGHT = 290, LEFT = this._compact ? 42 : 52;
+      const RIGHT = this._compact ? 42 : 58, TOP = 16, BOTTOM = 38;
+      const PW = WIDTH - LEFT - RIGHT, PH = HEIGHT - TOP - BOTTOM;
       const rows = this._data, active = clamp(this._active ?? 0, 0, Math.max(0, rows.length - 1));
       const n = rows.length;
       const x = (index) => LEFT + (n > 1 ? PW * index / (n - 1) : PW / 2);
@@ -199,7 +223,7 @@
           show(maxEnergy * (1 - tick / 4), 1) + '</text>');
       }
       const ticks = [];
-      for (let i = 0; i < n; i += Math.max(1, Math.ceil(n / 8))) {
+      for (let i = 0; i < n; i += Math.max(1, Math.ceil(n / (this._compact ? 4 : 8)))) {
         const moment = new Date(rows[i].time);
         const label = moment.toLocaleString("pl-PL", {
           timeZone: "Europe/Warsaw", day: "2-digit", month: "2-digit", hour: "2-digit"
@@ -262,7 +286,7 @@
         'button:focus-visible,[data-plot]:focus-visible{outline:2px solid var(--primary-color,#0088cc);outline-offset:2px}' +
         'i{display:inline-block;width:8px;height:8px;border-radius:100%;flex:none}' +
         '.scroll{overflow-x:auto;touch-action:pan-x;padding-bottom:5px}' +
-        'svg{display:block;min-width:670px;width:100%;height:auto;color:var(--fg)}' +
+        'svg{display:block;min-width:0;width:100%;height:auto;color:var(--fg)}' +
         '.details{border-top:1px solid var(--divider-color,#ddd);padding-top:11px;font-size:13px}' +
         '.metrics{display:flex;flex-wrap:wrap;column-gap:15px;row-gap:9px;margin-top:9px}' +
         '.metrics span{display:inline-flex;align-items:center;gap:5px}.metrics b{font-variant-numeric:tabular-nums}' +
