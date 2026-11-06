@@ -16,3 +16,6 @@ jobs:
         uses: hacs/action@main
         with:
           category: integration
+          # Kontrole metadanych i brandingu katalogu — nie blokują własnego repozytorium.
+          # Pełna walidacja bez ignore będzie potrzebna przed dodaniem do katalogu.
+          ignore: "brands,license,description,topics"
