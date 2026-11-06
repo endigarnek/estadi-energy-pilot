@@ -405,6 +405,7 @@ def _modern_overview_card(entities: Mapping[str, str], sources: Mapping[str, str
         "ev": sources.get("source_ev"),
         "pump": sources.get("source_pump"),
         "grid_import": entities.get("grid_import"),
+        "grid_limit": entities.get("grid_limit"),
         "grid_headroom": entities.get("grid_headroom"),
         "grid_status": entities.get("grid_status"),
         "health_status": entities.get("health_status"),
