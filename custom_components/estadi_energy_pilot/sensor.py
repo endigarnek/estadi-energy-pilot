@@ -235,6 +235,7 @@ class HealthSensor(CoordinatorEntity, SensorEntity):
 ENERGY_V2_SENSORS = (
     ("mini_status", "Szybki status energii", None),
     ("grid_import", "Pobór z przyłącza", "kW"),
+    ("grid_limit", "Limit przyłącza — ustawiony", "kW"),
     ("grid_headroom", "Dostępny zapas mocy przyłącza", "kW"),
     ("grid_charge_cap", "Orientacyjny limit ładowania (bez sterowania)", "kW"),
     ("grid_status", "Grid Guard — status", None),
@@ -459,6 +460,7 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
             "sim_cost": sim.get("cost_import_pln"),
             "mini_status": mini,
             "grid_import": g.get("import_kw"),
+            "grid_limit": g.get("connection_limit_kw"),
             "grid_headroom": g.get("headroom_kw"),
             "grid_charge_cap": g.get("allowed_charge_kw"),
             "grid_status": g.get("state"),
