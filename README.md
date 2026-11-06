@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.4.4 (beta)
+# ESTADI Energy Pilot — wersja 0.4.5 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,12 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+## Wersja 0.4.5 — naprawa eksportu pulpitu Home Assistant
+
+Poprawka błędu przycisku **„Wygeneruj pulpit, miniwidżet i wykres 48h”**: `Brak wymaganych encji Energy Pilot: smart_charge_status`. Sensor inteligentnego ładowania istniał, ale został pominięty w liście kluczy eksportera. Dodano go do mapowania `Entity Registry` i kafelków pulpitu. **Brak tego opcjonalnego sensora nie zatrzymuje już eksportu**: jego kafelek jest pomijany, pozostałe sekcje działają. W atrybutach przycisku po udanym eksporcie dostępna jest lista `brakujace_opcjonalne_encje` do diagnostyki. Używamy prawdziwych ID encji, bez wymyślania nazw.
+
+Dodano test regresyjny dla zgłoszonego błędu i test porównujący listę kluczy w `button.py` z rejestrem sensorów `sensor.py`. Przycisk nadal tylko tworzy pliki YAML i zasób JS; nie modyfikuje istniejących pulpitów ani Deye.
 
 ## Wersja 0.4.4 — nietypowy pobór pompy ciepła
 

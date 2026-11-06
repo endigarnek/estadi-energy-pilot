@@ -25,7 +25,7 @@ SENSOR_KEYS = (
     "sim_soc_end", "sim_soc_min", "sim_soc_min_cautious",
     "sim_pv_kwh", "sim_grid_kwh", "sim_grid_peak", "sim_hours", "sim_quality",
     "tariff", "tariff_zone", "tariff_price", "next_cheap",
-    "smart_charge_start", "smart_charge_finish", "smart_charge_power",
+    "smart_charge_status", "smart_charge_start", "smart_charge_finish", "smart_charge_power",
     "smart_charge_energy", "smart_charge_target", "dry_run_status",
     "dry_run_action", "dry_run_power", "dry_run_days",
     "accuracy_status", "economic_status", "economic_base_cost",
@@ -171,6 +171,9 @@ class ExportDashboardButton(ButtonEntity):
             "adres_zasobu_lovelace": paths["forecast_resource_url"],
             "zarejestruj_zasob_jako": "Moduł JavaScript",
             "liczba_encji_pilota": len(ids),
+            "brakujace_opcjonalne_encje": [
+                key for key in SENSOR_KEYS if key not in ids
+            ],
             "liczba_zewnetrznych_czujnikow": len(sources),
             "wygenerowano_o": datetime.now(timezone.utc).isoformat(),
             "wymaga_wklejenia_do_pulpitu": True,

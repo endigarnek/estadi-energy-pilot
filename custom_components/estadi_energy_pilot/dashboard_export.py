@@ -74,7 +74,8 @@ def _existing(mapping: Mapping[str, str], labels: list[tuple[str, str]]) -> list
 
 def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) -> str:
     """Generate one complete native Lovelace dashboard, without guessed IDs."""
-    required = ("mini_status", "grid_status", "sim_status", "smart_charge_status")
+    # Charging status is optional: it is informative, not needed to render Lovelace.
+    required = ("mini_status", "grid_status", "sim_status")
     missing = [key for key in required if not entities.get(key)]
     if missing:
         raise ValueError("Brak wymaganych encji Energy Pilot: " + ", ".join(missing))
@@ -278,6 +279,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
         _tiles("Planowanie i bezpieczeństwo", _existing(
             entities, [("Stan systemu", "health_status"),
                        ("Grid Guard", "grid_status"),
+                       ("Inteligentne ładowanie", "smart_charge_status"),
                        ("Kontrola faz", "grid_phase_status"),
                        ("Docelowy SOC", "smart_charge_target"),
                        ("Proponowana moc", "smart_charge_power"),
