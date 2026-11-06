@@ -129,5 +129,6 @@ def missing_required_sources(
     return tuple(
         key for key in REQUIRED_SETUP_KEYS
         if not detected.get(key)
+        and not (key == CONF_OUTDOOR_TEMP and detected.get(CONF_WEATHER))
         and not (forecast_solar_available and key in (CONF_SOLCAST_TODAY, CONF_SOLCAST_TOMORROW))
     )
