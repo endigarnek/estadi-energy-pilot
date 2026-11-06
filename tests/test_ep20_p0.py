@@ -96,7 +96,7 @@ class GridGuardTests(unittest.TestCase):
             9000, 1000, import_sign=1,
             phase_currents_a=(35, 8, 8), phase_limits_a=(32, 32, 32),
             phase_voltages_v=(230, 230, 230))
-        self.assertEqual(g.allowed_charge_kw, 1.0)
+        self.assertEqual(g.allowed_charge_kw, 0.0)
         self.assertTrue(g.phase_checked)
 
 
