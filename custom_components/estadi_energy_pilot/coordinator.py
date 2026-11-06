@@ -352,6 +352,23 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             else:
                 forecast_error = "Zaktualizuj Home Assistant: brak akcji Forecast.Solar get_forecast"
 
+        # A genuine outdoor temperature sensor is required for training.
+        # Weather fallback remains available to forecast, but is NOT silently
+        # mixed into the historical observed-temperature calibration.
+        temp_entity = selected.get(CONF_OUTDOOR_TEMP)
+        temperature_state = self.hass.states.get(temp_entity) if temp_entity else None
+        measured_temperature, temp_reason = read_numeric(
+            temperature_state, "°C", -45, 55
+        )
+        # A stale HA state is not a fresh concurrent observation.
+        stamp = (getattr(temperature_state, "last_reported", None) or
+                 getattr(temperature_state, "last_updated", None))
+        if (measured_temperature is None or not isinstance(stamp, datetime) or
+                stamp.tzinfo is None or
+                not 0 <= (dt_util.utcnow() - stamp.astimezone(timezone.utc)).total_seconds() <= 1800):
+            measured_temperature = None
+            if temp_reason == "OK":
+                temp_reason = "Pomiar temperatury nieaktualny (>30 min)"
         self.history.lock_forecast(now, pv_slots, source=forecast_source)
         self.history.sample(
             now,
@@ -359,6 +376,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             home=self._power_w(CONF_HOME_POWER),
             heat_pump=self._power_w(CONF_HEAT_PUMP_POWER),
             ev=self._power_w(CONF_EV_POWER),
+            outdoor_temp=measured_temperature,
         )
         self.storage.async_delay_save(self.history.export, 60)
         ev_topology = resolve_ev_topology(selected.get(CONF_EV_TOPOLOGY))
@@ -405,10 +423,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         soc, soc_reason = read_numeric(
             self.hass.states.get(soc_entity) if soc_entity else None, "%", 0, 100
         )
-        temp_entity = selected.get(CONF_OUTDOOR_TEMP)
-        outdoor_temp, temp_reason = read_numeric(
-            self.hass.states.get(temp_entity) if temp_entity else None, "°C", -70, 65
-        )
+        outdoor_temp = measured_temperature
         temperature_source = "sensor" if outdoor_temp is not None else "weather"
         weather_entity = selected.get(CONF_WEATHER)
         weather_reason = "nie przypisano encji pogodowej"
