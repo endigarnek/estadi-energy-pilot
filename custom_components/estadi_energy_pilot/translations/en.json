@@ -1,0 +1,46 @@
+{
+  "title": "ESTADI Energy Pilot",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Solcast, battery and weather",
+        "description": "Version 0.1: recommendations only, no inverter control. Heat pump consumption is modeled, not measured.",
+        "data": {
+          "solcast_today": "Solcast forecast today",
+          "solcast_tomorrow": "Solcast forecast tomorrow",
+          "solcast_day3": "Solcast forecast day 3 (optional)",
+          "battery_soc": "Deye battery SOC (%)",
+          "outdoor_temp": "Outdoor temperature (°C)",
+          "weather_entity": "Hourly weather forecast (optional)",
+          "battery_capacity_kwh": "Usable battery capacity (kWh)",
+          "base_load_w": "Average home power EXCLUDING heat pump (W)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Charging and forecast settings",
+        "description": "Configure tariff windows, battery limits, and heat pump power model.",
+        "data": {
+          "base_load_w": "Average home power EXCLUDING heat pump (W)",
+          "reserve_soc": "Battery reserve SOC (%)",
+          "max_soc": "Maximum target SOC (%)",
+          "pv_discount_pct": "PV forecast safety discount (%)",
+          "roundtrip_efficiency_pct": "Efficiency (%)",
+          "margin_kwh": "Energy safety buffer (kWh)",
+          "heat_pump_mild_w": "Heat pump power just below +8°C (W)",
+          "heat_pump_cold_w": "Heat pump power at -5°C or below (W)",
+          "night_start": "Night cheap window start (hour)",
+          "night_end": "Night cheap window end (hour)",
+          "midday_start": "Afternoon cheap window start (hour)",
+          "afternoon_end": "Afternoon cheap window end (hour)"
+        }
+      }
+    },
+    "error": {
+      "invalid_schedule": "Check time windows and SOC range."
+    }
+  }
+}
