@@ -42,7 +42,7 @@ class SimulationTests(unittest.TestCase):
         return simulation.simulate_48h(
             now or self.now, self.slots if slots is None else slots, [],
             self.learning, self.model, soc, 10,
-            baseload_w=base, mild_w=600, cold_w=1200,
+            tariff="G12w", baseload_w=base, mild_w=600, cold_w=1200,
             pv_discount_pct=0, efficiency_pct=90,
             battery_max_kw=10, grid_limit_kw=15, ev_now_kw=ev,
             **kwargs,
