@@ -162,6 +162,7 @@ def recommend_charge(
         reached = None
         grid_limit_clips = 0
         for i, slot in enumerate(steps):
+            energy_before = energy
             net = slot["demand"] - slot["solar"]
             shortage = max(0.0, net)
             surplus = max(0.0, -net)
@@ -199,7 +200,10 @@ def recommend_charge(
             over_hard += int(grid * 4 > grid_limit_kw + 0.001)
             if prices is not None:
                 cost += grid * prices[tariff_zone(slot["at"], tariff)]
-            if reached is None and energy >= energy_capacity * target_soc / 100 - 0.001:
+            # Keep the most recent upward crossing. Earlier PV may achieve
+            # the goal temporarily before the evening load drains the store.
+            threshold = energy_capacity * target_soc / 100
+            if energy_before < threshold - 0.001 and energy >= threshold - 0.001:
                 reached = (slot["at"] + STEP).astimezone(WARSAW).isoformat()
         return {
             "end_soc": 100 * energy / energy_capacity,
@@ -210,6 +214,7 @@ def recommend_charge(
             "over_hard_steps": over_hard,
             "grid_limit_clips": grid_limit_clips,
             "charged_steps": charged_steps,
+            "effective_charge_kw_avg": charge_grid / (charged_steps * 0.25) if charged_steps else 0.,
             "reached": reached,
         }
 
@@ -280,6 +285,8 @@ def recommend_charge(
         grid_charge_kwh=round(chosen["charge_grid_kwh"], 2),
         extra_grid_kwh=round(chosen["import_kwh"] - baseline["import_kwh"], 2),
         grid_peak_kw=round(chosen["grid_peak_kw"], 2),
+        effective_charge_kw_avg=round(chosen["effective_charge_kw_avg"], 2),
+        grid_charge_limited_steps=chosen["grid_limit_clips"],
         soft_limit_kw=round(soft_limit, 2),
         connection_limit_kw=round(grid_limit_kw, 2),
         ev_assumed_kw=ev_now_kw,
@@ -293,5 +300,6 @@ def recommend_charge(
             "Nie znam potwierdzonych limitów prądu na trzech fazach",
             "Nie znam przyszłego harmonogramu EV; aktywne EV liczę do końca okna",
             "Brak zweryfikowanych zapisów Deye/limitów BMS",
+            "Docelowy SOC pochodzi jeszcze z uproszczonego modelu taryfowego",
         ],
     )
