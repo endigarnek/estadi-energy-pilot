@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot 0.3.0b1 — aktualizacja beta
+# ESTADI Energy Pilot 0.3.0 — aktualizacja beta
 
 **To pierwsza implementacja Energy Pilot 2.0, tylko do odczytu i obliczeń. Nie steruje falownikiem Deye.**
 
