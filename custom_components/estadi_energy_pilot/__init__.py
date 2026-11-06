@@ -3,11 +3,13 @@ from __future__ import annotations
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.event import async_track_time_interval
+from datetime import timedelta
 
 from .const import DOMAIN
 from .coordinator import EnergyPilotCoordinator
 
-PLATFORMS = ["sensor", "binary_sensor"]
+PLATFORMS = ["sensor", "binary_sensor", "button"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -16,6 +18,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # A periodic watchdog updates the health sensor even if normal polling
+    # silently stops; it never sends commands to Deye.
+    entry.async_on_unload(
+        async_track_time_interval(
+            hass, lambda _now: coordinator.async_update_listeners(),
+            timedelta(minutes=1),
+        )
+    )
     entry.async_on_unload(entry.add_update_listener(async_update_options))
     return True
 
