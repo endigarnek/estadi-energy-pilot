@@ -85,10 +85,12 @@ for (const scenario of scenarios) {
     const grid=card.shadowRoot.querySelector(".metrics");
     return {pageWidth:document.documentElement.scrollWidth, viewportWidth:innerWidth,
       cardWidth:card.getBoundingClientRect().width, metricCount:grid.children.length,
+      renderedIcons:card.shadowRoot.querySelectorAll("ha-icon svg path").length,
       heading:card.shadowRoot.querySelector("h1")?.textContent};
   });
   console.log(scenario.name,JSON.stringify(dimensions));
   assert.equal(dimensions.metricCount,4,"four core indicators must remain visible");
+  assert.ok(dimensions.renderedIcons>=4,"icon SVGs must be present in browser preview");
   assert.ok(dimensions.pageWidth <= dimensions.viewportWidth+1,
     "no horizontal page overflow at "+scenario.width+"px");
   assert.ok(dimensions.cardWidth>300);
