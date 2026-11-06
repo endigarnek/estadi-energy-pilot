@@ -1,12 +1,11 @@
-"""Conservative hourly house-demand learning from the persisted Energy Pilot history.
+"""Learn household electricity demand from historical power-derived hourly energy.
 
-Separate discretionary EV charging from the ordinary household baseline ONLY
-when an installer confirms that the EV is included in Deye Load.
-Do not interpret missing EV data as zero consumption.
+Confirmed wiring of this home: Deye Load includes all household consumption,
+the heat pump, and EV charging. Missing measurements are not invented as zero.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from math import ceil
 from statistics import median
 from typing import Any
@@ -16,20 +15,47 @@ MIN_COVERAGE_PER_HOUR = 0.90
 MAX_TRAINING_DAYS = 30
 
 
+def resolve_ev_topology(value: str | None) -> str:
+    """This user's confirmed wiring replaces earlier 'unknown' choices.
+
+    Preserve a deliberately selected 'excluded' if hardware is changed later.
+    """
+    return value if value in ("included", "excluded") else "included"
+
+
 def _pctl(values: list[float], percentile: float) -> float:
     ordered = sorted(values)
-    idx = max(0, min(len(ordered) - 1, ceil(len(ordered) * percentile) - 1))
-    return ordered[idx]
+    index = max(0, min(len(ordered) - 1, ceil(len(ordered) * percentile) - 1))
+    return ordered[index]
 
 
 def _valid_hour(day: dict, channel: str, hour: str) -> float | None:
     amount = day.get("actual", {}).get(channel, {}).get(hour)
-    cover = day.get("coverage", {}).get(channel, {}).get(hour, 0)
-    if not isinstance(amount, (int, float)) or not isinstance(cover, (int, float)):
+    coverage = day.get("coverage", {}).get(channel, {}).get(hour, 0)
+    if not isinstance(amount, (int, float)) or not isinstance(coverage, (int, float)):
         return None
-    if cover < MIN_COVERAGE_PER_HOUR or amount < 0:
+    if coverage < MIN_COVERAGE_PER_HOUR or amount < 0:
         return None
     return float(amount)
+
+
+def _profile(rows: list[tuple[date, list[float | None], list[float | None]]],
+             column: int) -> dict:
+    output = {}
+    for kind in ("weekday", "weekend"):
+        matching = [row for row in rows if (row[0].weekday() >= 5) == (kind == "weekend")]
+        series = []
+        for hour in range(24):
+            values = [row[column][hour] for row in matching
+                      if row[column][hour] is not None]
+            series.append({
+                "hour": f"{hour:02}:00",
+                "p50_kwh": round(median(values), 3) if values else None,
+                "p90_kwh": round(_pctl(values, 0.9), 3) if values else None,
+                "sample_count": len(values),
+            })
+        output[kind] = series
+    return output
 
 
 def build_house_profile(
@@ -38,16 +64,18 @@ def build_house_profile(
     *,
     ev_in_home_load: bool | None = None,
     min_days: int = MIN_COMPLETE_DAYS,
+    heat_pump_in_home_load: bool = True,
 ) -> dict[str, Any]:
-    """Return P50/P90 by weekday/weekend, with explicit evidence quality.
+    """Calculate two separate profiles from complete recorded hours.
 
-    :param ev_in_home_load:
-      True = EV is definitely included in the HA home power sensor, subtract it.
-      False = EV is definitely metered outside HA home power, do not subtract.
-      None = unknown; never pretend that a clean EV-excluded baseline exists.
+    profiles: household with the EV excluded, but heat pump still included.
+    base_profiles: household without EV AND heat pump, for use with a separate
+    temperature-dependent heat pump forecast. Never add pump or EV again to
+    profiles unless the same component has first been excluded.
     """
-    rows: list[tuple[date, list[float]]] = []
+    rows: list[tuple[date, list[float | None], list[float | None]]] = []
     skipped = 0
+    inconsistent_hours = 0
     for key in sorted(history_days, reverse=True):
         try:
             day = date.fromisoformat(key)
@@ -55,52 +83,66 @@ def build_house_profile(
             continue
         if day >= today or (today - day).days > MAX_TRAINING_DAYS:
             continue
+
         record = history_days[key]
-        hours = []
+        home_hours: list[float | None] = []
+        base_hours: list[float | None] = []
         for hour in range(24):
-            h = f"{hour:02}:00"
-            house = _valid_hour(record, "home", h)
-            if house is None:
-                hours.append(None)
+            marker = f"{hour:02}:00"
+            home = _valid_hour(record, "home", marker)
+            if home is None:
+                home_hours.append(None)
+                base_hours.append(None)
                 continue
+
             if ev_in_home_load is True:
-                ev = _valid_hour(record, "ev", h)
-                if ev is None:
-                    hours.append(None)
+                ev = _valid_hour(record, "ev", marker)
+                if ev is None or ev > home + 0.2:
+                    if ev is not None:
+                        inconsistent_hours += 1
+                    home_hours.append(None)
+                    base_hours.append(None)
                     continue
-                house = max(0.0, house - ev)
-            hours.append(house)
-        if sum(value is not None for value in hours) < 22:
+                home = max(0.0, home - ev)
+            home_hours.append(home)
+
+            if heat_pump_in_home_load:
+                hp = _valid_hour(record, "heat_pump", marker)
+                if hp is None or hp > home + 0.2:
+                    if hp is not None:
+                        inconsistent_hours += 1
+                    base_hours.append(None)
+                    continue
+                base_hours.append(max(0.0, home - hp))
+            else:
+                base_hours.append(home)
+
+        if sum(value is not None for value in home_hours) < 22:
             skipped += 1
             continue
-        rows.append((day, hours))
+        rows.append((day, home_hours, base_hours))
     rows = rows[:MAX_TRAINING_DAYS]
 
     complete = len(rows)
     ready = complete >= min_days and ev_in_home_load is not None
-    profiles = {}
-    for kind in ("weekday", "weekend"):
-        subset = [hours for day, hours in rows if (day.weekday() >= 5) == (kind == "weekend")]
-        profile = []
-        for hour in range(24):
-            values = [d[hour] for d in subset if d[hour] is not None]
-            profile.append({
-                "hour": f"{hour:02}:00",
-                "p50_kwh": round(median(values), 3) if values else None,
-                "p90_kwh": round(_pctl(values, 0.9), 3) if values else None,
-                "sample_count": len(values),
-            })
-        profiles[kind] = profile
+    base_complete = sum(sum(x is not None for x in row[2]) >= 22 for row in rows)
     return {
-        "state": "gotowy" if ready else "ucze_sie" if ev_in_home_load is not None else "niepotwierdzona_topologia_ev",
+        "state": ("gotowy" if ready else "ucze_sie" if ev_in_home_load is not None
+                  else "niepotwierdzona_topologia_ev"),
         "complete_days": complete,
+        "baseline_complete_days": base_complete,
+        "baseline_ready": ready and base_complete >= min_days,
         "required_days": min_days,
         "skipped_days": skipped,
+        "inconsistent_hours": inconsistent_hours,
         "ev_in_home_load": ev_in_home_load,
-        "ev_excluded": ev_in_home_load is True or ev_in_home_load is False,
-        "profiles": profiles,
+        "ev_excluded": ev_in_home_load is not None,
+        "heat_pump_in_home_load": heat_pump_in_home_load,
+        "profiles": _profile(rows, 1),
+        "base_profiles": _profile(rows, 2),
         "note": (
-            "Prognoza statystyczna P50/P90; skoki pralki/kuchenki są nieprzewidywalne. "
-            "Dni z brakującymi pomiarami nie są udawane jako zerowe."
+            "Deye Load obejmuje dom, auto i pompę. Model bez EV zawiera pompę; "
+            "model bazowy nie zawiera EV ani pompy. Niepełne i sprzeczne "
+            "odczyty są pomijane, a nie traktowane jako zerowe."
         ),
     }

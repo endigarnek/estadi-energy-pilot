@@ -1,6 +1,6 @@
 """ESTADI Energy Pilot constants."""
 DOMAIN = "estadi_energy_pilot"
-INTEGRATION_VERSION = "0.3.1"
+INTEGRATION_VERSION = "0.3.2"
 CONF_SOLCAST_TODAY = "solcast_today"
 CONF_SOLCAST_TOMORROW = "solcast_tomorrow"
 CONF_SOLCAST_DAY3 = "solcast_day3"
@@ -45,7 +45,7 @@ CONF_PRICE_PEAK = "tariff_price_peak"
 CONF_PRICE_EVENING = "tariff_price_evening"
 DEFAULTS = {
     CONF_CAPACITY: 15.0,
-    CONF_EV_TOPOLOGY: "unknown",
+    CONF_EV_TOPOLOGY: "included",
     CONF_NOMINAL_KWH: 28,
     CONF_SOH: 100,
     CONF_MIN_SOC: 10,

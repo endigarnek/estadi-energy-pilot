@@ -6,13 +6,23 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.event import async_track_time_interval
 from datetime import timedelta
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_EV_TOPOLOGY
+from .house_learning import resolve_ev_topology
 from .coordinator import EnergyPilotCoordinator
 
 PLATFORMS = ["sensor", "binary_sensor", "button", "number"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    # Wiring confirmed by the site owner: Deye Load includes EV and heat pump.
+    # Migrate old 'unknown' choices without touching deliberately overridden
+    # 'excluded' entries. The options are persisted for future restarts.
+    stored = entry.options.get(CONF_EV_TOPOLOGY, entry.data.get(CONF_EV_TOPOLOGY))
+    chosen = resolve_ev_topology(stored)
+    if chosen != stored:
+        hass.config_entries.async_update_entry(
+            entry, options={**entry.options, CONF_EV_TOPOLOGY: chosen},
+        )
     coordinator = EnergyPilotCoordinator(hass, entry)
     await coordinator.async_initialize()
     await coordinator.async_config_entry_first_refresh()
