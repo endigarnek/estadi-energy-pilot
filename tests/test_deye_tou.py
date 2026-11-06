@@ -79,6 +79,17 @@ class TouTests(unittest.TestCase):
                          "niepotwierdzona_jednostka_mocy")
         self.assertNotEqual(result["status"], "odczytano_6_programow")
 
+    def test_unrecognized_tou_names_are_suggested_not_assumed(self):
+        items = [
+            state("number.deye_program_1_charge_current", 20, "A"),
+            state("select.deye_weird_tou_mode", "Grid"),
+        ]
+        result = module.inspect_tou(items, NOW)
+        self.assertEqual(result["status"], "nie_wykryto")
+        self.assertIn("number.deye_program_1_charge_current",
+                      result["inne_mozliwe_encje"])
+        self.assertFalse(result["automatyzacja_gotowa"])
+
     def test_no_device_entities_asks_for_mapping_not_guessing(self):
         result = module.inspect_tou([state("sensor.deye_load_power", 400, "W")], NOW)
         self.assertEqual(result["status"], "nie_wykryto")
