@@ -78,11 +78,7 @@ class RefreshNowButton(ButtonEntity):
 
 
 class ExportDashboardButton(ButtonEntity):
-    """On explicit press, export two Lovelace YAML files into HA /config.
-
-    Never auto-adds Lovelace resources, edits existing dashboards, controls
-    the inverter, or overwrites an earlier export/user customization.
-    """
+    """Export one stable set of managed Lovelace files (never touch owner edits)."""
     _attr_has_entity_name = True
     _attr_name = "Wygeneruj pulpit, miniwidżet i wykres 48h"
     _attr_icon = "mdi:view-dashboard-edit"
@@ -143,9 +139,13 @@ class ExportDashboardButton(ButtonEntity):
     async def async_press(self) -> None:
         ids, sources = self._map_entities()
         try:
-            script = await self.coordinator.hass.async_add_executor_job(
+            forecast = await self.coordinator.hass.async_add_executor_job(
                 Path(__file__).with_name("forecast_card.js").read_text, "utf-8",
             )
+            overview = await self.coordinator.hass.async_add_executor_job(
+                Path(__file__).with_name("overview_card.js").read_text, "utf-8",
+            )
+            script = forecast + "\n" + overview
             full = render_dashboard(ids, sources)
             mini = render_mini_widget(ids, sources)
             paths = await self.coordinator.hass.async_add_executor_job(
@@ -177,6 +177,8 @@ class ExportDashboardButton(ButtonEntity):
             "liczba_zewnetrznych_czujnikow": len(sources),
             "wygenerowano_o": datetime.now(timezone.utc).isoformat(),
             "wymaga_wklejenia_do_pulpitu": True,
+            "eksport_staly_bez_duplikatow": True,
+            "uwaga": "Pliki *-managed.yaml aktualizują się przy ponownym eksporcie. Wklejony ręcznie pulpit HA nie aktualizuje swojego układu z pliku.",
             "nie_modyfikuje_istniejacych_dashboardow": True,
             "nie_zmieniono_deye": True,
         }
