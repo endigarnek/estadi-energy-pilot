@@ -123,3 +123,32 @@ test("compact widget fits one card and preserves safe unknown states", () => {
   assert.match(markup, /Brak odczytu nie oznacza 0 kW/);
   assert.doesNotMatch(markup, /Bilans chwilowy/);
 });
+
+test("breakdown does not invent a plausible split when EV plus pump exceed Deye Load", () => {
+  const item = make({
+    pv: 500, home: 1000, ev: 900, pump: 800,
+    grid_status: "ok", health_status: "Działa", grid_import: 1, grid_limit: 15,
+  });
+  const html = item.shadowRoot.innerHTML;
+  assert.match(html, /Odczyty EV i pompy przekraczają Deye Load/);
+  assert.doesNotMatch(html, /class="usage" aria-label=/);
+});
+
+test("stale health probe is never presented as a healthy system", () => {
+  const item = make({
+    pv: 800, home: 1000, soc: 30,
+    grid_status: "ok", health_status: "Działa", grid_import: 1, grid_limit: 15,
+  });
+  const states = stateMap({
+    pv: 800, home: 1000, soc: 30,
+    grid_status: "ok", grid_import: 1, grid_limit: 15,
+  });
+  states["sensor.health_status"] = {
+    state: "Działa", last_updated: "2026-11-06T23:00:00+01:00",
+    attributes: {wiek_odswiezenia_s: 4000, przyczyna: "Odświeżanie zatrzymane"},
+  };
+  item.hass = {states};
+  assert.match(item.shadowRoot.innerHTML, /Odczyty mogą być nieaktualne/);
+  assert.match(item.shadowRoot.innerHTML, /Odświeżanie zatrzymane/);
+  assert.match(item.shadowRoot.innerHTML, /status warning/);
+});
