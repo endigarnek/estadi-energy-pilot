@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.3.9 (beta)
+# ESTADI Energy Pilot — wersja 0.4.0 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,18 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+## Wersja 0.4.0 — interaktywny wykres prognozy 48h na pulpicie
+
+Do pełnego pulpitu z 0.3.9 dodano nową, niezależną od zewnętrznych bibliotek **kartę Lovelace z wykresem SVG**. Na jednej osi czasu pokazuje **SOC baterii**, PV, cały dom z Deye Load, import/eksport, pompę ciepła i samochód EV, a tło oznacza tanie strefy taryf G12w/G13. Na telefonie można dotknąć godzinę, na desktopie wskazać myszą, a z klawiatury poruszać się strzałkami. Poszczególne serie można ukrywać. **SOC jest w %, pozostałe serie oznaczają kWh w godzinie, nie chwilowe kW.**
+
+Eksporter z przycisku **„Wygeneruj pulpit, miniwidżet i wykres 48h”** przygotowuje 3 pliki: `estadi-energy-pilot-dashboard.yaml`, `estadi-energy-pilot-mini.yaml` oraz `www/estadi-energy-pilot-forecast-v040.js`. Nie nadpisuje istniejących eksportów. ID sensora symulacji pobiera automatycznie z Entity Registry.
+
+**Wymagany jeden dodatkowy krok:** w Home Assistant → Ustawienia → Pulpity → Zasoby dodaj `/local/estadi-energy-pilot-forecast-v040.js` jako **Moduł JavaScript**, zanim wkleisz nowy dashboard. Nie jest potrzebna żadna dodatkowa integracja HACS ani zewnętrzny serwer. Pozostawiono także zapasową, natywną tabelę danych na wypadek niedostępności karty.
+
+**[Instrukcja instalacji karty i obsługi wykresu](docs/FORECAST_CARD_040.md)**.
+
+**Ograniczenia pozostają jawne:** przyszłe sesje EV są nieznane; silnik nadal pokazuje scenariusz bez dodatkowego ładowania z sieci, a nie wykonanie planu Deye; przy niepełnej prognozie wykres nie tworzy sztucznych wartości. **Nie uruchamia sterowania** i nie zastępuje ochrony 15 kW ani limitów BMS.
 
 ## Wersja 0.3.9 — pełny pulpit energii i miniwidżet HA
 
