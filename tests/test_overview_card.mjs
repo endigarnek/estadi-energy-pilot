@@ -61,7 +61,7 @@ test("unknown import is never represented as 0 kW or a full progress bar", () =>
   assert.match(html, /Grid Guard wymaga weryfikacji/);
   assert.match(html, /Grid Guard: blokada/);
   assert.match(html, /— \/ —/);
-  assert.match(html, /class="progress grid-progress"[^>]*><i style="width:0%"/);
+  assert.match(html, /class="progress grid-progress [^"]*"[^>]*><i style="width:0%"/);
 });
 
 test("updating entity values changes live card without generating YAML", () => {
