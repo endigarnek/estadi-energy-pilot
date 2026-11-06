@@ -1,193 +1,304 @@
-/* ESTADI Energy Pilot — live overview; read-only Home Assistant card. */
+/* ESTADI Energy Pilot — responsive, read-only home energy cockpit.
+ * All measurements come from configured Home Assistant entity IDs.
+ * Never infer power flow, executed charging or grid safety from these values.
+ */
 (() => {
   "use strict";
   const TAG = "estadi-energy-overview-card";
   if (customElements.get(TAG)) return;
-  const esc = (value) => String(value == null ? "" : value).replace(/[&<>"']/g, (char) =>
-    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
-  const number = (value) => {
-    if (value === null || value === undefined || value === "" || value === "unknown" ||
-        value === "unavailable") return null;
-    const parsed = Number(String(value).replace(",", "."));
-    return Number.isFinite(parsed) ? parsed : null;
+
+  const escape = (value) => String(value == null ? "" : value).replace(
+    /[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])
+  );
+  const numeric = (raw) => {
+    if (raw == null || raw === "" || typeof raw === "boolean") return null;
+    const normalized = String(raw).trim().replace(",", ".");
+    if (!normalized || /^(unknown|unavailable|none|nan|null)$/i.test(normalized)) return null;
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : null;
   };
-  const format = (value, places) => value === null ? "—" :
-    value.toLocaleString("pl-PL", {maximumFractionDigits: places});
-  const watts = (value) => {
-    if (value === null) return {value:"—", unit:""};
-    return Math.abs(value) >= 1000 ?
-      {value:format(value / 1000, 2), unit:"kW"} :
-      {value:format(value, 0), unit:"W"};
-  };
-  const kW = (value) => ({value: format(value, 2), unit: value === null ? "" : "kW"});
-  const pct = (value) => ({value:format(value, 0), unit: value === null ? "" : "%"});
-  class Overview extends HTMLElement {
+  const format = (n, max = 1) => n == null ? "—" : n.toLocaleString("pl-PL", {
+    maximumFractionDigits: max
+  });
+  const reading = (n, unit, decimal = 1) => ({
+    text: format(n, decimal), unit: n == null ? "" : unit
+  });
+  const power = (w) => w == null ? reading(null, "") :
+    Math.abs(w) >= 1000 ? reading(w / 1000, "kW", 2) : reading(w, "W", 0);
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+
+  class EnergyOverview extends HTMLElement {
     constructor() {
       super();
-      this.attachShadow({mode:"open"});
-      this._config = {};
+      this.attachShadow({mode: "open"});
       this._hass = null;
-      this._signature = "";
+      this._config = {};
+      this._signature = null;
     }
     static getStubConfig() { return {}; }
-    getCardSize() { return 12; }
-    getGridOptions() { return {columns:"full", rows:"auto"}; }
+    getCardSize() { return 11; }
+    getGridOptions() { return {columns: "full", rows: "auto"}; }
     setConfig(config) {
       this._config = config || {};
-      this._signature = "";
+      this._signature = null;
       this._render();
     }
     set hass(hass) {
       this._hass = hass;
-      if (!hass || !this._config) return;
-      const keys = Object.keys(this._config).filter((key) => key.startsWith("entity_"));
-      const signature = keys.map((key) => {
-        const s = hass.states[this._config[key]];
-        return s ? this._config[key] + ":" + s.state + ":" + s.last_updated : "missing:" + key;
+      if (!hass || !hass.states) return;
+      const signature = Object.keys(this._config).filter((key) =>
+        key.startsWith("entity_")).map((key) => {
+        const state = hass.states[this._config[key]];
+        return key + ":" + (state ? state.state + ":" + state.last_updated : "missing");
       }).join("|");
       if (signature !== this._signature) {
         this._signature = signature;
         this._render();
       }
     }
-    _state(key) {
+    _entity(key) {
       const id = this._config["entity_" + key];
-      return id && this._hass && this._hass.states[id] ?
-        this._hass.states[id].state : null;
+      return id && this._hass && this._hass.states ?
+        this._hass.states[id] || null : null;
     }
-    _num(key) { return number(this._state(key)); }
-    _metric(name, symbol, data, accent, detail) {
-      return '<div class="metric"><div class="metric-label"><span class="metric-icon ' +
-        accent + '">' + symbol + '</span>' + esc(name) + '</div>' +
-        '<div class="metric-value">' + esc(data.value) +
-        '<small>' + esc(data.unit) + '</small></div><div class="metric-sub">' + esc(detail) +
-        '</div></div>';
+    _state(key) { return this._entity(key)?.state ?? null; }
+    _num(key, lo = -Infinity, hi = Infinity) {
+      const value = numeric(this._state(key));
+      return value != null && value >= lo && value <= hi ? value : null;
+    }
+    _value(value) {
+      return '<span class="number">' + escape(value.text) +
+        (value.unit ? '<small>' + escape(value.unit) + '</small>' : "") + '</span>';
+    }
+    _stat(title, icon, color, value, detail) {
+      return '<article class="stat"><div class="stat-name"><span class="stat-icon ' +
+        color + '"><ha-icon icon="' + icon + '"></ha-icon></span><span>' +
+        escape(title) + '</span></div>' +
+        '<div class="stat-reading">' + this._value(value) + '</div>' +
+        '<div class="stat-detail">' + escape(detail) + '</div></article>';
+    }
+    _bar(label, readingText, width, cssClass) {
+      return '<div class="bar-line"><span>' + escape(label) + '</span><strong>' +
+        escape(readingText) + '</strong></div>' +
+        '<div class="bar-track" role="img" aria-label="' +
+        escape(label + ": " + readingText) + '"><div class="bar-fill ' + cssClass +
+        '" style="width:' + clamp(width, 0, 100) + '%"></div></div>';
     }
     _render() {
       if (!this.shadowRoot) return;
-      const soc = this._num("soc"), pv = this._num("pv"), home = this._num("home");
-      const ev = this._num("ev"), pump = this._num("pump");
-      const importKw = this._num("grid_import"), headroom = this._num("grid_headroom");
-      const configuredLimit = this._num("grid_limit");
-      const gridLimit = configuredLimit !== null && configuredLimit > 0 ? configuredLimit : null;
-      const charge = this._num("smart_charge_power"), target = this._num("smart_charge_target");
-      const zone = this._state("tariff_zone"), nextCheap = this._state("next_cheap");
-      const health = this._state("health_status"), guard = this._state("grid_status");
-      const pctSoc = soc === null ? 0 : Math.max(0, Math.min(100, soc));
-      const pctGrid = importKw === null || gridLimit === null ? 0 : Math.max(0, Math.min(100, importKw / gridLimit * 100));
-      const statusText = !health || health === "unknown" || health === "unavailable" ?
-        "Brak potwierdzenia odczytów" :
-        /on|działa|ok|ready|true/i.test(health) ? "Odczyty aktywne" : "Sprawdź stan instalacji";
-      const guardWarning = !guard || guard === "unknown" || guard === "unavailable" ||
-        /blokad|brak|fail|error|stop|niesprawdz/i.test(guard);
-      const guardText = !guard || guard === "unknown" || guard === "unavailable" ?
-        "Brak wiarygodnego odczytu sieci" : esc(guard);
-      const isCheap = zone === "cheap";
-      const next = nextCheap && nextCheap !== "unknown" && nextCheap !== "unavailable" ?
+      const pv = this._num("pv", 0);
+      const home = this._num("home", 0);
+      const soc = this._num("soc", 0, 100);
+      const ev = this._num("ev", 0);
+      const pump = this._num("pump", 0);
+      const importKw = this._num("grid_import", 0);
+      const limit = this._num("grid_limit", 0.001);
+      const headroom = this._num("grid_headroom");
+      const charge = this._num("smart_charge_power", 0);
+      const target = this._num("smart_charge_target", 0, 100);
+      const zone = this._state("tariff_zone");
+      const nextCheap = this._state("next_cheap");
+      const health = this._state("health_status");
+      const guard = this._state("grid_status");
+      const healthDetails = this._entity("health_status")?.attributes || {};
+      const age = numeric(healthDetails.wiek_odswiezenia_s);
+      const stale = age !== null && age > 1800;
+      const healthy = health === "Działa" && !stale;
+      const guardUnconfirmed = !guard || guard === "unknown" || guard === "unavailable" ||
+        /blokad|brak|niezn|fail|error|stop|niesprawdz/i.test(guard);
+      const gridUnconfirmed = guardUnconfirmed || importKw === null || limit === null;
+      const problem = !healthy || gridUnconfirmed;
+      const healthLabel = stale ? "Odczyty mogą być nieaktualne" :
+        healthy ? "System działa" :
+        !health || health === "unknown" || health === "unavailable" ?
+          "Stan systemu nieznany" : "System: " + health;
+      const note = healthDetails.przyczyna != null ? String(healthDetails.przyczyna) : "";
+      const date = nextCheap && nextCheap !== "unknown" && nextCheap !== "unavailable" ?
         new Date(nextCheap) : null;
-      const nextText = next && Number.isFinite(next.getTime()) ?
-        next.toLocaleString("pl-PL",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "—";
+      const time = date && Number.isFinite(date.getTime()) ? date.toLocaleString("pl-PL", {
+        timeZone: "Europe/Warsaw", day: "2-digit", month: "2-digit",
+        hour: "2-digit", minute: "2-digit"
+      }) : "—";
+      const scale = Math.max(1, pv || 0, home || 0);
+      const pvShare = pv === null ? 0 : 100 * pv / scale;
+      const homeShare = home === null ? 0 : 100 * home / scale;
+      const evShare = home > 0 && ev !== null ? clamp(100 * ev / home, 0, 100) : 0;
+      const pumpShare = home > 0 && pump !== null ?
+        clamp(100 * pump / home, 0, 100 - evShare) : 0;
+      const remainder = clamp(100 - evShare - pumpShare, 0, 100);
+      const gridPct = importKw !== null && limit !== null ?
+        clamp(100 * importKw / limit, 0, 100) : 0;
+      const socPct = soc == null ? 0 : soc;
+      const socText = soc === null ? "—" : format(soc, 0) + "%";
+      const gridLimitText = limit === null ? "—" : format(limit, 2) + " kW";
+      const gridImportText = importKw === null ? "—" : format(importKw, 2) + " kW";
+      const guardLabel = guard && guard !== "unknown" && guard !== "unavailable" ?
+        String(guard) : "brak potwierdzonego odczytu";
+      const validSources = pv !== null && home !== null;
+
       this.shadowRoot.innerHTML =
-      '<style>' +
-      ':host{display:block;box-sizing:border-box;font-family:inherit;color:var(--primary-text-color,#162032)}' +
-      '*{box-sizing:border-box}ha-card{background:transparent;border:0;box-shadow:none;overflow:visible}' +
-      '.wrap{max-width:1500px;margin:auto;padding:clamp(12px,2vw,30px);display:grid;gap:18px}' +
-      '.top{background:linear-gradient(116deg,#102e34,#11252f 58%,#163c35);color:#f3faf7;' +
-      'padding:clamp(22px,3vw,40px);border-radius:25px;position:relative;overflow:hidden;display:flex;' +
-      'justify-content:space-between;align-items:flex-start;gap:24px;min-height:173px}' +
-      '.top:after{content:"";position:absolute;right:-60px;top:-170px;width:400px;height:400px;' +
-      'border:1px solid #ffffff24;border-radius:50%;pointer-events:none;box-shadow:0 0 0 55px #ffffff08,0 0 0 110px #ffffff05}' +
-      '.eyebrow{font-size:12px;letter-spacing:.19em;font-weight:700;color:#90dbc8}' +
-      'h1{font-size:clamp(27px,3vw,43px);line-height:1.12;letter-spacing:-.035em;margin:12px 0 11px;font-weight:750}' +
-      '.lead{font-size:14px;color:#c1d3d2;line-height:1.5;margin:0;max-width:640px}' +
-      '.tag{z-index:1;border:1px solid #ffffff44;background:#ffffff14;color:#e9f8f4;border-radius:50px;' +
-      'padding:11px 15px;font-size:12px;font-weight:650;white-space:nowrap}' +
-      '.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}' +
-      '.metric,.surface{background:var(--ha-card-background,var(--card-background-color,#fff));' +
-      'border:1px solid var(--divider-color,#e5eaf0);border-radius:21px;min-width:0}' +
-      '.metric{padding:20px 22px;min-height:154px}' +
-      '.metric-label{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;color:var(--secondary-text-color,#667085)}' +
-      '.metric-icon{width:30px;height:30px;border-radius:11px;display:grid;place-items:center;font-size:17px;font-weight:750}' +
-      '.solar{color:#b66c11;background:#f8e8cc}.home{color:#137a89;background:#d9f1f4}' +
-      '.battery{color:#197455;background:#d9f5e6}.grid{color:#6350ad;background:#eae5fa}' +
-      '.metric-value{font-size:clamp(26px,2.7vw,38px);font-weight:760;letter-spacing:-.04em;margin-top:17px;' +
-      'font-variant-numeric:tabular-nums;white-space:nowrap}' +
-      '.metric-value small{font-size:14px;margin-left:7px;color:var(--secondary-text-color,#667085);font-weight:550;letter-spacing:0}' +
-      '.metric-sub{font-size:12px;color:var(--secondary-text-color,#7b8795);margin-top:4px}' +
-      '.bottom{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);gap:14px}' +
-      '.surface{padding:23px;min-width:0}' +
-      '.surface h2{margin:0 0 18px;font-size:18px;font-weight:720;letter-spacing:-.02em}' +
-      '.progress-caption{display:flex;justify-content:space-between;gap:12px;margin:14px 0 10px;font-size:13px}' +
-      '.progress-caption strong{font-variant-numeric:tabular-nums}' +
-      '.track{height:11px;background:var(--secondary-background-color,#eef1f5);border-radius:30px;overflow:hidden}' +
-      '.fill{height:100%;border-radius:30px;background:linear-gradient(90deg,#22a06b,#77d1ab)}' +
-      '.fill.gridfill{background:linear-gradient(90deg,#5883d5,#cca34a)}' +
-      '.minor{font-size:12px;color:var(--secondary-text-color,#667085);line-height:1.6;margin-top:13px}' +
-      '.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin-top:19px}' +
-      '.small-tile{padding:15px;border-radius:15px;background:var(--secondary-background-color,#f4f6f9);min-width:0}' +
-      '.small-tile label{display:block;font-size:12px;color:var(--secondary-text-color,#667085);margin-bottom:5px}' +
-      '.small-tile b{font-size:19px;font-variant-numeric:tabular-nums}' +
-      '.row{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:12px 0;' +
-      'border-bottom:1px solid var(--divider-color,#e8edf2);font-size:13px}' +
-      '.row:last-child{border-bottom:0}.row strong{text-align:right;font-size:14px}' +
-      '.notice{background:var(--secondary-background-color,#f4f6f9);border-radius:14px;' +
-      'padding:13px 14px;font-size:12px;line-height:1.6;margin-top:17px;color:var(--secondary-text-color,#667085)}' +
-      '.warn{color:#b77b21}.statusline{font-size:13px;color:var(--secondary-text-color,#667085);margin:-3px 0 16px}' +
-      '@media(max-width:900px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}' +
-      '.bottom{grid-template-columns:1fr}}' +
-      '@media(max-width:540px){.wrap{padding:8px;gap:11px}.top{min-height:0;padding:24px;border-radius:20px;display:block}' +
-      '.tag{display:inline-block;margin-top:20px}.metrics{gap:9px}.metric{padding:15px;min-height:135px;border-radius:17px}' +
-      '.metric-label{font-size:11px;gap:6px}.metric-icon{width:24px;height:24px;font-size:14px}' +
-      '.metric-value{font-size:27px;margin-top:18px}.metric-value small{font-size:11px;margin-left:4px}' +
-      '.surface{padding:18px;border-radius:18px}.two{gap:9px}.small-tile{padding:12px}}' +
-      '</style>' +
-      '<ha-card><main class="wrap">' +
-      '<header class="top"><div><div class="eyebrow">ESTADI / ENERGY PILOT</div>' +
-      '<h1>Energia pod kontrolą.</h1>' +
-      '<p class="lead">Produkcja, zużycie, magazyn i przyłącze w jednym miejscu. ' +
-      'Wszystkie wartości odświeżają się wraz z odczytami Home Assistant.</p></div>' +
-      '<div class="tag">● Tryb doradczy · bez sterowania Deye</div></header>' +
-      '<section class="metrics">' +
-      this._metric("Fotowoltaika","☀",watts(pv),"solar","Aktualna produkcja PV") +
-      this._metric("Zużycie domu","⌂",watts(home),"home","Deye Load — obejmuje EV i pompę") +
-      this._metric("Magazyn energii","▰",pct(soc),"battery","Aktualny poziom naładowania") +
-      this._metric("Import z sieci","↧",kW(importKw),"grid","Nieznany odczyt ≠ 0 kW") +
-      '</section><section class="bottom">' +
-      '<article class="surface"><h2>Magazyn i obciążenie przyłącza</h2>' +
-      '<div class="progress-caption"><span>Poziom magazynu</span><strong>' + esc(pct(soc).value) + '%</strong></div>' +
-      '<div class="track"><div class="fill" style="width:' + pctSoc + '%"></div></div>' +
-      '<div class="progress-caption"><span>Import względem limitu przyłącza</span>' +
-      '<strong>' + esc(kW(importKw).value) + ' / ' +
-      esc(gridLimit === null ? '—' : format(gridLimit, 2)) + ' kW</strong></div>' +
-      '<div class="track"><div class="fill gridfill" style="width:' + pctGrid + '%"></div></div>' +
-      '<div class="minor ' + (guardWarning ? 'warn' : '') + '">Dostępny zapas: <strong>' + esc(kW(headroom).value) +
-      (headroom === null ? '' : ' kW') + '</strong>. ' + (guardWarning ? '⚠ Grid Guard: ' : 'Grid Guard: ') + guardText +
-      '. Wizualny wskaźnik nie zastępuje zabezpieczenia elektrycznego.</div>' +
-      '<div class="two"><div class="small-tile"><label>Ładowanie auta</label><b>' +
-      esc(watts(ev).value) + ' ' + esc(watts(ev).unit) + '</b></div>' +
-      '<div class="small-tile"><label>Pompa ciepła</label><b>' +
-      esc(watts(pump).value) + ' ' + esc(watts(pump).unit) + '</b></div></div>' +
-      '<div class="notice">Moc samochodu i pompy już zawiera się w Deye Load. ' +
-      'Nie sumujemy ich ponownie z zużyciem domu.</div></article>' +
-      '<article class="surface"><h2>Plan i stan systemu</h2>' +
-      '<div class="statusline">' + esc(statusText) + '</div>' +
-      '<div class="row"><span>Strefa taryfy</span><strong>' +
-      esc(zone === null || zone === "unknown" ? "Nieznana" : isCheap ? "Tania" : "Pozostała") +
-      '</strong></div>' +
-      '<div class="row"><span>Następne tanie okno</span><strong>' + esc(nextText) + '</strong></div>' +
-      '<div class="row"><span>Proponowana moc ładowania</span><strong>' +
-      esc(kW(charge).value) + (charge === null ? "" : " kW") + '</strong></div>' +
-      '<div class="row"><span>Docelowy SOC</span><strong>' +
-      esc(pct(target).value) + (target === null ? "" : "%") + '</strong></div>' +
-      '<div class="notice">To jest plan doradczy, nie polecenie wysłane do falownika. ' +
-      'Szczegóły prognozy 48h, ekonomii i diagnostyki są w osobnych zakładkach.</div>' +
-      '</article></section></main></ha-card>';
+        '<style>' +
+        ':host{display:block;color:var(--primary-text-color,#162032);font:inherit;--border:var(--divider-color,#e4e9ef);' +
+        '--muted:var(--secondary-text-color,#667589);--surface:var(--ha-card-background,var(--card-background-color,#fff));' +
+        '--subtle:var(--secondary-background-color,#f2f5f7)}' +
+        '*{box-sizing:border-box}ha-card{display:block;border:0;box-shadow:none;background:transparent}' +
+        '.shell{max-width:1450px;margin:0 auto;padding:clamp(8px,2vw,28px);display:grid;gap:16px}' +
+        '.hero{min-height:210px;background:linear-gradient(118deg,#102c31,#103d3c 65%,#1a4b3c);color:#f6fffc;' +
+        'border-radius:26px;position:relative;overflow:hidden;padding:clamp(25px,3vw,42px);display:flex;' +
+        'align-items:center;justify-content:space-between;gap:24px}' +
+        '.hero:before{content:"";position:absolute;width:320px;height:320px;border:1px solid #ffffff21;' +
+        'border-radius:50%;right:22px;top:-124px;box-shadow:0 0 0 48px #ffffff07,0 0 0 98px #ffffff04;pointer-events:none}' +
+        '.hero-copy{z-index:1}.eyebrow{color:#7fdfc2;font-size:11px;letter-spacing:.17em;font-weight:750}' +
+        'h1{font-size:clamp(29px,3.2vw,48px);letter-spacing:-.05em;line-height:1.05;margin:14px 0 12px;font-weight:750}' +
+        '.subtitle{color:#c4dad8;line-height:1.6;font-size:14px;max-width:580px;margin:0 0 18px}' +
+        '.chips{display:flex;gap:9px;flex-wrap:wrap}.chip{border:1px solid #ffffff38;border-radius:99px;padding:7px 11px;' +
+        'font-size:12px;background:#ffffff12;color:#f4fffc;display:inline-flex;gap:7px;align-items:center}' +
+        '.chip ha-icon{--mdc-icon-size:15px}.gauge{z-index:1;width:152px;height:152px;flex:0 0 152px;' +
+        'border-radius:50%;display:grid;place-items:center;background:conic-gradient(#7de7b4 var(--soc),#ffffff18 0);' +
+        'box-shadow:0 20px 60px #031b1d66;position:relative}' +
+        '.gauge:after{content:"";position:absolute;inset:12px;background:#143933;border-radius:50%}' +
+        '.gauge-inside{z-index:1;text-align:center;display:grid;gap:3px}.gauge-inside span{font-size:32px;' +
+        'letter-spacing:-.05em;font-weight:790}.gauge-inside small{font-size:11px;color:#b6d5c9}' +
+        '.gauge.unknown{background:conic-gradient(#819895 var(--soc),#ffffff18 0)}' +
+        '.status{border-radius:15px;display:flex;align-items:flex-start;gap:12px;padding:14px 17px;' +
+        'background:var(--surface);border:1px solid var(--border);font-size:13px;line-height:1.5}' +
+        '.status ha-icon{--mdc-icon-size:22px;color:#0b9b74;flex:none}.status.warning{border-color:#e4b67b;' +
+        'background:rgba(218,145,42,.07)}.status.warning ha-icon{color:#c38127}' +
+        '.status b{display:block;font-size:14px;margin-bottom:2px}.status small{font-size:12px;color:var(--muted)}' +
+        '.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}' +
+        '.stat,.panel{background:var(--surface);border:1px solid var(--border);border-radius:21px;min-width:0}' +
+        '.stat{padding:19px 20px;min-height:150px}.stat-name{display:flex;align-items:center;gap:10px;' +
+        'font-size:13px;font-weight:650;color:var(--muted)}.stat-icon{width:35px;height:35px;border-radius:11px;' +
+        'display:grid;place-items:center;flex:none}.stat-icon ha-icon{--mdc-icon-size:20px}' +
+        '.sun{background:#fff0d3;color:#b87514}.house{background:#d9f3f5;color:#167e8f}' +
+        '.battery{background:#dcf6e8;color:#18845c}.grid{background:#ebe6f9;color:#6955b5}' +
+        '.stat-reading{font-variant-numeric:tabular-nums;margin-top:17px}.stat-reading .number{font-size:' +
+        'clamp(27px,2.8vw,38px);font-weight:770;letter-spacing:-.055em;white-space:nowrap}' +
+        '.number small{font-size:14px;color:var(--muted);font-weight:550;margin-left:6px;letter-spacing:0}' +
+        '.stat-detail{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.45}' +
+        '.panels{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:14px}' +
+        '.panel{padding:clamp(18px,2vw,25px)}.panel h2{font-size:18px;font-weight:730;letter-spacing:-.02em;margin:0 0 15px}' +
+        '.balance{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,.52fr);' +
+        'align-items:center;gap:28px}.bar-line{display:flex;justify-content:space-between;align-items:center;' +
+        'gap:12px;font-size:13px;margin:16px 0 9px}.bar-line strong{font-variant-numeric:tabular-nums}' +
+        '.bar-track{height:14px;border-radius:20px;background:var(--subtle);overflow:hidden}' +
+        '.bar-fill{height:100%;border-radius:20px;transition:width .25s ease-out}' +
+        '.solar-fill{background:linear-gradient(90deg,#ffc967,#f2a326)}' +
+        '.house-fill{background:linear-gradient(90deg,#5ec5cf,#248ba9)}' +
+        '.usage{height:13px;border-radius:20px;background:var(--subtle);overflow:hidden;display:flex;margin-top:9px}' +
+        '.usage span{height:100%}.usage .ev{background:#7486d5}.usage .pump{background:#44b5a2}' +
+        '.usage .rest{background:#b9cdd1}.legend{display:flex;flex-wrap:wrap;gap:7px 18px;color:var(--muted);' +
+        'font-size:11px;margin-top:10px}.legend i{width:8px;height:8px;display:inline-block;border-radius:50%;' +
+        'background:#7486d5;margin-right:5px}.legend .pump-dot{background:#44b5a2}' +
+        '.legend .rest-dot{background:#b9cdd1}.aside{background:var(--subtle);padding:20px;border-radius:16px;' +
+        'font-size:13px;line-height:1.65}.aside b{display:block;font-size:15px;margin-bottom:7px}' +
+        '.aside p{margin:0;color:var(--muted)}.line{display:flex;align-items:center;justify-content:space-between;' +
+        'gap:12px;padding:13px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.5}' +
+        '.line:last-child{border-bottom:0}.line strong{text-align:right;max-width:55%;font-size:14px;' +
+        'font-weight:680;overflow-wrap:anywhere}.progress{height:11px;background:var(--subtle);border-radius:30px;' +
+        'overflow:hidden}.progress>i{display:block;height:100%;background:#46b88c;border-radius:30px}' +
+        '.progress.grid-progress>i{background:#6d89ca}.track-title{display:flex;justify-content:space-between;' +
+        'gap:12px;margin:12px 0 10px;font-size:13px}.track-title strong{font-variant-numeric:tabular-nums}' +
+        '.twocol{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:19px}' +
+        '.mini{border-radius:14px;background:var(--subtle);padding:14px;min-width:0}' +
+        '.mini span{display:block;font-size:11px;color:var(--muted);margin-bottom:6px}' +
+        '.mini strong{font-size:19px;font-variant-numeric:tabular-nums}' +
+        '.hint{font-size:12px;color:var(--muted);line-height:1.6;margin:13px 0 0}' +
+        '.attention{color:#b87922}.empty{color:var(--muted);font-size:12px;font-style:italic}' +
+        '@media(max-width:970px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}' +
+        '.panels{grid-template-columns:1fr}.balance{grid-template-columns:1fr;gap:12px}}' +
+        '@media(max-width:560px){.shell{padding:6px;gap:10px}.hero{padding:23px;border-radius:20px;min-height:0}' +
+        '.hero:before{right:-180px}.gauge{width:92px;height:92px;flex-basis:92px}.gauge:after{inset:8px}' +
+        '.gauge-inside span{font-size:21px}.gauge-inside small{font-size:9px}' +
+        '.hero{gap:7px}.eyebrow{font-size:10px}.subtitle{font-size:12px;margin-bottom:12px}' +
+        '.chips{gap:5px}.chip{font-size:10px;padding:6px 8px}.hero h1{font-size:30px}' +
+        '.metrics{gap:9px}.stat{padding:15px;min-height:130px;border-radius:17px}' +
+        '.stat-name{font-size:11px;gap:6px}.stat-icon{width:28px;height:28px;border-radius:9px}' +
+        '.stat-icon ha-icon{--mdc-icon-size:16px}.stat-reading .number{font-size:26px}' +
+        '.number small{font-size:11px;margin-left:4px}.panel{border-radius:17px;padding:17px}' +
+        '.twocol{gap:8px}.mini{padding:12px}.mini strong{font-size:16px}.status{padding:12px}}' +
+        '@media(max-width:355px){.gauge{display:none}.stat-reading .number{font-size:23px}}' +
+        '@media(prefers-reduced-motion:reduce){.bar-fill{transition:none}}' +
+        '</style>' +
+        '<ha-card><main class="shell">' +
+        '<header class="hero"><div class="hero-copy"><div class="eyebrow">ESTADI / ENERGY PILOT</div>' +
+        '<h1>Energia w Twoim domu.</h1>' +
+        '<p class="subtitle">Bieżące pomiary, magazyn i planowanie taryfowe. Wszystko czytelnie, w jednym miejscu.</p>' +
+        '<div class="chips"><span class="chip"><ha-icon icon="mdi:shield-lock-outline"></ha-icon>' +
+        'Tryb doradczy</span><span class="chip">Sterowanie Deye: wyłączone</span></div></div>' +
+        '<div class="gauge ' + (soc === null ? 'unknown' : '') + '" style="--soc:' +
+        socPct + '%" role="img" aria-label="Stan magazynu: ' + escape(socText) +
+        '"><div class="gauge-inside"><span>' + escape(socText) + '</span><small>Magazyn SOC</small></div></div>' +
+        '</header>' +
+        '<div class="status ' + (problem ? 'warning' : '') + '" role="status">' +
+        '<ha-icon icon="' + (problem ? 'mdi:alert-circle-outline' : 'mdi:check-circle-outline') +
+        '"></ha-icon><div><b>' + escape(healthLabel) + (gridUnconfirmed ? ' · Grid Guard wymaga weryfikacji' : '') +
+        '</b><small>' + (problem ?
+          'Wskazania są doradcze. Brak kalibracji lub pomiaru nie jest zerowym poborem.' :
+          'Odczyty aktywne; wizualny wskaźnik nie zastępuje zabezpieczeń fizycznych.') +
+        '</small>' + (note && !healthy ? '<div class="hint">' + escape(note) + '</div>' : '') +
+        '</div></div>' +
+        '<section class="metrics" aria-label="Najważniejsze odczyty">' +
+        this._stat('Fotowoltaika', 'mdi:solar-power', 'sun', power(pv), 'Produkcja chwilowa') +
+        this._stat('Cały dom', 'mdi:home-lightning-bolt-outline', 'house', power(home),
+          'Deye Load · zawiera EV i pompę') +
+        this._stat('Magazyn', 'mdi:battery-80', 'battery', reading(soc, '%', 0),
+          'Aktualny SOC') +
+        this._stat('Sieć · import', 'mdi:transmission-tower', 'grid', reading(importKw, 'kW', 2),
+          gridUnconfirmed ? 'Pomiar wymaga weryfikacji' : 'Potwierdzony pomiar Grid Guard') +
+        '</section><section class="panels">' +
+        '<article class="panel balance"><div><h2>Bilans chwilowy</h2>' +
+        this._bar('Fotowoltaika', power(pv).text + ' ' + power(pv).unit, pvShare, 'solar-fill') +
+        this._bar('Pobór Deye Load', power(home).text + ' ' + power(home).unit, homeShare, 'house-fill') +
+        (validSources ? '<div class="usage" aria-label="Udziały znanych odbiorników w Deye Load">' +
+          '<span class="ev" style="width:' + evShare + '%"></span>' +
+          '<span class="pump" style="width:' + pumpShare + '%"></span>' +
+          '<span class="rest" style="width:' + remainder + '%"></span></div>' :
+          '<div class="hint">Brak pełnego odczytu mocy.</div>') +
+        '<div class="legend"><span><i></i>EV</span><span><i class="pump-dot"></i>Pompa</span>' +
+        '<span><i class="rest-dot"></i>Reszta domu</span></div></div>' +
+        '<div class="aside"><b>Jak czytać bilans?</b><p>To porównanie mocy chwilowych, ' +
+        'nie wyliczenie kierunków przepływu. Nie przypisujemy energii do źródeł, ' +
+        'dopóki pomiary sieci i magazynu nie są potwierdzone. EV i pompa są już w Deye Load.</p></div></article>' +
+        '<article class="panel"><h2>Magazyn i przyłącze</h2>' +
+        '<div class="track-title"><span>Poziom magazynu</span><strong>' + escape(socText) + '</strong></div>' +
+        '<div class="progress" role="img" aria-label="SOC magazynu: ' + escape(socText) +
+        '"><i style="width:' + socPct + '%"></i></div>' +
+        '<div class="track-title"><span>Import względem limitu</span><strong>' +
+        escape(gridImportText) + ' / ' + escape(gridLimitText) + '</strong></div>' +
+        '<div class="progress grid-progress" role="img" aria-label="Obciążenie przyłącza: ' +
+        escape(gridImportText) + ' z limitu ' + escape(gridLimitText) + '">' +
+        '<i style="width:' + gridPct + '%"></i></div>' +
+        '<p class="hint ' + (gridUnconfirmed ? 'attention' : '') + '">Grid Guard: ' + escape(guardLabel) +
+        '. Dostępny zapas: ' + escape(headroom == null ? '—' : format(headroom, 2) + ' kW') +
+        '. To podgląd, nie fizyczne ograniczenie mocy.</p>' +
+        '<div class="twocol"><div class="mini"><span>Samochód EV</span><strong>' +
+        escape(power(ev).text) + ' ' + escape(power(ev).unit) + '</strong></div>' +
+        '<div class="mini"><span>Pompa ciepła</span><strong>' +
+        escape(power(pump).text) + ' ' + escape(power(pump).unit) + '</strong></div></div></article>' +
+        '<article class="panel"><h2>Plan ładowania</h2>' +
+        '<div class="line"><span>Stan systemu</span><strong>' + escape(healthLabel) + '</strong></div>' +
+        '<div class="line"><span>Taryfa</span><strong>' +
+        escape(zone === 'cheap' ? 'Tania strefa' :
+          zone === 'peak' || zone === 'evening' ? 'Droższa strefa' : 'Nieznana strefa') +
+        '</strong></div>' +
+        '<div class="line"><span>Następne tanie okno</span><strong>' + escape(time) + '</strong></div>' +
+        '<div class="line"><span>Sugerowana moc</span><strong>' +
+        escape(charge === null ? '—' : format(charge, 2) + ' kW') + '</strong></div>' +
+        '<div class="line"><span>Docelowy SOC</span><strong>' +
+        escape(target === null ? '—' : format(target, 0) + '%') + '</strong></div>' +
+        '<p class="hint">Propozycja nie została wysłana do falownika. ' +
+        'Prognoza 48h, koszty i dane serwisowe znajdują się w pozostałych zakładkach.</p>' +
+        '</article></section></main></ha-card>';
     }
   }
-  customElements.define(TAG, Overview);
+  customElements.define(TAG, EnergyOverview);
   window.customCards = window.customCards || [];
-  if (!window.customCards.some((card) => card.type === TAG)) {
-    window.customCards.push({type:TAG,name:"ESTADI — centrum energii",
-      description:"Nowoczesny podgląd PV, domu, magazynu, sieci i planu (tylko odczyt)",preview:true});
+  if (!window.customCards.some((item) => item.type === TAG)) {
+    window.customCards.push({
+      type: TAG, name: "ESTADI — Centrum energii",
+      description: "Responsywny bilans PV, Deye Load, magazynu i sieci; bez sterowania",
+      preview: true
+    });
   }
 })();
