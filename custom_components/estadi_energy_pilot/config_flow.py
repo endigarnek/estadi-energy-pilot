@@ -21,7 +21,7 @@ from .const import (
     CONF_FORECAST_SOLAR_ENTRY,
     CONF_NOMINAL_KWH, CONF_SOH, CONF_MIN_SOC, CONF_USER_MAX_SOC,
     CONF_CORRECTION, CONF_GRID_POWER, CONF_GRID_LIMIT, CONF_GRID_BUFFER,
-    CONF_GRID_IMPORT_SIGN, CONF_CHARGE_LIMIT, CONF_PREFERRED_CHARGE,
+    CONF_GRID_IMPORT_SIGN, CONF_BATTERY_POWER, CONF_BATTERY_CHARGE_SIGN, CONF_CHARGE_LIMIT, CONF_PREFERRED_CHARGE,
     CONF_TARIFF, CONF_PRICE_CHEAP, CONF_PRICE_PEAK, CONF_PRICE_EVENING,
 )
 from .discovery import detect_entities, missing_required_sources
@@ -30,7 +30,7 @@ from .forecast_entry import available_entries, preferred_entry, forecast_config_
 
 ENTITY_KEYS = (
     CONF_PV_POWER, CONF_HOME_POWER, CONF_HEAT_PUMP_POWER, CONF_EV_POWER,
-    CONF_GRID_POWER, CONF_BATTERY_SOC, CONF_OUTDOOR_TEMP, CONF_SOLCAST_TODAY,
+    CONF_GRID_POWER, CONF_BATTERY_POWER, CONF_BATTERY_SOC, CONF_OUTDOOR_TEMP, CONF_SOLCAST_TODAY,
     CONF_SOLCAST_TOMORROW, CONF_SOLCAST_DAY3, CONF_WEATHER,
 )
 
@@ -202,6 +202,7 @@ class PilotOptionsFlow(OptionsFlow):
                 1: "Wartość dodatnia oznacza import",
                 -1: "Wartość ujemna oznacza import",
             }),
+            vol.Required(CONF_BATTERY_CHARGE_SIGN, default=values[CONF_BATTERY_CHARGE_SIGN]): vol.In({0: 'Nieznany', 1: 'Dodatni = ładowanie', -1: 'Ujemny = ładowanie'}),
             vol.Required(CONF_CHARGE_LIMIT, default=values[CONF_CHARGE_LIMIT]): numeric(1, 20, 0.5),
             vol.Required(CONF_PREFERRED_CHARGE, default=values[CONF_PREFERRED_CHARGE]): numeric(1, 20, 0.5),
             vol.Required(CONF_TARIFF, default=values[CONF_TARIFF]): vol.In(("G12w", "G13")),
