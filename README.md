@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.2.2
+# ESTADI Energy Pilot — wersja 0.2.3
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -24,9 +24,9 @@ HACS może pobierać zawartość domyślnej gałęzi repozytorium także bez wyd
 
 **Ważne:** integracja nie ma jeszcze dopracowanego interfejsu z wykresem ani własnego automatycznego uczenia się. Jest to MVP do sprawdzenia obliczeń na Twojej instalacji, nie gotowy sterownik.
 
-## Solcast — wymagane dane
+## Solcast — opcjonalne źródło zapasowe
 
-Integracja jest przygotowana do współpracy z [BJReplay/ha-solcast-solar](https://github.com/BJReplay/ha-solcast-solar). W jej konfiguracji włącz szczegółowe atrybuty **detailedForecast** (lub **detailedHourly**) dziennych sensorów `Forecast Today` oraz `Forecast Tomorrow`. Jeżeli brak szczegółowych danych, nasza integracja zasygnalizuje brak prognozy i nie wyliczy celu SOC.
+Jeżeli wybierasz alternatywny Solcast zamiast zainstalowanego Forecast.Solar, integracja współpracuje z [BJReplay/ha-solcast-solar](https://github.com/BJReplay/ha-solcast-solar). W jej konfiguracji włącz szczegółowe atrybuty **detailedForecast** (lub **detailedHourly**) dziennych sensorów `Forecast Today` oraz `Forecast Tomorrow`. Jeżeli brak szczegółowych danych, nasza integracja zasygnalizuje brak prognozy i nie wyliczy celu SOC.
 
 Dla każdej pozycji `pv_estimate` oznacza średnią **moc w kW** przez okres, a nie kWh.
 
@@ -41,6 +41,20 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 - Brak aktualnej prognozy lub pomiarów uniemożliwia wyliczenie zalecanego ładowania.
 
 
+
+## Wersja 0.2.3 — Forecast.Solar bez dodatkowych instalacji
+
+**Nie trzeba już instalować Solcast.** Jeżeli w Home Assistant masz wbudowaną integrację **Forecast.Solar**, moduł automatycznie pobiera jej godzinową prognozę przez natywną akcję `forecast_solar.get_forecast` (`resolution: hourly`). Zwracane `wh_period` przeliczamy z Wh na kWh na godzinę. Na podstawie tych danych silnik planuje SOC i zachowuje prognozy w historii.
+
+- Jeśli jest tylko jedna konfiguracja Forecast.Solar, wybierana jest automatycznie.
+- Jeżeli jest kilka konfiguracji, najpierw sprawdzamy właściciela sensora `sensor.energy_production_today`. Jeśli to nie daje jednoznacznego wyniku, kreator pokazuje **jedno pole wyboru konfiguracji** — nie sumujemy nieznanych źródeł, aby uniknąć podwójnego liczenia.
+- Wcześniej skonfigurowany Solcast pozostaje obsługiwany jako zapasowe źródło prognoz.
+- Brak działania `forecast_solar.get_forecast` lub niedostępne dane skutkują komunikatem, a nie fikcyjną prognozą 0 kWh.
+- Wersja doradcza — **nie wysyła poleceń do Deye ani ładowarki**.
+
+**Aktualizacja:** HACS → ESTADI Energy Pilot → menu → Pobierz ponownie → pełny restart Home Assistant → odświeżenie przeglądarki. Nowy formularz wyświetla informację, że wybiera Forecast.Solar. Pozostałe wymagane dane to m.in. faktyczna użyteczna pojemność magazynu oraz temperatura na zewnątrz.
+
+**Ważne:** dostępność akcji zależy od wersji Home Assistanta. Wersja nie potwierdza jeszcze działania na Twoim urządzeniu; jeśli po aktualizacji system wyświetla błąd o braku akcji, sprawdź aktualizację Home Assistanta zamiast instalowania Solcast.
 
 ## Nowość 0.2.2 — krótki kreator, bez szukania encji
 
