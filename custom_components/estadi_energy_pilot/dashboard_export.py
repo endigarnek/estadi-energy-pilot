@@ -474,9 +474,7 @@ def _interactive_forecast_card(entity_id: str) -> str:
             + "  default_series:\n"
             + "    - soc\n"
             + "    - pv\n"
-            + "    - dom\n"
             + "    - import\n"
-            + "    - pompa\n"
             + "    - auto\n")
 
 
