@@ -128,12 +128,27 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         }
         soc = self._entity_value(CONF_BATTERY_SOC)
         outdoor_temp = self._entity_value(CONF_OUTDOOR_TEMP)
+        temperature_source = "sensor" if outdoor_temp is not None else "weather"
+        weather_entity = selected.get(CONF_WEATHER)
+        if outdoor_temp is None and weather_entity:
+            weather_state = self.hass.states.get(weather_entity)
+            if weather_state is not None and weather_state.state not in ("unknown", "unavailable"):
+                temp_unit = weather_state.attributes.get("temperature_unit", "°C")
+                try:
+                    weather_temp = float(weather_state.attributes.get("temperature"))
+                except (TypeError, ValueError):
+                    weather_temp = None
+                if weather_temp is not None and isfinite(weather_temp):
+                    if temp_unit == "°F":
+                        weather_temp = (weather_temp - 32) * 5 / 9
+                    if temp_unit in ("°C", "°F") and -70 <= weather_temp <= 65:
+                        outdoor_temp = weather_temp
+
         if soc is None or outdoor_temp is None or not 0 <= soc <= 100:
             return {**history, "available": False,
                     "reason": "Brak prawidłowego SOC lub temperatury zewnętrznej"}
 
         temperatures = []
-        weather_entity = selected.get(CONF_WEATHER)
         if weather_entity:
             try:
                 response = await self.hass.services.async_call(
@@ -168,6 +183,6 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                     "reason": "Błędne ustawienia — sprawdź konfigurację"}
         plan.update(history)
         plan["available"] = True
-        plan["temperature_source"] = "hourly" if temperatures else "current"
+        plan["temperature_source"] = "hourly" if temperatures else temperature_source
         plan["current_soc"] = round(soc, 1)
         return plan
