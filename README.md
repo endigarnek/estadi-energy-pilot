@@ -42,6 +42,21 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 
 
 
+## Home Assistant 2026.11 i nowsze: Marketplace zamiast HACS
+
+Od **Home Assistant 2026.11** HACS nie jest już osobnym dodatkiem: jest częścią systemu jako **Ustawienia → Marketplace**. Po aktualizacji stary HACS jest usuwany, a już **zainstalowane** repozytoria i integracje są automatycznie migrowane.
+
+Jeżeli masz Home Assistant 2026.11 lub nowszy:
+1. Otwórz **Ustawienia → Marketplace**.
+2. Sprawdź kartę **Zainstalowane / Installed** i wyszukaj `ESTADI Energy Pilot`. Jeśli tam jest, wybierz **Zaktualizuj** i po aktualizacji uruchom ponownie HA.
+3. Jeśli go nie ma: wybierz **Dodaj z linku / Add from link** i wpisz `https://github.com/endigarnek/estadi-energy-pilot`.
+4. Otwórz stronę repozytorium, wybierz **Instaluj / Install**, sprawdź wersję i ponownie wybierz **Instaluj**. Samo dodanie linku to nie jest instalacja.
+5. Po instalacji sprawdź sensor **Wersja integracji** w ustawieniach integracji. Oczekiwane `0.2.4`.
+
+Marketplace wymaga połączenia z GitHub do zarządzania własnymi repozytoriami. Możesz autoryzować publiczny odczyt w **Ustawienia → Marketplace → połącz GitHub**, jeżeli pojawi się taki komunikat.
+
+**Starszy Home Assistant 2026.10 lub wcześniejszy:** stosuj instrukcję HACS poniżej, łącznie z krokiem **Pobierz** po dodaniu repozytorium.
+
 ## Jeśli repozytorium znika z HACS lub wczytuje się stary kreator
 
 **Ważne:** samo dodanie adresu do `Custom repositories` / `Własne repozytoria` nie jest instalacją! HACS może **usunąć niepobrane własne repozytorium po restarcie**. Po dodaniu koniecznie trzeba wejść w kartę ESTADI Energy Pilot i kliknąć **Pobierz / Download**, poczekać na potwierdzenie instalacji i dopiero wtedy uruchomić ponownie cały Home Assistant.
