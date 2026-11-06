@@ -14,6 +14,8 @@ from homeassistant.util import dt as dt_util
 from .const import *  # noqa: F403
 from .engine import get_all_plans, parse_pv_slots, parse_weather_slots
 from .history import HistoryBook
+from .forecast_source import parse_forecast_solar_response
+from .forecast_entry import preferred_entry
 from .discovery import detect_entities
 
 _LOGGER = logging.getLogger(__name__)
@@ -68,7 +70,36 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             state = self.hass.states.get(entity_id) if entity_id else None
             if state is not None:
                 attrs.append(dict(state.attributes))
-        self.history.lock_forecast(now, parse_pv_slots(*attrs))
+        pv_slots = parse_pv_slots(*attrs)
+        forecast_source = "Solcast" if pv_slots else "Brak prognozy"
+        forecast_error = None
+
+        # Prefer the user's existing Forecast.Solar integration. Its service
+        # returns cached hourly data; no API key and no additional provider.
+        forecast_entry_id = preferred_entry(
+            self.hass, stored=selected.get(CONF_FORECAST_SOLAR_ENTRY)
+        )
+        if forecast_entry_id:
+            if self.hass.services.has_service("forecast_solar", "get_forecast"):
+                try:
+                    response = await self.hass.services.async_call(
+                        "forecast_solar", "get_forecast",
+                        {"config_entry": forecast_entry_id, "resolution": "hourly"},
+                        blocking=True, return_response=True,
+                    )
+                    forecast_slots = parse_forecast_solar_response(response)
+                    if forecast_slots:
+                        pv_slots = forecast_slots
+                        forecast_source = "Forecast.Solar"
+                    else:
+                        forecast_error = "Forecast.Solar nie zwrócił danych godzinowych"
+                except Exception as err:
+                    _LOGGER.warning("Forecast.Solar hourly forecast unavailable: %s", err)
+                    forecast_error = "Nie udało się pobrać prognozy Forecast.Solar"
+            else:
+                forecast_error = "Zaktualizuj Home Assistant: brak akcji Forecast.Solar get_forecast"
+
+        self.history.lock_forecast(now, pv_slots, source=forecast_source)
         self.history.sample(
             now,
             pv=self._power_w(CONF_PV_POWER),
@@ -86,6 +117,8 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
              if point["hour"] == last_hour_key), None
         )
         history = {
+            "forecast_source": forecast_source,
+            "forecast_error": forecast_error,
             "history_last_hour": last_hour_comparison,
             "history_last_hour_at": last_hour.replace(minute=0, second=0, microsecond=0).isoformat(),
             "history_today": self.history.summary(date_today, today=date_today),
@@ -113,7 +146,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
 
         try:
             plan = get_all_plans(
-                now=now, pv_attrs=attrs, temps=temperatures,
+                now=now, pv_attrs=attrs, pv_slots=pv_slots, temps=temperatures,
                 current_temp=outdoor_temp, soc=soc,
                 capacity_kwh=float(selected[CONF_CAPACITY]),
                 baseload_w=float(selected[CONF_BASE_W]),
