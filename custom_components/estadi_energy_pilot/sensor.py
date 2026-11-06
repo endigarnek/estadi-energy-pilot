@@ -35,6 +35,8 @@ SENSORS = (
                            accessor=lambda d: {"night": "Noc", "afternoon": "Popołudnie", None: "Droga energia"}[d["charge_window"]]),
     PilotSensorDescription(key="status", name="Stan obliczeń",
                            accessor=lambda d: (
+                               d.get("forecast_error") if
+                               d.get("forecast_error") and not d["night"].can_calculate else
                                "Brak prognozy na noc" if not d["night"].can_calculate else
                                "Brak prognozy na popołudnie" if not d["afternoon"].can_calculate else
                                "Plan gotowy")),
@@ -79,6 +81,8 @@ class PilotSensor(CoordinatorEntity, SensorEntity):
             "popoludnie_uzasadnienie": data["afternoon"].reason,
             "prognoza_temperatury": data["temperature_source"],
             "odczytane_przedzialy_pv": data["forecast_intervals"],
+            "zrodlo_prognozy": data.get("forecast_source"),
+            "blad_prognozy": data.get("forecast_error"),
         }
 
 
