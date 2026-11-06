@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.2.6
+# ESTADI Energy Pilot — wersja 0.2.7
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -41,6 +41,30 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 - Brak aktualnej prognozy lub pomiarów uniemożliwia wyliczenie zalecanego ładowania.
 
 
+
+## Nowość 0.2.7 — czy system działa? Diagnostyka i odświeżanie
+
+Integracja pokazuje odrębnie **czy aktualizuje się**, a także **czy potrafi sporządzić poprawny plan**. Sam fakt odczytania mocy ładowarki nie oznacza jeszcze poprawnej prognozy PV.
+
+**Nowe encje na urządzeniu ESTADI Energy Pilot:**
+
+| Encja (nazwa widoczna) | Znaczenie |
+|---|---|
+| **Stan systemu** | Działa / Ograniczony / Błąd / Brak odświeżania |
+| **Ostatnie odświeżenie** | Czas ostatniej zakończonej aktualizacji |
+| **Ostatni poprawny plan** | Czas, kiedy udało się wyliczyć obydwa cele SOC z prawidłową prognozą |
+| **Liczba odświeżeń** | Ile razy uruchomiono odświeżenie |
+| **Liczba błędów** | Nieoczekiwane wyjątki podczas aktualizacji |
+| **Czas ostatniego odświeżenia** | Czas wykonania w milisekundach |
+| **Odśwież teraz** | Przycisk wymuszający pobranie danych i ponowne obliczenie |
+
+Aktualizacje odbywają się automatycznie **co 15 minut**. Dodatkowy watchdog co minutę aktualizuje status: jeśli **ponad 35 minut** nie zakończyło się odświeżenie, pokaże **Brak odświeżania**, nawet jeśli ostatni wynik był poprawny.
+
+**Dziennik ostatnich zdarzeń** jest w atrybutach sensora **Stan systemu**. Pokazuje czas, poziom, kod i powód, m.in. brak SOC, problem z temperaturą i błąd prognozy. Wewnętrzny dziennik przechowuje maksymalnie **100 ostatnich zdarzeń** w `.storage`, z czego **20 ostatnich** jest widocznych w atrybutach sensora. Ręczne odświeżenie również zostawia wpis. Kolejne identyczne błędy nie spamują dziennika, ale licznik i czas ostatniego odświeżenia nadal się zmieniają.
+
+**Jak sprawdzić działanie:** po aktualizacji z Marketplace/HACS i restarcie wybierz **Ustawienia → Urządzenia i usługi → ESTADI Energy Pilot → urządzenie**. Otwórz **Stan systemu** i zobacz `przyczyna` oraz `dziennik_ostatnich_zdarzen`. Kliknij **Odśwież teraz**; po zakończeniu wartość **Ostatnie odświeżenie** powinna się zmienić. Jeśli nadal jest błąd, dziennik poda przyczynę. Nie trzeba usuwać integracji ani ponownie wybierać encji.
+
+Bezpieczeństwo: przycisk **nie ładuje magazynu i nie zmienia ustawień Deye**. Tylko ponownie odczytuje źródła i oblicza zalecenia.
 
 ## Wersja 0.2.6 — diagnostyka przy braku SOC lub temperatury
 
