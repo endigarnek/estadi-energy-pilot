@@ -2,6 +2,12 @@
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
+## Aktualizacje z GitHub — bez ręcznych plików ZIP
+
+Dla Home Assistant 2026.11+ integracja może być śledzona przez **Ustawienia → Marketplace**; w starszych wersjach przez **HACS**. Po opublikowaniu nowego kodu w `main` menedżer aktualizacji wykrywa nową wersję. Samo wykrycie **nie oznacza automatycznej instalacji**.
+
+Dodałem gotowy, opcjonalny [schemat automatycznej aktualizacji ESTADI](blueprints/estadi_energy_pilot_auto_update.yaml). Wybierz w Home Assistant encję `update.` odpowiadającą ESTADI; schemat zainstaluje nową wersję nocą i może opcjonalnie uruchomić Home Assistant ponownie. Domyślnie restart jest wyłączony. Instrukcja: **[AUTO_UPDATES.md](docs/AUTO_UPDATES.md)**.
+
 ## Instalacja przez HACS — bez kopiowania plików
 
 1. W Home Assistant otwórz **HACS → Integracje**.
