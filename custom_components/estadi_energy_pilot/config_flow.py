@@ -19,6 +19,10 @@ from .const import (
     CONF_PV_DISCOUNT, CONF_EFFICIENCY, CONF_MARGIN, CONF_MILD_W, CONF_COLD_W,
     CONF_NIGHT_START, CONF_NIGHT_END, CONF_MIDDAY_START, CONF_AFTERNOON_END,
     CONF_FORECAST_SOLAR_ENTRY,
+    CONF_NOMINAL_KWH, CONF_SOH, CONF_MIN_SOC, CONF_USER_MAX_SOC,
+    CONF_CORRECTION, CONF_GRID_POWER, CONF_GRID_LIMIT, CONF_GRID_BUFFER,
+    CONF_GRID_IMPORT_SIGN, CONF_CHARGE_LIMIT, CONF_PREFERRED_CHARGE,
+    CONF_TARIFF, CONF_PRICE_CHEAP, CONF_PRICE_PEAK, CONF_PRICE_EVENING,
 )
 from .discovery import detect_entities, missing_required_sources
 from .forecast_entry import available_entries, preferred_entry, forecast_config_schema
@@ -26,7 +30,7 @@ from .forecast_entry import available_entries, preferred_entry, forecast_config_
 
 ENTITY_KEYS = (
     CONF_PV_POWER, CONF_HOME_POWER, CONF_HEAT_PUMP_POWER, CONF_EV_POWER,
-    CONF_BATTERY_SOC, CONF_OUTDOOR_TEMP, CONF_SOLCAST_TODAY,
+    CONF_GRID_POWER, CONF_BATTERY_SOC, CONF_OUTDOOR_TEMP, CONF_SOLCAST_TODAY,
     CONF_SOLCAST_TOMORROW, CONF_SOLCAST_DAY3, CONF_WEATHER,
 )
 
@@ -87,7 +91,7 @@ class EstadiEnergyPilotConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             schema[vol.Required(CONF_FORECAST_SOLAR_ENTRY)] = vol.In(
                 forecast_config_schema(self.hass)
             )
-        schema[vol.Required(CONF_CAPACITY)] = numeric(1, 200, 0.1)
+        schema[vol.Required(CONF_NOMINAL_KWH, default=28)] = numeric(1, 200, 0.1)
         schema[vol.Required(CONF_BASE_W, default=DEFAULTS[CONF_BASE_W])] = numeric(0, 20000, 50)
 
         known = [detected[key] for key in ENTITY_KEYS if key in detected]
@@ -130,9 +134,12 @@ class PilotOptionsFlow(OptionsFlow):
     def _quick_schema(self):
         values = {**DEFAULTS, **self.config_entry.data, **self.config_entry.options}
         return vol.Schema({
-            vol.Required(CONF_CAPACITY, default=values[CONF_CAPACITY]): numeric(1, 200, 0.1),
-            vol.Required(CONF_BASE_W, default=values[CONF_BASE_W]): numeric(0, 20000, 50),
-            vol.Required(CONF_RESERVE, default=values[CONF_RESERVE]): numeric(5, 80),
+            vol.Required(CONF_NOMINAL_KWH, default=values[CONF_NOMINAL_KWH]): numeric(1, 200, 0.1),
+            vol.Required(CONF_MIN_SOC, default=values[CONF_MIN_SOC]): numeric(0, 95, 1),
+            vol.Required(CONF_USER_MAX_SOC, default=values[CONF_USER_MAX_SOC]): numeric(10, 100, 1),
+            vol.Required(CONF_GRID_LIMIT, default=values[CONF_GRID_LIMIT]): numeric(1, 40, 0.1),
+            vol.Required(CONF_TARIFF, default=values[CONF_TARIFF]): vol.In(("G12w", "G13")),
+            vol.Required(CONF_CORRECTION, default=values[CONF_CORRECTION]): numeric(-15, 15, 1),
             vol.Optional("advanced", default=False): bool,
         })
 
