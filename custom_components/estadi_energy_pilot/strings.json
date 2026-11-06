@@ -13,7 +13,11 @@
           "outdoor_temp": "Temperatura na zewnątrz (°C)",
           "weather_entity": "Pogoda z prognozą godzinową (opcjonalna)",
           "battery_capacity_kwh": "Użyteczna pojemność magazynu (kWh)",
-          "base_load_w": "Średnia moc domu BEZ pompy ciepła (W)"
+          "base_load_w": "Średnia moc domu BEZ pompy ciepła (W)",
+          "pv_power": "Deye: bieżąca moc paneli PV (W)",
+          "home_power": "Deye: bieżąca moc zużycia domu (W)",
+          "heat_pump_power": "Pompa ciepła: rzeczywista moc (W)",
+          "ev_power": "Ładowarka EV: poprawna rzeczywista moc (W)"
         }
       }
     }
@@ -35,7 +39,11 @@
           "night_start": "Początek taniej strefy nocnej (godzina)",
           "night_end": "Koniec taniej strefy nocnej (godzina)",
           "midday_start": "Początek taniej strefy popołudniowej (godzina)",
-          "afternoon_end": "Koniec taniej strefy popołudniowej (godzina)"
+          "afternoon_end": "Koniec taniej strefy popołudniowej (godzina)",
+          "pv_power": "Deye: bieżąca moc paneli PV (W)",
+          "home_power": "Deye: bieżąca moc zużycia domu (W)",
+          "heat_pump_power": "Pompa ciepła: rzeczywista moc (W)",
+          "ev_power": "Ładowarka EV: poprawna rzeczywista moc (W)"
         }
       }
     },

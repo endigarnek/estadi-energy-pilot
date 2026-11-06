@@ -1,0 +1,21 @@
+name: Walidacja HACS
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sprawdzenie zgodności HACS
+        uses: hacs/action@main
+        with:
+          category: integration
+          # Kontrole metadanych i brandingu katalogu — nie blokują własnego repozytorium.
+          # Pełna walidacja bez ignore będzie potrzebna przed dodaniem do katalogu.
+          ignore: "brands,license,description,topics"

@@ -14,6 +14,7 @@ from homeassistant.helpers.selector import (
 from .const import (
     DOMAIN, DEFAULTS, CONF_SOLCAST_TODAY, CONF_SOLCAST_TOMORROW,
     CONF_SOLCAST_DAY3, CONF_BATTERY_SOC, CONF_OUTDOOR_TEMP, CONF_WEATHER,
+    CONF_PV_POWER, CONF_HOME_POWER, CONF_HEAT_PUMP_POWER, CONF_EV_POWER,
     CONF_CAPACITY, CONF_BASE_W, CONF_RESERVE, CONF_MAX_SOC,
     CONF_PV_DISCOUNT, CONF_EFFICIENCY, CONF_MARGIN, CONF_MILD_W, CONF_COLD_W,
     CONF_NIGHT_START, CONF_NIGHT_END, CONF_MIDDAY_START, CONF_AFTERNOON_END,
@@ -45,6 +46,10 @@ class EstadiEnergyPilotConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_BATTERY_SOC): entity_field(),
             vol.Required(CONF_OUTDOOR_TEMP): entity_field(),
             vol.Optional(CONF_WEATHER): entity_field("weather"),
+            vol.Optional(CONF_PV_POWER): entity_field(),
+            vol.Optional(CONF_HOME_POWER): entity_field(),
+            vol.Optional(CONF_HEAT_PUMP_POWER): entity_field(),
+            vol.Optional(CONF_EV_POWER): entity_field(),
             vol.Required(CONF_CAPACITY, default=DEFAULTS[CONF_CAPACITY]): numeric(1, 200, 0.1),
             vol.Required(CONF_BASE_W, default=DEFAULTS[CONF_BASE_W]): numeric(0, 20000, 50),
         }))
@@ -71,7 +76,7 @@ class PilotOptionsFlow(OptionsFlow):
 
     def _schema(self):
         values = {**self.config_entry.data, **self.config_entry.options}
-        return vol.Schema({
+        schema = {
             vol.Required(CONF_BASE_W, default=values[CONF_BASE_W]): numeric(0, 20000, 50),
             vol.Required(CONF_RESERVE, default=values[CONF_RESERVE]): numeric(5, 80),
             vol.Required(CONF_MAX_SOC, default=values[CONF_MAX_SOC]): numeric(20, 100),
@@ -84,4 +89,8 @@ class PilotOptionsFlow(OptionsFlow):
             vol.Required(CONF_NIGHT_END, default=values[CONF_NIGHT_END]): numeric(1, 12),
             vol.Required(CONF_MIDDAY_START, default=values[CONF_MIDDAY_START]): numeric(10, 16),
             vol.Required(CONF_AFTERNOON_END, default=values[CONF_AFTERNOON_END]): numeric(11, 20),
-        })
+        }
+        for key in (CONF_PV_POWER, CONF_HOME_POWER, CONF_HEAT_PUMP_POWER, CONF_EV_POWER):
+            field = vol.Optional(key, default=values[key]) if values.get(key) else vol.Optional(key)
+            schema[field] = entity_field()
+        return vol.Schema(schema)
