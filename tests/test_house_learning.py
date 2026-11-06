@@ -10,11 +10,12 @@ mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
 
-def day_row(home=1.0, ev=0.0, coverage=1.0):
+def day_row(home=1.0, ev=0.0, coverage=1.0, heat_pump=0.0):
     def hours(value):
         return {f"{h:02}:00": value for h in range(24)}
-    return {"actual": {"home": hours(home), "ev": hours(ev)},
-            "coverage": {"home": hours(coverage), "ev": hours(coverage)}}
+    return {"actual": {"home": hours(home), "ev": hours(ev), "heat_pump": hours(heat_pump)},
+            "coverage": {"home": hours(coverage), "ev": hours(coverage),
+                         "heat_pump": hours(coverage)}}
 
 
 class HouseLearningTests(unittest.TestCase):
@@ -43,6 +44,35 @@ class HouseLearningTests(unittest.TestCase):
         excluded = mod.build_house_profile(days, self.today, ev_in_home_load=False)
         self.assertEqual(included["profiles"]["weekday"][0]["p50_kwh"], 2.0)
         self.assertEqual(excluded["profiles"]["weekday"][0]["p50_kwh"], 5.0)
+
+    def test_explicitly_confirmed_doe_load_includes_ev_and_pump(self):
+        days = {key: day_row(home=5.0, ev=3.0, heat_pump=1.0) for key in self.days}
+        result = mod.build_house_profile(days, self.today, ev_in_home_load=True)
+        self.assertEqual(result["profiles"]["weekday"][0]["p50_kwh"], 2.0)
+        self.assertEqual(result["base_profiles"]["weekday"][0]["p50_kwh"], 1.0)
+        self.assertTrue(result["baseline_ready"])
+        self.assertTrue(result["heat_pump_in_home_load"])
+
+    def test_missing_pump_does_not_create_fictitious_baseline(self):
+        days = {key: day_row(home=4.0, ev=2.0) for key in self.days}
+        for record in days.values():
+            record["actual"].pop("heat_pump")
+            record["coverage"].pop("heat_pump")
+        result = mod.build_house_profile(days, self.today, ev_in_home_load=True)
+        self.assertEqual(result["profiles"]["weekday"][0]["p50_kwh"], 2.0)
+        self.assertFalse(result["baseline_ready"])
+        self.assertIsNone(result["base_profiles"]["weekday"][0]["p50_kwh"])
+
+    def test_overlapping_or_inconsistent_meters_are_not_treated_as_zero(self):
+        days = {key: day_row(home=1.0, ev=3.0, heat_pump=1.0) for key in self.days}
+        result = mod.build_house_profile(days, self.today, ev_in_home_load=True)
+        self.assertEqual(result["complete_days"], 0)
+        self.assertGreater(result["inconsistent_hours"], 0)
+
+    def test_existing_unknown_is_migrated_but_manual_excluded_is_preserved(self):
+        self.assertEqual(mod.resolve_ev_topology("unknown"), "included")
+        self.assertEqual(mod.resolve_ev_topology(None), "included")
+        self.assertEqual(mod.resolve_ev_topology("excluded"), "excluded")
 
     def test_missing_ev_data_blocks_day_if_included(self):
         days = {key: {"actual": {"home": {f"{h:02}:00": 2.0 for h in range(24)}},
