@@ -47,7 +47,7 @@ class DryRunTests(unittest.TestCase):
 
     def test_car_finishes_more_power_available_but_no_write(self):
         before = baseline()
-        after = baseline(grid={**baseline()["grid_state"]} if False else {
+        after = baseline(grid={
             "state": "zapas", "allowed_charge_kw": 10, "phase_checked": True,
             "import_kw": 3, "current_charge_kw": 0
         }, ev_kw=0)
