@@ -85,6 +85,21 @@ class DashboardExportTests(unittest.TestCase):
                 mod.export_files(folder, "views:\\n", "views:\\n", "console.log('bad')")
             self.assertFalse(list(Path(folder).glob("*.yaml")))
 
+    def test_economy_card_explains_costs_and_terminal_soc(self):
+        entities = {**ENTITIES,
+                    "economic_status": "sensor.energy_economy_status",
+                    "economic_base_cost": "sensor.energy_base_import_cost",
+                    "economic_plan_cost": "sensor.energy_plan_import_cost",
+                    "economic_base_soc": "sensor.energy_base_soc",
+                    "economic_plan_soc": "sensor.energy_plan_soc"}
+        dashboard = mod.render_dashboard(entities, SOURCES)
+        self.assertIn("sensor.energy_economy_status", dashboard)
+        self.assertIn("Rachunek dwóch scenariuszy 48h", dashboard)
+        self.assertIn("scenariusz_bez_ladowania", dashboard)
+        self.assertIn("Końcowy SOC", dashboard)
+        self.assertIn("nie rzeczywiste oszczędności", dashboard)
+        self.assertIn("type: custom:estadi-energy-forecast-card", dashboard)
+
     def test_mini_widget_small_self_contained(self):
         mini = mod.render_mini_widget(ENTITIES, SOURCES)
         self.assertIn("sensor.energy_status_renamed_by_owner", mini)

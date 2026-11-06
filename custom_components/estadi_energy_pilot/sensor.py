@@ -284,6 +284,16 @@ ENERGY_V2_SENSORS = (
     ("sim_home_kwh", "Symulacja 48h — zużycie domu", "kWh"),
     ("sim_grid_peak", "Symulacja 48h — szczyt importu", "kW"),
     ("sim_cost", "Symulacja 48h — koszt importu", "PLN"),
+    ("economic_status", "Opłacalność 48h — status", None),
+    ("economic_base_cost", "Opłacalność — import bez dodatkowego ładowania", "PLN"),
+    ("economic_plan_cost", "Opłacalność — import z planowanym ładowaniem", "PLN"),
+    ("economic_import_delta", "Opłacalność — różnica kosztu importu", "PLN"),
+    ("economic_base_export", "Opłacalność — eksport bez ładowania", "kWh"),
+    ("economic_plan_export", "Opłacalność — eksport z ładowaniem", "kWh"),
+    ("economic_base_soc", "Opłacalność — końcowy SOC bez ładowania", "%"),
+    ("economic_plan_soc", "Opłacalność — końcowy SOC z ładowaniem", "%"),
+    ("economic_terminal_delta", "Opłacalność — różnica końcowego SOC", "pp"),
+    ("economic_estimate", "Opłacalność — porównywalna różnica salda", "PLN"),
     ("smart_charge_status", "Inteligentne ładowanie — stan", None),
     ("smart_charge_power", "Inteligentne ładowanie — proponowana moc", "kW"),
     ("smart_charge_start", "Inteligentne ładowanie — godzina startu", None),
@@ -325,6 +335,9 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
             f"Auto {ev} kW" if ev is not None else "Auto: brak danych",
         ))
         sim = d.get("simulation_48h") or {}
+        economy = d.get("scenario_economics") or {}
+        economic_base = economy.get("baseline") or {}
+        economic_plan = economy.get("plan") or {}
         cautious = sim.get("cautious") or {}
         smart = d.get("optimized_schedule") or {}
         tou = d.get("deye_tou") or {}
@@ -335,6 +348,16 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
         pv_accuracy = accuracy.get("pv") or {}
         outcomes = accuracy.get("obserwacje_celu") or {}
         values = {
+            "economic_status": economy.get("status", "brak_danych"),
+            "economic_base_cost": economic_base.get("import_cost_pln"),
+            "economic_plan_cost": economic_plan.get("import_cost_pln"),
+            "economic_import_delta": economy.get("import_cost_delta_pln"),
+            "economic_base_export": economic_base.get("export_kwh"),
+            "economic_plan_export": economic_plan.get("export_kwh"),
+            "economic_base_soc": economic_base.get("soc_end_pct"),
+            "economic_plan_soc": economic_plan.get("soc_end_pct"),
+            "economic_terminal_delta": economy.get("terminal_soc_difference_pp"),
+            "economic_estimate": economy.get("estimated_balance_advantage_pln"),
             "accuracy_status": accuracy.get("stan", "brak_danych"),
             "accuracy_soc_3h": (horizons.get("3") or {}).get("mae_soc_pp"),
             "accuracy_soc_6h": (horizons.get("6") or {}).get("mae_soc_pp"),
@@ -399,6 +422,26 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         d = (self.coordinator.data or {}).get("energy_2_0", {})
+        if self._key == "economic_status":
+            ec = d.get("scenario_economics") or {}
+            base = ec.get("baseline") or {}
+            planned = ec.get("plan") or {}
+            return {
+                "przyczyna": ec.get("reason"),
+                "taryfa": ec.get("tariff"),
+                "ceny_zakupu_potwierdzone": ec.get("import_prices_confirmed"),
+                "wartosc_eksportu_potwierdzona": ec.get("export_price_confirmed"),
+                "szacunkowa_wartosc_eksportu_pln_kwh": ec.get("export_value_pln_kwh"),
+                "scenariusz_bez_ladowania": base,
+                "scenariusz_z_planem": planned,
+                "roznica_kosztu_importu_pln": ec.get("import_cost_delta_pln"),
+                "roznica_saldu_przed_korekta_soc_pln": ec.get("unadjusted_balance_difference_pln"),
+                "roznica_soc_koncowego_pp": ec.get("terminal_soc_difference_pp"),
+                "przyblizona_roznica_saldu_przy_podobnym_soc_pln": ec.get("estimated_balance_advantage_pln"),
+                "rzeczywiste_oszczednosci_pln": None,
+                "sterowanie_deye_wykonane": False,
+                "uwagi": ec.get("note"),
+            }
         if self._key == "accuracy_status":
             accuracy = d.get("accuracy") or {}
             return {

@@ -96,7 +96,8 @@
           "grid_phase_voltage_l3": "Grid voltage on L3 (V)",
           "grid_phase_limit_l1_a": "Verified phase L1 current limit (A, 0 = unknown)",
           "grid_phase_limit_l2_a": "Verified phase L2 current limit (A, 0 = unknown)",
-          "grid_phase_limit_l3_a": "Verified phase L3 current limit (A, 0 = unknown)"
+          "grid_phase_limit_l3_a": "Verified phase L3 current limit (A, 0 = unknown)",
+          "estimated_export_value_pln_kwh": "Indicative export compensation (PLN/kWh; 0 = unknown, not actual net-billing)"
         }
       }
     },

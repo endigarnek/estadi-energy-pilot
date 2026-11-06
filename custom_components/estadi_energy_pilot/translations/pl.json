@@ -96,7 +96,8 @@
           "grid_phase_voltage_l3": "Napięcie na przyłączu — faza L3 (V)",
           "grid_phase_limit_l1_a": "Potwierdzony limit prądu fazy L1 (A, 0 = brak)",
           "grid_phase_limit_l2_a": "Potwierdzony limit prądu fazy L2 (A, 0 = brak)",
-          "grid_phase_limit_l3_a": "Potwierdzony limit prądu fazy L3 (A, 0 = brak)"
+          "grid_phase_limit_l3_a": "Potwierdzony limit prądu fazy L3 (A, 0 = brak)",
+          "estimated_export_value_pln_kwh": "Szacunkowa wartość energii oddanej do sieci (zł/kWh; 0 = nieznana, nie jest rozliczeniem net-billingu)"
         }
       }
     },

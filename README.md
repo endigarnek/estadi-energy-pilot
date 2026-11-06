@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.4.0 (beta)
+# ESTADI Energy Pilot — wersja 0.4.1 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,20 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+## Wersja 0.4.1 — uczciwe porównanie kosztów pracy magazynu
+
+Nowy symulator `scenario_economics.py` porównuje **dwa pełne scenariusze 48h co 15 minut**: działanie magazynu bez dodatkowego ładowania z sieci oraz działanie z **proponowanym** tanim ładowaniem (G12w/G13). Oba warianty korzystają z tej samej prognozy PV, profilu domu bez EV/pompy, prognozy pompy, SOC i sprawności magazynu, limitu 15 kW i bufora mocy.
+
+W obu wariantach liczymy import/eksport w kWh, koszt zakupu w PLN (tylko z rzeczywistych wpisanych taryf), szacowaną wartość eksportu, końcowy SOC i różnice. **Gdy końcowy SOC się różni, nie pokazujemy tego jako porównywalnej oszczędności**. Przy podobnym SOC (do 0,5 p.p.) i kompletnych cenach wyświetlana jest wyłącznie **wstępna różnica salda scenariuszy**, nie realny zysk. Zrealizowane oszczędności pozostają nieznane.
+
+W **Opcjach zaawansowanych** pojawiło się pole `Szacunkowa wartość energii oddanej do sieci (zł/kWh)`, z ustawieniem **0 = nieznana**. Nie wpisujemy automatycznie ani cenników TAURON, ani stawek RCEm. Nie jest to pełne rozliczenie net-billingu.
+
+W Home Assistant dostępnych jest 10 sensorów z przedrostkiem **Opłacalność**. Do pełnego pulpitu dołączono tabelę z porównaniem dwóch wariantów — wystarczy ponownie użyć przycisku eksportu z wersji 0.4.0 (tworzy nowy plik, nie nadpisuje edytowanego).
+
+**[Instrukcja, przykład i interpretacja wyników](docs/ECONOMICS_041.md)**.
+
+**Bezpieczeństwo:** nie dodano żadnych komend Deye ani EV; wymagana jest nadal weryfikacja rzeczywistego BMS, faz i prognozy przyszłych sesji EV.
 
 ## Wersja 0.4.0 — interaktywny wykres prognozy 48h na pulpicie
 

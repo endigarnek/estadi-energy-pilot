@@ -32,6 +32,7 @@ from .charging_48h import recommend_charge
 from .deye_tou import inspect_tou, snapshot_config, changed_fields
 from .dry_run import DryRunJournal, evaluate_dry_run
 from .forecast_accuracy import AccuracyJournal
+from .scenario_economics import compare_scenarios
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -536,6 +537,35 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                 "status": "brak_celu",
                 "reason": v2_info["schedule_note"],
                 "hardware_control": False,
+            }
+        # Compare BOTH strategies against identical 15-minute weather,
+        # load and tariff inputs. This is a cost forecast, not Deye control.
+        try:
+            raw_export_value = float(selected.get(CONF_EXPORT_VALUE, 0) or 0)
+            export_value = raw_export_value if raw_export_value > 0 else None
+            v2_info["scenario_economics"] = compare_scenarios(
+                now=now, pv_slots=pv_slots, temperatures=temperatures,
+                learning=learned, model=model, soc=soc,
+                current_temp=outdoor_temp, tariff=tariff, prices=prices,
+                proposed_plan=v2_info.get("optimized_schedule"),
+                export_value_pln_kwh=export_value,
+                baseload_w=float(selected[CONF_BASE_W]),
+                mild_w=float(selected[CONF_MILD_W]),
+                cold_w=float(selected[CONF_COLD_W]),
+                pv_discount_pct=float(selected[CONF_PV_DISCOUNT]),
+                efficiency_pct=float(selected[CONF_EFFICIENCY]),
+                battery_max_kw=float(selected[CONF_CHARGE_LIMIT]),
+                grid_limit_kw=float(selected[CONF_GRID_LIMIT]),
+                grid_buffer_kw=float(selected[CONF_GRID_BUFFER]),
+                ev_now_kw=self._kw_or_none(CONF_EV_POWER),
+            )
+        except (ValueError, TypeError, KeyError, ZeroDivisionError) as err:
+            _LOGGER.warning("48h scenario economy comparison unavailable: %s", err)
+            v2_info["scenario_economics"] = {
+                "status": "blad_danych",
+                "reason": f"Porównanie nie powstało: {type(err).__name__}",
+                "realized_savings_pln": None, "savings_pln": None,
+                "plan_written_to_deye": False,
             }
         v2_info["current_soc_pct"] = round(soc, 1)
         # Never advertise a charging decision while grid polarity is

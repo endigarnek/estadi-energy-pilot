@@ -28,7 +28,12 @@ SENSOR_KEYS = (
     "smart_charge_start", "smart_charge_finish", "smart_charge_power",
     "smart_charge_energy", "smart_charge_target", "dry_run_status",
     "dry_run_action", "dry_run_power", "dry_run_days",
-    "accuracy_status", "deye_tou_status", "deye_tou_fields",
+    "accuracy_status", "economic_status", "economic_base_cost",
+    "economic_plan_cost", "economic_import_delta",
+    "economic_base_export", "economic_plan_export",
+    "economic_base_soc", "economic_plan_soc",
+    "economic_terminal_delta", "economic_estimate",
+    "deye_tou_status", "deye_tou_fields",
     "deye_tou_snapshot", "deye_tou_ready",
 )
 

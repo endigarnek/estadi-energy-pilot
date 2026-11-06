@@ -159,6 +159,27 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
     else:
         accuracy_text = "Brak encji weryfikacji prognoz."
 
+    economy_id = eid("economic_status")
+    economics_markdown = (
+        "**Uwaga: to porównanie scenariuszy, nie rzeczywiste oszczędności.**\n\n"
+        "Status: **{{ states(" + _quote(economy_id) + ") }}**\n\n"
+        "{% set before = state_attr(" + _quote(economy_id) + ", 'scenariusz_bez_ladowania') or {} %}\n"
+        "{% set after = state_attr(" + _quote(economy_id) + ", 'scenariusz_z_planem') or {} %}\n"
+        "{% set reason = state_attr(" + _quote(economy_id) + ", 'przyczyna') %}\n"
+        "**Wynik:** {{ reason or 'Brak porównania' }}\n\n"
+        "| Parametr po 48h | Bez ładowania z sieci | Plan doradczy |\n"
+        "|:--|--:|--:|\n"
+        "| Import kWh | {{ before.get('import_kwh', '—') }} | {{ after.get('import_kwh', '—') }} |\n"
+        "| Koszt importu PLN | {{ before.get('import_cost_pln', '—') }} | {{ after.get('import_cost_pln', '—') }} |\n"
+        "| Eksport kWh | {{ before.get('export_kwh', '—') }} | {{ after.get('export_kwh', '—') }} |\n"
+        "| Energia do magazynu z sieci kWh | {{ before.get('grid_battery_kwh', '—') }} "
+        "| {{ after.get('grid_battery_kwh', '—') }} |\n"
+        "| Końcowy SOC | {{ before.get('soc_end_pct', '—') }}% | {{ after.get('soc_end_pct', '—') }}% |\n\n"
+        "*Nie dodawaj samodzielnie wartości końcowego SOC do rachunku w PLN. "
+        "Dla net-billingu liczy się rzeczywisty system rozliczeń i wartości depozytu. "
+        "Gdy końcowy SOC jest różny, wynik pieniężny nie jest porównywalną oszczędnością.*"
+    ) if economy_id else "Brak encji Opłacalność — status; sprawdź wersję i integrację."
+
     cards = [
         _markdown("Centrum sterowania — podgląd", header),
         _tiles("Stan instalacji", _existing(
@@ -201,6 +222,14 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                        ("Szczyt poboru", "sim_grid_peak")]), 3),
         _interactive_forecast_card(sim),
         _markdown("Prognoza — następne 48 godzin (zapasowa tabela 4h)", forecasts),
+        _tiles("Ekonomia pracy magazynu — porównanie 48h", _existing(
+            entities, [("Stan porównania", "economic_status"),
+                       ("Import bez ładowania (PLN)", "economic_base_cost"),
+                       ("Import z planem (PLN)", "economic_plan_cost"),
+                       ("Różnica kosztu importu (PLN)", "economic_import_delta"),
+                       ("Końcowy SOC bez planu", "economic_base_soc"),
+                       ("Końcowy SOC z planem", "economic_plan_soc")]), 3),
+        _markdown("Rachunek dwóch scenariuszy 48h", economics_markdown),
         _markdown("Dry-run — decyzje i wyjaśnienia", dry_text),
         _markdown("Jak trafnie przewidujemy?", accuracy_text),
         _entities("Diagnostyka i stan Deye", _existing(
