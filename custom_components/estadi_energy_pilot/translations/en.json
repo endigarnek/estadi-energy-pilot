@@ -13,7 +13,11 @@
           "outdoor_temp": "Outdoor temperature (°C)",
           "weather_entity": "Hourly weather forecast (optional)",
           "battery_capacity_kwh": "Usable battery capacity (kWh)",
-          "base_load_w": "Average home power EXCLUDING heat pump (W)"
+          "base_load_w": "Average home power EXCLUDING heat pump (W)",
+          "pv_power": "Deye PV power (W)",
+          "home_power": "Deye home load power (W)",
+          "heat_pump_power": "Heat pump measured power (W)",
+          "ev_power": "EV charger corrected real power (W)"
         }
       }
     }
@@ -35,7 +39,11 @@
           "night_start": "Night cheap window start (hour)",
           "night_end": "Night cheap window end (hour)",
           "midday_start": "Afternoon cheap window start (hour)",
-          "afternoon_end": "Afternoon cheap window end (hour)"
+          "afternoon_end": "Afternoon cheap window end (hour)",
+          "pv_power": "Deye PV power (W)",
+          "home_power": "Deye home load power (W)",
+          "heat_pump_power": "Heat pump measured power (W)",
+          "ev_power": "EV charger corrected real power (W)"
         }
       }
     },
