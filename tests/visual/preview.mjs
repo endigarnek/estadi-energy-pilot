@@ -62,7 +62,11 @@ for (const scenario of scenarios) {
     class MockHaIcon extends HTMLElement {
       connectedCallback() {
         const d = paths[this.getAttribute("icon")] || paths["mdi:check-circle-outline"];
-        if (d) this.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' +
+        this.style.display = "inline-flex";
+        this.style.width = "20px";
+        this.style.height = "20px";
+        if (d) this.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" ' +
+          'style="display:block;fill:currentColor" aria-hidden="true"><path d="' +
           d + '"></path></svg>';
       }
     }
