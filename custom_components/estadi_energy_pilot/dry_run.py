@@ -8,6 +8,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from math import isfinite
 from typing import Any
+from zoneinfo import ZoneInfo
+
+WARSAW = ZoneInfo("Europe/Warsaw")
 
 MAX_RECORDS = 1000
 KEEP_DAYS = 8
@@ -83,6 +86,7 @@ def evaluate_dry_run(
         "ev_kw": observed_ev,
         "tariff_band": tariff_band,
         "grid_state": g.get("state"),
+        "phase_checked": bool(g.get("phase_checked")),
         "tou_status": t.get("status"),
         "blockers": [],
         "commands_sent": 0,
@@ -196,6 +200,8 @@ class DryRunJournal:
             or event.get("plan_start") != self.latest.get("plan_start")
             or event.get("target_soc_pct") != self.latest.get("target_soc_pct")
             or event.get("grid_state") != self.latest.get("grid_state")
+            or event.get("hipotetyczna_akcja") != self.latest.get("hipotetyczna_akcja")
+            or event.get("why") != self.latest.get("why")
         )
         self.latest = dict(event)
         if not force and not change and previous is not None and (
@@ -216,8 +222,7 @@ class DryRunJournal:
             "grid_import_kw": event.get("grid_import_kw"),
             "grid_allowed_kw": event.get("grid_allowed_kw"),
             "ev_kw": event.get("ev_kw"),
-            "phase_checked": not any("L1/L2/L3" in block
-                                     for block in event.get("blockers", [])),
+            "phase_checked": event.get("phase_checked") is True,
             "commands_sent": 0,
         }
         cutoff = timestamp - timedelta(days=KEEP_DAYS)
@@ -233,16 +238,20 @@ class DryRunJournal:
         return True
 
     def report(self) -> dict:
-        days: dict[str, int] = {}
+        slots: dict[str, set[int]] = {}
         for event in self.records:
             at = _utc(event.get("at"))
             if at is None:
                 continue
-            key = at.date().isoformat()
-            days[key] = days.get(key, 0) + 1
-        # Distinct sampled dates are not necessarily full 24h days. At least
-        # 80 quarter-hour samples per date (of theoretical 96) are required.
-        full_days = sum(count >= 80 for count in days.values())
+            local = at.astimezone(WARSAW)
+            key = local.date().isoformat()
+            # Multiple state transitions in one quarter are ONE sample,
+            # never evidence of an entire day of uninterrupted observation.
+            quarter = int(at.timestamp()) // (PERIOD_MINUTES * 60)
+            slots.setdefault(key, set()).add(quarter)
+        # A complete 24-hour day usually has 96 quarters; DST may yield
+        # 92 or 100. Require >=80 separate slots, not event count.
+        full_days = sum(len(points) >= 80 for points in slots.values())
         return {
             "status": (self.latest or {}).get("status", "brak_pomiarow"),
             "ostatnia_decyzja": self.latest,
