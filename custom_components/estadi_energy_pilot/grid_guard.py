@@ -90,7 +90,7 @@ def calculate_grid_guard(
                 # Additional 3-phase balanced grid charging consumes P/3 per phase.
                 # Do not use without confirming actual inverter topology.
                 phase_capacity = min(
-                    3 * max(0.0, (lim - amp) * volt / 1000)
+                    3 * (lim - amp) * volt / 1000
                     for amp, lim, volt in zip(phase_currents_a, phase_limits_a, phase_voltages_v)
                 )
                 candidate = min(candidate, charging_kw + phase_capacity)
