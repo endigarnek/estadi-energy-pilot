@@ -46,7 +46,7 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
-**[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)**.
+**[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
 
 ## Rozwój 2.0 — zatwierdzony zakres do wdrożenia (2026-11-06)
 
