@@ -76,7 +76,15 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         self.storage.async_delay_save(self.history.export, 60)
         date_today = now.date().isoformat()
         date_yesterday = (now.date() - timedelta(days=1)).isoformat()
+        last_hour = now - timedelta(hours=1)
+        last_hour_key = last_hour.strftime("%H:00")
+        last_hour_comparison = next(
+            (point for point in self.history.hourly_comparison(last_hour.date().isoformat())
+             if point["hour"] == last_hour_key), None
+        )
         history = {
+            "history_last_hour": last_hour_comparison,
+            "history_last_hour_at": last_hour.replace(minute=0, second=0, microsecond=0).isoformat(),
             "history_today": self.history.summary(date_today, today=date_today),
             "history_yesterday": self.history.summary(date_yesterday, today=date_today),
             "history_recent": self.history.summaries(date_today),
