@@ -5,7 +5,6 @@ No network requests, no Home Assistant dependency and no hardware writes.
 """
 from __future__ import annotations
 
-from collections import defaultdict
 from typing import Iterable, Any
 
 from .const import (
@@ -79,11 +78,11 @@ def detect_entities(states: Iterable[Any]) -> dict[str, str]:
     if soc:
         chosen[CONF_BATTERY_SOC] = soc
 
-    temp = _first_existing(index, TEMP_PREFERRED, ("°C", "C", "°F"))
+    temp = _first_existing(index, TEMP_PREFERRED, ("°C", "C"))
     if not temp:
         temp = _unique(sorted([
             entity_id for entity_id, state in index.items()
-            if _is_sensor(state, ("°C", "C", "°F"))
+            if _is_sensor(state, ("°C", "C"))
             and any(tag in entity_id for tag in ("outdoor", "outside", "zewnetrz", "zewn_trz"))
         ]))
     if temp:
