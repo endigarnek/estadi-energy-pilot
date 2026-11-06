@@ -1,6 +1,6 @@
-# ESTADI Energy Pilot v0.1.1
+# ESTADI Energy Pilot — wersja testowa 0.2.0b1
 
-**Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
+**Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
 ## Instalacja przez HACS — bez kopiowania plików
 
@@ -40,6 +40,33 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 - Model nie obejmuje CWU, odmrażania, aut elektrycznych, indywidualnego harmonogramu pompy ani cen energii.
 - Brak aktualnej prognozy lub pomiarów uniemożliwia wyliczenie zalecanego ładowania.
 
+
+## Nowość 0.2 — historia prognoz i ładowarki EV
+
+Po aktualizacji wybierz **Ustawienia → Urządzenia i usługi → ESTADI Energy Pilot → Konfiguruj** i wskaż cztery opcjonalne czujniki:
+
+| Rola | Encja z Twojego Home Assistant |
+|---|---|
+| Moc paneli | `sensor.deye_pv_power` |
+| Moc domu | `sensor.deye_load_power` |
+| Moc pompy ciepła | `sensor.shellyem3_08f9e051e0b0_channel_b_power` |
+| Moc ładowarki EV | `sensor.moc_ladowarki_poprawna` |
+
+Wartości mocy są przyjmowane **wyłącznie** z czujników o jednostkach W lub kW, a wartości ujemne/nieprawidłowe są pomijane. Historia nie jest uzupełniana zmyślonymi zerami, jeśli HA był wyłączony lub sensor był niedostępny.
+
+**Co zapisujemy** (bez dodatkowej bazy, w wewnętrznym magazynie Home Assistanta `.storage`):
+
+- Około 21:00: **zamrożona prognoza Solcast na następny dzień**, ze szczegółami co godzinę, niepodmieniana w późniejszych aktualizacjach.
+- Co 15 minut: zmierzone moce i oszacowana na ich podstawie energia PV, domu, pompy ciepła i ładowarki EV, z pokryciem danych dla każdej godziny.
+- Do **45 dni** danych; w czujniku błędu prognozy atrybuty `ostatnie_dni` i `godziny_wczoraj`.
+- Różnica prognoza/rzeczywistość liczona wyłącznie dla **zakończonych dni** z co najmniej 90% pokryciem pomiaru PV. W innym przypadku brak oceny, a nie fałszywy wynik.
+
+Czujniki nowej wersji: `Wczorajsza prognoza PV (z 21:00)`, `Wczorajsza produkcja PV — pomiar`, `Błąd wczorajszej prognozy PV`, `Kompletność pomiaru PV wczoraj`, energia ładowarki EV i pompy ciepła (wczoraj), energia EV/PV (dziś).
+
+**To szacunki energii z próbek mocy co 15 minut, a nie odczyty licznika rozliczeniowego.** Porównania prognoz zaczną być sensowne dopiero po zebraniu pełnej doby (z wieczorną prognozą z poprzedniego dnia). Ładowarka 11 kW pracująca przy 10 A ma realnie ok. 6,9 kW; moduł bierze **zmierzone** W, nie wpisaną moc maksymalną. Zużycie domu może już zawierać pompę i EV — **nie sumujemy** ich dodatkowo do domu.
+
+Wersja jest dalej **tylko doradcza**: NIE zapisuje ustawień falownika Deye, NIE reguluje prądu ładowarki i NIE publikuje gotowego panelu Lovelace z wykresami. Zachowane dane godzinowe można wykorzystywać do budowy wykresu porównania w następnym etapie.
+
 ## Testy lokalne
 
 ```bash
@@ -50,7 +77,7 @@ GitHub Actions uruchamia również testy przy nowych zmianach.
 
 ## Plan
 
-- v0.2: gotowy pulpit z wykresem PV i prostym panelem konfiguracji.
+- v0.2: gotowe dane historyczne i sensory. Kolejne: wygodny pulpit Lovelace z wykresem godzinowym.
 - v0.3: nauka zużycia domu oraz korekta prognoz na podstawie pomiarów.
 - v0.4: najpierw symulacja (dry-run), później opcjonalne sterowanie Deye po sprawdzeniu jego konkretnych encji i ograniczeń.
 
