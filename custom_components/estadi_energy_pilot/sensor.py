@@ -232,6 +232,7 @@ class HealthSensor(CoordinatorEntity, SensorEntity):
 
 
 ENERGY_V2_SENSORS = (
+    ("mini_status", "Szybki status energii", None),
     ("grid_import", "Pobór z przyłącza", "kW"),
     ("grid_headroom", "Dostępny zapas mocy przyłącza", "kW"),
     ("grid_charge_cap", "Orientacyjny limit ładowania (bez sterowania)", "kW"),
@@ -270,7 +271,17 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
         d = (self.coordinator.data or {}).get("energy_2_0", {})
         g, model = d.get("grid", {}), d.get("model", {})
         p = d.get("charging_schedule") or {}
+        live = d.get("live", {})
+        soc = d.get("current_soc_pct")
+        imported = g.get("import_kw")
+        ev = live.get("ev_kw")
+        mini = " | ".join((
+            f"SOC {soc}%" if soc is not None else "SOC: brak",
+            f"Sieć {imported}/{g.get('connection_limit_kw')} kW" if imported is not None else "Sieć: brak kalibracji",
+            f"Auto {ev} kW" if ev is not None else "Auto: brak danych",
+        ))
         values = {
+            "mini_status": mini,
             "grid_import": g.get("import_kw"),
             "grid_headroom": g.get("headroom_kw"),
             "grid_charge_cap": g.get("allowed_charge_kw"),
@@ -291,6 +302,14 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         d = (self.coordinator.data or {}).get("energy_2_0", {})
+        if self._key == "mini_status":
+            return {
+                "moc_biezaca": d.get("live"),
+                "grid_guard": d.get("grid"),
+                "cel_i_start": d.get("charging_schedule"),
+                "taryfa": d.get("tariff"),
+                "automatyzacja_wlaczona": False,
+            }
         if self._key == "grid_status":
             return {"szczegoly": d.get("grid"), "automatyzacja_wlaczona": False}
         if self._key == "plan_status":
