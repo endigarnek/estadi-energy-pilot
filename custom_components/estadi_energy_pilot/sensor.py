@@ -296,6 +296,11 @@ ENERGY_V2_SENSORS = (
     ("economic_estimate", "Opłacalność — porównywalna różnica salda", "PLN"),
     ("calibration_status", "Kalibracja — stan oceny modelu domu", None),
     ("pump_learn_status", "Pompa — stan uczenia temperatury", None),
+    ("pump_excess_status", "Pompa — stan oceny nietypowego poboru", None),
+    ("pump_excess_hours", "Pompa — porównane godziny", "h"),
+    ("pump_excess_events", "Pompa — okresy podwyższonego poboru", None),
+    ("pump_excess_kwh", "Pompa — szacowana nadwyżka poboru", "kWh"),
+    ("pump_excess_last", "Pompa — ostatni nietypowy pobór", None),
     ("pump_learn_days", "Pompa — kompletne dni pomiarów temperatury", None),
     ("pump_learn_hours", "Pompa — godziny sparowane z temperaturą", "h"),
     ("pump_learn_bands", "Pompa — wyuczone zakresy temperatury", None),
@@ -359,6 +364,7 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
         economic_plan = economy.get("plan") or {}
         stress = economy.get("ev_stress") or {}
         stress_plan = stress.get("plan") or {}
+        pump_excess = d.get("pump_excess") or {}
         pump_model = d.get("heat_pump_learning") or {}
         pump_preview = pump_model.get("preview_48h") or {}
         calibration = d.get("calibration") or {}
@@ -378,6 +384,11 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
         pv_accuracy = accuracy.get("pv") or {}
         outcomes = accuracy.get("obserwacje_celu") or {}
         values = {
+            "pump_excess_status": pump_excess.get("status", "brak_danych"),
+            "pump_excess_hours": pump_excess.get("hours_compared_with_older_days"),
+            "pump_excess_events": pump_excess.get("event_count"),
+            "pump_excess_kwh": pump_excess.get("estimated_excess_energy_kwh"),
+            "pump_excess_last": pump_excess.get("last_event_start"),
             "pump_learn_status": pump_model.get("status", "brak_danych"),
             "pump_learn_days": pump_model.get("days_complete"),
             "pump_learn_hours": pump_model.get("valid_hours"),
@@ -471,6 +482,21 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         d = (self.coordinator.data or {}).get("energy_2_0", {})
+        if self._key == "pump_excess_status":
+            review = d.get("pump_excess") or {}
+            return {
+                "godziny_poprawnych_pomiarow": review.get("hours_with_temperature_and_energy"),
+                "godziny_porownywalne": review.get("hours_compared_with_older_days"),
+                "dni_porownywalne": review.get("days_evaluated"),
+                "godziny_z_podwyzszonym_poborem": review.get("suspected_high_load_hours"),
+                "ostatnie_okresy": review.get("latest_events", []),
+                "prog_minimalnej_nadwyzki_kwh_na_godzine": review.get("min_excess_kwh_per_hour"),
+                "mnoznik_historycznego_p90": review.get("p90_multiplier"),
+                "potwierdzone_cykle_CWU": None,
+                "potwierdzone_odszraniania": None,
+                "automatyczne_sterowanie": False,
+                "interpretacja": review.get("interpretation"),
+            }
         if self._key == "pump_learn_status":
             pump = d.get("heat_pump_learning") or {}
             return {
