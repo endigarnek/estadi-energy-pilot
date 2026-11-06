@@ -49,6 +49,7 @@ Projektowany jest nowy silnik planowania magazynu Deye: profil zużycia z 7–30
 - [Szczegółowa specyfikacja Energy Pilot 2.0](docs/roadmap/ENERGY_PILOT_2_0_SPEC.md)
 - [Backlog EP20-01…10 i kryteria odbioru](docs/roadmap/IMPLEMENTATION_BACKLOG_2_0.md)
 - [EP20-11: optymalna godzina i moc ładowania magazynu 28 kWh](docs/roadmap/EP20-11_SMART_CHARGING_POWER_28KWH.md)
+- [EP20-12: dynamiczny strażnik przyłącza 15 kW, 28 kWh nominalnie, SOC 10–100%, suwak i dziennik decyzji](docs/roadmap/EP20-12_GRID_GUARD_CAPACITY_UI.md)
 
 ## Nowość 0.2.7 — czy system działa? Diagnostyka i odświeżanie
 
