@@ -8,7 +8,7 @@ from homeassistant.components.sensor import SensorEntity, SensorEntityDescriptio
 from homeassistant.const import UnitOfEnergy, PERCENTAGE
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, INTEGRATION_VERSION
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -45,7 +45,8 @@ SENSORS = (
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([PilotSensor(coordinator, entry, description) for description in SENSORS] +
+    async_add_entities([VersionSensor(entry)] +
+                       [PilotSensor(coordinator, entry, description) for description in SENSORS] +
                        [HistorySensor(coordinator, entry, key, title, unit, field) for key, title, unit, field in HISTORY_SENSORS])
 
 
@@ -141,3 +142,19 @@ class HistorySensor(CoordinatorEntity, SensorEntity):
         return {"ostatnie_dni": data.get("history_recent", []),
                 "godziny_wczoraj": data.get("history_hours", []),
                 "dane_niepelne_nie_sa_oceniane": True}
+
+
+class VersionSensor(SensorEntity):
+    """Diagnostic version that remains available when PV forecast is missing."""
+    _attr_has_entity_name = True
+    _attr_name = "Wersja integracji"
+    _attr_icon = "mdi:information-outline"
+
+    def __init__(self, entry):
+        self._attr_unique_id = f"{entry.entry_id}_integration_version"
+        self._attr_native_value = INTEGRATION_VERSION
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "ESTADI Energy Pilot",
+            "manufacturer": "ESTADI",
+        }
