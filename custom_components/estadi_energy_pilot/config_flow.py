@@ -58,18 +58,36 @@ class EstadiEnergyPilotConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
+        """Only show missing required entity IDs, never all known sensors."""
+        detected = suggested_entities(self.hass)
         if user_input is not None:
             await self.async_set_unique_id("main")
             self._abort_if_unique_id_configured()
-            return self.async_create_entry(title="ESTADI Energy Pilot", data={**DEFAULTS, **user_input})
+            # Persist known sensors as soon as the user confirms the setup.
+            return self.async_create_entry(
+                title="ESTADI Energy Pilot",
+                data={**DEFAULTS, **detected, **user_input},
+            )
 
-        detected = suggested_entities(self.hass)
-        schema = dict(_entity_fields(detected))
-        schema.update({
-            vol.Required(CONF_CAPACITY, default=DEFAULTS[CONF_CAPACITY]): numeric(1, 200, 0.1),
-            vol.Required(CONF_BASE_W, default=DEFAULTS[CONF_BASE_W]): numeric(0, 20000, 50),
-        })
-        return self.async_show_form(step_id="user", data_schema=vol.Schema(schema))
+        schema = {}
+        required = (CONF_SOLCAST_TODAY, CONF_SOLCAST_TOMORROW,
+                    CONF_BATTERY_SOC, CONF_OUTDOOR_TEMP)
+        for key in required:
+            if not detected.get(key):
+                schema[vol.Required(key)] = entity_field()
+
+        schema[vol.Required(CONF_CAPACITY, default=DEFAULTS[CONF_CAPACITY])] = numeric(1, 200, 0.1)
+        schema[vol.Required(CONF_BASE_W, default=DEFAULTS[CONF_BASE_W])] = numeric(0, 20000, 50)
+
+        known = [detected[key] for key in ENTITY_KEYS if key in detected]
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(schema),
+            description_placeholders={
+                "detected_count": str(len(known)),
+                "detected_entities": ", ".join(known) if known else "—",
+            },
+        )
 
     @staticmethod
     @callback
