@@ -244,9 +244,8 @@ def render_mini_widget(entities: Mapping[str, str], sources: Mapping[str, str]) 
         "{{ states(" + _quote(status) + ") }}\n\n"
         "**Tryb:** doradczy · sterowanie Deye wyłączone\n\n"
         "**Decyzja testowa:** {{ states(" + _quote(entities.get("dry_run_action", "")) + ") }}\n"
-        "**Powód:** {{ state_attr(" + _quote(entities.get("dry_run_status", "")) + ", 'hipotetyczna_decyzja')"
-        " .get('why', 'Brak danych') if state_attr("
-        + _quote(entities.get("dry_run_status", "")) + ", 'hipotetyczna_decyzja') else 'Brak danych' }}"
+        "{% set decision = state_attr(" + _quote(entities.get("dry_run_status", "")) + ", 'hipotetyczna_decyzja') or {} %}\\n"
+        "**Powód:** {{ decision.get('why', 'Brak danych') }}"
     )
     mini = [
         _markdown("Status", content),
