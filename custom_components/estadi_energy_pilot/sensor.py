@@ -352,6 +352,11 @@ class HouseLearningSensor(CoordinatorEntity, SensorEntity):
             "wymagane_dni": learning.get("required_days", 7),
             "dni_pominiete": learning.get("skipped_days", 0),
             "ev_wliczony_w_dom": learning.get("ev_in_home_load"),
-            "profil_godzinowy": learning.get("profiles", {}),
+            "pompa_wliczona_w_dom": learning.get("heat_pump_in_home_load"),
+            "dni_kompletne_dla_profilu_bazowego": learning.get("baseline_complete_days", 0),
+            "profil_bazowy_gotowy": learning.get("baseline_ready", False),
+            "odczyty_niespojne": learning.get("inconsistent_hours", 0),
+            "profil_godzinowy_bez_ev": learning.get("profiles", {}),
+            "profil_godzinowy_bez_ev_i_pompy": learning.get("base_profiles", {}),
             "uwagi": learning.get("note", "Brak historii"),
         }
