@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.3.8 (beta)
+# ESTADI Energy Pilot — wersja 0.3.9 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,14 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+## Wersja 0.3.9 — pełny pulpit energii i miniwidżet HA
+
+**Nowy przycisk na urządzeniu: „Wygeneruj pulpit i miniwidżet YAML”.** Po kliknięciu zapisuje do `/config` dwie gotowe konfiguracje Lovelace: `estadi-energy-pilot-dashboard.yaml` i `estadi-energy-pilot-mini.yaml`. Nazwy encji są pobierane z **prawdziwego rejestru Home Assistanta**, a nie zgadywane z polskich nazw. Przycisk niczego nie zmienia w istniejących pulpitach i nie nadpisuje wcześniejszych eksportów.
+
+Pełny pulpit zawiera podsumowanie **SOC / PV / Deye Load / EV / pompy**, natywne wykresy historii 24h, plan taniego ładowania, Grid Guard, status TOU Deye, historię dry-run i dokładność prognoz. Prognoza przyszłego SOC na 48h jest na razie czytelną **tabelą co 4 godziny** — standardowa karta HA History Graph przedstawia tylko historię i nie potrafi natywnie narysować przyszłej prognozy. Miniwidżet prezentuje najważniejsze pomiary i decyzję.
+
+**[Instrukcja: wygeneruj i zaimportuj gotowe pulpity](docs/DASHBOARD_039.md)**. Do wyświetlania wystarczają standardowe karty Home Assistanta; nie trzeba doinstalowywać ApexCharts ani Mushroom. Przygotowane pliki trzeba jednorazowo wkleić do **nowego pustego pulpitu → Edytor konfiguracji surowej**. Automatyczne tworzenie pulpitów HA nie jest jeszcze wdrożone. Nie jest to też automatyczne sterowanie falownikiem.
 
 ## Wersja 0.3.8 — rzeczywista weryfikacja prognoz i celu SOC
 
