@@ -100,6 +100,23 @@ class DashboardExportTests(unittest.TestCase):
         self.assertIn("nie rzeczywiste oszczędności", dashboard)
         self.assertIn("type: custom:estadi-energy-forecast-card", dashboard)
 
+    def test_calibration_and_ev_stress_visible_in_exported_dashboard(self):
+        entities = {
+            **ENTITIES,
+            "calibration_status": "sensor.owner_calibration",
+            "calibration_load_mae": "sensor.owner_load_mae",
+            "calibration_pv_discount": "sensor.owner_suggested_pv",
+            "calibration_ev_status": "sensor.owner_ev_uncertainty",
+            "economic_status": "sensor.owner_economics",
+        }
+        full = mod.render_dashboard(entities, SOURCES)
+        self.assertIn("sensor.owner_calibration", full)
+        self.assertIn("sensor.owner_ev_uncertainty", full)
+        self.assertIn("historyczny_wariant_ryzyka_EV", full)
+        self.assertIn("ev_historyczny_scenariusz_stresowy", full)
+        self.assertIn("Nie traktuj tego jako prawdopodobieństwa", full)
+        self.assertIn("Żadna korekta nie jest stosowana automatycznie", full)
+
     def test_mini_widget_small_self_contained(self):
         mini = mod.render_mini_widget(ENTITIES, SOURCES)
         self.assertIn("sensor.energy_status_renamed_by_owner", mini)
