@@ -1,6 +1,7 @@
 """Regression tests for native Lovelace YAML dashboard export."""
 from __future__ import annotations
 
+import ast
 import importlib.util
 from pathlib import Path
 import re
@@ -54,6 +55,48 @@ class DashboardExportTests(unittest.TestCase):
         self.assertIn("harmonogram_48h", dashboard)
         self.assertIn("Deye WYŁĄCZONE", dashboard)
         self.assertNotIn("sensor.estadi_energy_pilot_szybki_status", dashboard)
+
+    def test_optional_smart_charge_status_does_not_block_export(self):
+        """Regression for HA button error reported on 2026-11-06."""
+        entities = {k: v for k, v in ENTITIES.items()
+                    if k != "smart_charge_status"}
+        dashboard = mod.render_dashboard(entities, SOURCES)
+        mini = mod.render_mini_widget(entities, SOURCES)
+        self.assertIn("views:", dashboard)
+        self.assertIn("type: custom:estadi-energy-forecast-card", dashboard)
+        self.assertIn("views:", mini)
+        self.assertNotIn("sensor.energy_charging_status", dashboard)
+        try:
+            import yaml
+        except ImportError:
+            pass
+        else:
+            self.assertIsInstance(yaml.safe_load(dashboard), dict)
+
+    def test_button_maps_smart_charge_status_to_real_sensor_registry(self):
+        """Catch future omissions between sensor.py and button.py."""
+        root = SRC.parent
+        def tuple_assignment(path, symbol):
+            source = ast.parse(path.read_text(encoding="utf-8"))
+            for node in source.body:
+                if isinstance(node, ast.Assign):
+                    if any(isinstance(target, ast.Name) and target.id == symbol
+                           for target in node.targets):
+                        return ast.literal_eval(node.value)
+            raise AssertionError(f"Missing {symbol} in {path}")
+
+        known = tuple_assignment(root / "sensor.py", "ENERGY_V2_SENSORS")
+        mapped = tuple_assignment(root / "button.py", "SENSOR_KEYS")
+        keys = {name for name, _, _ in known}
+        self.assertIn("smart_charge_status", keys)
+        self.assertIn("smart_charge_status", mapped)
+        self.assertTrue(set(mapped).issubset(keys))
+        self.assertEqual(len(mapped), len(set(mapped)))
+
+    def test_smart_charge_sensor_tile_uses_discovered_entity_id(self):
+        rendered = mod.render_dashboard(ENTITIES, SOURCES)
+        self.assertIn("Inteligentne ładowanie", rendered)
+        self.assertIn("sensor.energy_charging_status", rendered)
 
     def test_interactive_card_uses_actual_simulation_entity(self):
         dashboard = mod.render_dashboard(ENTITIES, SOURCES)
