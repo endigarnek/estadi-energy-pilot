@@ -73,9 +73,13 @@ class PilotSensor(CoordinatorEntity, SensorEntity):
         if self.entity_description.key != "status":
             return None
         data = self.coordinator.data
-        if not data or not data.get("available"):
+        if not data:
             return None
+        if not data.get("available"):
+            return {"diagnostyka": data.get("diagnostics", {}),
+                    "przyczyna": data.get("reason")}
         return {
+            "diagnostyka": data.get("diagnostics", {}),
             "noc_okres": f'{data["night"].start.isoformat()} → {data["night"].end.isoformat()}',
             "popoludnie_okres": f'{data["afternoon"].start.isoformat()} → {data["afternoon"].end.isoformat()}',
             "noc_uzasadnienie": data["night"].reason,
