@@ -114,6 +114,11 @@
         healthy ? "System działa" :
         !health || health === "unknown" || health === "unavailable" ?
           "Stan systemu nieznany" : "System: " + health;
+      const statusHeadline = !healthy ? healthLabel +
+        (gridUnconfirmed ? " · Grid Guard wymaga weryfikacji" : "") :
+        gridOverLimit ? "Przekroczono limit przyłącza!" :
+        gridNearLimit ? "Blisko limitu przyłącza" :
+        gridUnconfirmed ? "Grid Guard wymaga weryfikacji" : "System działa";
       const note = healthDetails.przyczyna != null ? String(healthDetails.przyczyna) : "";
       const date = nextCheap && nextCheap !== "unknown" && nextCheap !== "unavailable" ?
         new Date(nextCheap) : null;
@@ -268,7 +273,7 @@
         '<ha-card><main class="shell">' +
         '<header class="hero"><div class="hero-copy"><div class="eyebrow">ESTADI / ENERGY PILOT</div>' +
         '<h1>Energia w Twoim domu.</h1>' +
-        '<p class="subtitle">Bieżące pomiary, magazyn i planowanie taryfowe. Wszystko czytelnie, w jednym miejscu.</p>' +
+        '<p class="subtitle">PV, dom, magazyn i taryfa — aktualizowane na żywo.</p>' +
         '<div class="chips"><span class="chip"><ha-icon icon="mdi:shield-lock-outline"></ha-icon>' +
         'Tryb doradczy</span><span class="chip">Sterowanie Deye: wyłączone</span></div></div>' +
         '<div class="gauge ' + (soc === null ? 'unknown' : '') + '" style="--soc:' +
@@ -277,9 +282,7 @@
         '</header>' +
         '<div class="status ' + (problem ? 'warning' : '') + '" role="status">' +
         '<ha-icon icon="' + (problem ? 'mdi:alert-circle-outline' : 'mdi:check-circle-outline') +
-        '"></ha-icon><div><b>' + escape(healthLabel) + (gridUnconfirmed ? ' · Grid Guard wymaga weryfikacji' : '') +
-        (gridOverLimit ? ' · Przekroczono limit przyłącza!' :
-          gridNearLimit ? ' · Blisko limitu przyłącza' : '') +
+        '"></ha-icon><div><b>' + escape(statusHeadline) +
         '</b><small>' + (problem ?
           'Wskazania są doradcze. Brak kalibracji lub pomiaru nie jest zerowym poborem.' :
           'Odczyty aktywne; wizualny wskaźnik nie zastępuje zabezpieczeń fizycznych.') +
