@@ -152,3 +152,17 @@ test("stale health probe is never presented as a healthy system", () => {
   assert.match(item.shadowRoot.innerHTML, /Odświeżanie zatrzymane/);
   assert.match(item.shadowRoot.innerHTML, /status warning/);
 });
+
+test("warns at 90 percent of the configured connection capacity", () => {
+  const near = make({
+    health_status:"Działa", grid_status:"ok", grid_import:14, grid_limit:15,
+  });
+  assert.match(near.shadowRoot.innerHTML, /Blisko limitu przyłącza/);
+  assert.match(near.shadowRoot.innerHTML, /grid-progress near/);
+
+  const exceeded = make({
+    health_status:"Działa", grid_status:"ok", grid_import:16, grid_limit:15,
+  });
+  assert.match(exceeded.shadowRoot.innerHTML, /Przekroczono limit przyłącza/);
+  assert.match(exceeded.shadowRoot.innerHTML, /grid-progress over/);
+});
