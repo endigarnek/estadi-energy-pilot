@@ -95,7 +95,7 @@ class ExportDashboardButton(ButtonEntity):
         self._attr_extra_state_attributes = {
             "status": "Nie wygenerowano w tej sesji",
             "adres_zasobu_lovelace": FORECAST_CARD_RESOURCE,
-            "wymaga_wklejenia_do_pulpitu": True,
+            "wymaga_jednorazowej_rejestracji_yaml": True,
             "nie_modyfikuje_istniejacych_dashboardow": True,
         }
 
@@ -136,26 +136,31 @@ class ExportDashboardButton(ButtonEntity):
                 sources[key] = entity_id
         return ids, sources
 
-    async def async_press(self) -> None:
+    async def async_generate_managed_files(self):
+        """Safe, idempotent export shared by user action and post-restart sync."""
         ids, sources = self._map_entities()
+        forecast = await self.coordinator.hass.async_add_executor_job(
+            Path(__file__).with_name("forecast_card.js").read_text, "utf-8",
+        )
+        overview = await self.coordinator.hass.async_add_executor_job(
+            Path(__file__).with_name("overview_card.js").read_text, "utf-8",
+        )
+        script = forecast + "\n" + overview
+        full = render_dashboard(ids, sources)
+        mini = render_mini_widget(ids, sources)
+        paths = await self.coordinator.hass.async_add_executor_job(
+            export_files, self.coordinator.hass.config.path(), full, mini, script,
+        )
+        return ids, sources, paths
+
+    async def async_press(self) -> None:
         try:
-            forecast = await self.coordinator.hass.async_add_executor_job(
-                Path(__file__).with_name("forecast_card.js").read_text, "utf-8",
-            )
-            overview = await self.coordinator.hass.async_add_executor_job(
-                Path(__file__).with_name("overview_card.js").read_text, "utf-8",
-            )
-            script = forecast + "\n" + overview
-            full = render_dashboard(ids, sources)
-            mini = render_mini_widget(ids, sources)
-            paths = await self.coordinator.hass.async_add_executor_job(
-                export_files, self.coordinator.hass.config.path(), full, mini, script,
-            )
+            ids, sources, paths = await self.async_generate_managed_files()
         except (ValueError, OSError, RuntimeError) as exc:
             self._attr_extra_state_attributes = {
                 "status": "Błąd eksportu",
                 "przyczyna": str(exc)[:240],
-                "wymaga_wklejenia_do_pulpitu": True,
+                "wymaga_jednorazowej_rejestracji_yaml": True,
                 "nie_modyfikuje_istniejacych_dashboardow": True,
             }
             self.async_write_ha_state()
@@ -176,9 +181,9 @@ class ExportDashboardButton(ButtonEntity):
             ],
             "liczba_zewnetrznych_czujnikow": len(sources),
             "wygenerowano_o": datetime.now(timezone.utc).isoformat(),
-            "wymaga_wklejenia_do_pulpitu": True,
+            "wymaga_jednorazowej_rejestracji_yaml": True,
             "eksport_staly_bez_duplikatow": True,
-            "uwaga": "Pliki *-managed.yaml aktualizują się przy ponownym eksporcie. Wklejony ręcznie pulpit HA nie aktualizuje swojego układu z pliku.",
+            "uwaga": "Po jednorazowej rejestracji YAML pliki są odświeżane także po restarcie HA. Dane odświeżają się na żywo. Pulpit UI z ręcznie wklejonym YAML nie aktualizuje układu z pliku.",
             "nie_modyfikuje_istniejacych_dashboardow": True,
             "nie_zmieniono_deye": True,
         }
