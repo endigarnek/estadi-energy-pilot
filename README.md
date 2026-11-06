@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.3.0b1 (beta)
+# ESTADI Energy Pilot — wersja 0.3.0 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -42,7 +42,7 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 
 
 
-## Wersja beta 0.3.0b1 — pierwszy działający etap 2.0
+## Wersja beta 0.3.0 — pierwszy działający etap 2.0
 
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
