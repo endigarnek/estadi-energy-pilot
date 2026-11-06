@@ -2,11 +2,18 @@
 import importlib.util
 from datetime import date, timedelta
 from pathlib import Path
+import sys
+import types
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1] / "custom_components" / "estadi_energy_pilot"
-spec = importlib.util.spec_from_file_location("load_calibration_tests", ROOT / "load_calibration.py")
+PACKAGE = "calibration_test_pkg"
+package = types.ModuleType(PACKAGE)
+package.__path__ = [str(ROOT)]
+sys.modules[PACKAGE] = package
+spec = importlib.util.spec_from_file_location(f"{PACKAGE}.load_calibration", ROOT / "load_calibration.py")
 module = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 
 
