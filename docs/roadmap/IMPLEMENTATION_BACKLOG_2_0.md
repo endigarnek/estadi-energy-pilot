@@ -21,6 +21,16 @@ Data: 2026-11-06. Specyfikacja nadrzędna: [ENERGY_PILOT_2_0_SPEC.md](./ENERGY_P
 
 **Warunek startu:** wymaga EP20-01 (taryfa) i EP20-02 (EV/topologia) oraz EP20-04 (symulator SOC). **Warunek włączenia automatyki:** dodatkowo EP20-08, EP20-09 i ręczne potwierdzenie trybu automatycznego. Limit 10 kW jest przykładowy, a 28 kWh nie można utożsamiać bez weryfikacji z pojemnością użyteczną.
 
+## Priorytet P0b — dynamiczna kontrola importu i wiarygodny model pojemności
+
+| ID | Temat | Kryterium DONE |
+|---|---|---|
+| EP20-12 | Grid Guard 15 kW + moc elastyczna magazynu | Realny import i L1/L2/L3, miękki limit/bufor, priorytet domu i EV, szybka redukcja baterii i stopniowe podnoszenie po EV. W 15 kW nie wliczać już raz policzonej mocy EV/HP. Zmierzony interwał Deye, testy opóźnień i awarii; jeśli sprzęt nie reaguje dość szybko, **brak deklaracji ochrony software**. 7 dni dry-run + odczyt zwrotny przed automatyzacją. |
+| EP20-13 | Pojemność nominalna 28 kWh, min/max SOC i korekta suwakiem | Domyślnie nominalnie 28 kWh / 10–100% dla tej instalacji (nie mylić z istniejącym polem 15 kWh *użytecznie*). Zmiana pojemności 28→42 kWh przelicza cele SOC, moc, godziny, koszty bez fałszowania historii. Suwak −15…+15 p.p. i jawny wpływ na kWh/PLN, zgodność z BMS. |
+| EP20-14 | Transparentny panel „Co widzę / Dlaczego / Co wykonałem” | Odświeżanie importu i faz, dostępna moc, EV, pompa, PV, magazyn, ceny; plan vs faktyczna komenda, kod powodu, dziennik i historia 7/30 dni; mały widget Lovelace z ograniczeniem 15 kW, mocą ładowania, SOC, stanem automatyki. |
+
+**Powiązana specyfikacja:** [EP20-12 — Grid Guard, edytowalna bateria, suwak i przejrzysty UI](./EP20-12_GRID_GUARD_CAPACITY_UI.md).
+
 ## Priorytet P1 — UX/dashboard
 
 | ID | Temat | Kryteria odbioru |

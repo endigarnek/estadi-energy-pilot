@@ -82,6 +82,19 @@ Dla kroku t o długości Δh:
 - UI: **„Zacznij o 13:30, ładuj 5 kW do 15:50, uzyskasz 80%”**, obok wykres mocy kW i SOC oraz wyjaśnienie w PLN. Jeśli cel nieosiągalny: czytelne ostrzeżenie i bezpieczny plan częściowy bez ukrywania deficytu.
 - [Pełne wymagania i scenariusze testowe EP20-11](./EP20-11_SMART_CHARGING_POWER_28KWH.md).
 
+### 3.5. Ochrona przyłącza 15 kW i dynamiczne zwiększanie mocy po zakończeniu EV — EP20-12
+
+**Potwierdzone:** maksymalna moc przyłączeniowa domu 15 kW; magazyn 28 kWh **nominalnie**, zakres 10–100% SOC edytowalny. Teoretycznie daje to 25,2 kWh w zadanym zakresie przed SoH i rzeczywistymi stratami; **nie jest to to samo co 28 kWh pojemności użytecznej**.
+
+- Nowy **Grid Guard** jest niezależny od planisty 48 h: odczytuje rzeczywisty import na przyłączu oraz prądy / moce faz L1/L2/L3. W pierwszej kolejności ogranicza ładowanie magazynu, dopiero po osobnej zgodzie może regulować EV. Nie wolno dwukrotnie dodawać EV/pompy do Deye Load.
+- Konfigurowalny limit przyłącza `15 kW` + miękki limit roboczy, **przykładowo 13 kW** (bufor 2 kW przed krótkimi szczytami). Bieżący `P_import` obejmuje **już trwające** ładowanie magazynu; nowa moc bazuje na zapasie względem tego pomiaru i odczytanym aktualnym ładowaniu, nie odejmuje już uruchomionych urządzeń drugi raz.
+- EV 11 kW + pompa 2 kW + dom 1 kW = 14 kW → magazyn z sieci 0 kW bez PV. Po zakończeniu EV ~3 kW obciążenia → zwiększanie magazynu do np. 10 kW przy miękkim limicie 13 kW, tylko przy sprawnym pomiarze każdej fazy i zgodzie BMS.
+- Planista co 15 min, natomiast strażnik docelowo 5–15 s **wyłącznie jeśli czujniki i regulacja Deye rzeczywiście zapewniają ten czas**; w innym przypadku zachowawcze nastawy sprzętowe i BRAK gwarancji ochrony oprogramowaniem. Po zaniku danych: zakaz zwiększania ładowania, alert, wyłączenie automatyki zgodnie ze zweryfikowaną procedurą.
+- Edytowalny profil baterii: nominalnie 28 kWh, użytkownik może rozbudować; pola SoH, min 10%, max 100%, moc/prąd ładowania wg Deye/BMS. Zmiana pojemności natychmiast uruchamia przeliczenie rekomendowanego SOC/startu/kW/kosztu; historia pozostaje przy historycznej pojemności.
+- **Suwak korekty zapasu** np. od −15 do +15 p.p. SOC, domyślnie 0, obok koszt w PLN i dodatkowe kWh; oddzielnie prezentować korektę automatyczną wynikającą z błędów prognoz (nie nadpisywać korekty ręcznej). Dodatkowo warianty modelu Oszczędny/Zrównoważony/Ostrożny.
+- Panel „Dlaczego taka decyzja?”: dane na żywo (moc, fazy, EV, pompa, PV, SOC i stany wejść), plan bazowy, ograniczenie przez Grid Guard i fizycznie wykonana komenda po odczycie zwrotnym, log powodu i ostrzeżenia. Mobilny widżet, wykres moc/prąd/SOC/cena po osi czasu.
+- **Specyfikacja z pseudologiką, przykładami i testami:** [EP20-12](./EP20-12_GRID_GUARD_CAPACITY_UI.md). Przed sterowaniem potwierdzić m.in. czy karta Deye potrafi bezpiecznie i dostatecznie często zmieniać moc bez zużywania pamięci ustawień TOU.
+
 ## 4. Taryfy i ceny: G12w, G13, własna
 
 **Nie kodować na sztywno obecnych okien 21–07 / 13–16 jako G12w.**
