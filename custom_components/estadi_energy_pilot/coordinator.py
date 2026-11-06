@@ -26,7 +26,7 @@ from .battery_model import BatteryModel
 from .grid_guard import calculate_grid_guard
 from .tariffs import tariff_zone, next_cheap_window, zone_prices, is_day_off
 from .charge_planner import propose
-from .house_learning import build_house_profile
+from .house_learning import build_house_profile, resolve_ev_topology
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -212,10 +212,12 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             ev=self._power_w(CONF_EV_POWER),
         )
         self.storage.async_delay_save(self.history.export, 60)
-        ev_topology = selected.get(CONF_EV_TOPOLOGY, "unknown")
-        ev_included = {"included": True, "excluded": False}.get(ev_topology)
+        ev_topology = resolve_ev_topology(selected.get(CONF_EV_TOPOLOGY))
+        ev_included = ev_topology == "included"
         learned = build_house_profile(
-            self.history.days, now.date(), ev_in_home_load=ev_included,
+            self.history.days, now.date(),
+            ev_in_home_load=ev_included,
+            heat_pump_in_home_load=True,
         )
         v2_info["house_learning"] = learned
         date_today = now.date().isoformat()
