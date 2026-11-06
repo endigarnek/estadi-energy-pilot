@@ -7,12 +7,15 @@ No frontend add-ons or external services are required.
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import tempfile
 from pathlib import Path
 from textwrap import indent
 from typing import Mapping
 
-FORECAST_CARD_JS = "estadi-energy-pilot-forecast-v040.js"
+FORECAST_CARD_JS = "estadi-energy-pilot-ui-v046.js"
 FORECAST_CARD_RESOURCE = "/local/" + FORECAST_CARD_JS
 
 
@@ -366,16 +369,53 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
         "jeszcze Deye ani ładowarką EV; nie obliczamy rzeczywistych oszczędności "
         "bez potwierdzonych przepływów import/eksport i cen rozliczenia."
     ))
+    def view(title: str, path: str, icon: str, selected: list[str], panel: bool = False) -> str:
+        """Separate concise everyday views from deeper technical diagnostics."""
+        return (
+            "  - title: " + _quote(title) + "\n"
+            "    path: " + path + "\n"
+            "    icon: " + icon + "\n"
+            "    type: " + ("panel" if panel else "masonry") + "\n"
+            "    cards:\n"
+            + "".join(_card(card) for card in selected)
+        )
+
+    overview = _modern_overview_card(entities, sources)
+    history = [cards[4], cards[5], cards[6], cards[1], cards[2]]
+    forecast = [cards[8], cards[7], cards[3], cards[9]]
+    finance = [cards[10], cards[11], cards[18]]
+    diagnostics = [cards[0]] + cards[12:18] + cards[19:]
     return (
-        "# ESTADI Energy Pilot — pulpit z lokalną kartą 48h (zarejestruj zasób JS w HA)\n"
+        "# ESTADI Energy Pilot — zarządzany pulpit, v0.4.6\n"
         "title: \"ESTADI Energy Pilot\"\n"
         "views:\n"
-        "  - title: \"Energia\"\n"
-        "    path: estadi-energia\n"
-        "    icon: mdi:solar-power\n"
-        "    cards:\n"
-        + "".join(_card(card) for card in cards)
+        + view("Pulpit", "estadi-energia", "mdi:view-dashboard", [overview], panel=True)
+        + view("Historia", "estadi-historia", "mdi:chart-line", history)
+        + view("Prognoza 48h", "estadi-prognoza", "mdi:chart-timeline-variant", forecast)
+        + view("Koszty", "estadi-koszty", "mdi:cash-multiple", finance)
+        + view("Diagnostyka", "estadi-diagnostyka", "mdi:stethoscope", diagnostics)
     )
+
+
+def _modern_overview_card(entities: Mapping[str, str], sources: Mapping[str, str]) -> str:
+    mapping = {
+        "soc": sources.get("source_soc"),
+        "pv": sources.get("source_pv"),
+        "home": sources.get("source_home"),
+        "ev": sources.get("source_ev"),
+        "pump": sources.get("source_pump"),
+        "grid_import": entities.get("grid_import"),
+        "grid_headroom": entities.get("grid_headroom"),
+        "grid_status": entities.get("grid_status"),
+        "health_status": entities.get("health_status"),
+        "tariff_zone": entities.get("tariff_zone"),
+        "next_cheap": entities.get("next_cheap"),
+        "smart_charge_power": entities.get("smart_charge_power"),
+        "smart_charge_target": entities.get("smart_charge_target"),
+    }
+    return ("- type: custom:estadi-energy-overview-card\n" +
+            "".join("  entity_" + key + ": " + _quote(eid) + "\n"
+                    for key, eid in mapping.items() if eid))
 
 
 def _interactive_forecast_card(entity_id: str) -> str:
@@ -428,51 +468,89 @@ def render_mini_widget(entities: Mapping[str, str], sources: Mapping[str, str]) 
             + "".join(_card(card) for card in mini))
 
 
+def _digest(content: str) -> str:
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def _write_atomic(path: Path, content: str) -> None:
+    """Write only when changed; replace atomically on the same filesystem."""
+    if path.exists() and path.read_text(encoding="utf-8") == content:
+        return
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=".estadi-tmp-", delete=False
+        ) as temp:
+            temp.write(content)
+            temp.flush()
+            os.fsync(temp.fileno())
+            temp_path = Path(temp.name)
+        os.replace(temp_path, path)
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
 def export_files(directory: str | Path, full: str, mini: str,
                  javascript: str | None = None) -> dict[str, str]:
-    """Safely create YAMLs with no overwrite of the owner's existing edits.
+    """Idempotent managed export; never creates -2, -3 or unbounded copies.
 
-    This is triggered only by the explicit 'Eksportuj panel' HA button.
-    The files contain no secret credentials, only entity IDs and Lovelace YAML.
+    Existing legacy exports and the user's manually edited dashboards are left
+    untouched. A checksum manifest tracks only files created by this exporter.
+    If one of those files is later edited by the owner, fail clearly instead
+    of silently overwriting their work or allocating another numbered file.
     """
     root = Path(directory)
     if not root.is_dir():
         raise ValueError("Brak katalogu konfiguracji Home Assistant")
     if not full.strip() or not mini.strip():
         raise ValueError("Pusta konfiguracja pulpitu")
-    targets = {}
-    if javascript is not None:
-        if not javascript.strip() or "estadi-energy-forecast-card" not in javascript:
-            raise ValueError("Nieprawidłowy kod karty prognozy 48h")
-        www = root / "www"
-        www.mkdir(exist_ok=True)
-        resource = www / FORECAST_CARD_JS
-        # Never overwrite user edits; versioned name avoids stale browser cache.
-        try:
-            with resource.open("x", encoding="utf-8") as file:
-                file.write(javascript)
-        except FileExistsError:
-            if resource.read_text(encoding="utf-8") != javascript:
-                raise ValueError(
-                    "Istnieje zmodyfikowany zasób karty. Nie nadpisano: " + str(resource)
-                )
-        targets["forecast_js"] = str(resource)
-        targets["forecast_resource_url"] = FORECAST_CARD_RESOURCE
-    for key, filename, text in (
-        ("dashboard", "estadi-energy-pilot-dashboard.yaml", full),
-        ("mini", "estadi-energy-pilot-mini.yaml", mini),
+    if javascript is not None and (
+        not javascript.strip() or
+        "estadi-energy-forecast-card" not in javascript or
+        "estadi-energy-overview-card" not in javascript
     ):
-        # Never overwrite a customized dashboard. Subsequent exports get -2...
-        for version in range(1, 1000):
-            suffix = "" if version == 1 else f"-{version}"
-            candidate = root / filename.replace(".yaml", f"{suffix}.yaml")
-            try:
-                with candidate.open("x", encoding="utf-8") as output:
-                    output.write(text)
-            except FileExistsError:
-                continue
-            targets[key] = str(candidate)
-            break
-        else:
-            raise RuntimeError("Zbyt wiele istniejących eksportów")
+        raise ValueError("Nieprawidłowy kod kart ESTADI")
+
+    files = {
+        "dashboard": ("estadi-energy-pilot-dashboard-managed.yaml", full),
+        "mini": ("estadi-energy-pilot-mini-managed.yaml", mini),
+    }
+    if javascript is not None:
+        files["forecast_js"] = ("www/" + FORECAST_CARD_JS, javascript)
+    manifest_path = root / ".estadi-energy-pilot-managed.json"
+    if manifest_path.exists():
+        try:
+            previous = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if not isinstance(previous, dict):
+                raise ValueError("Nieprawidłowy rejestr plików zarządzanych")
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError("Uszkodzony rejestr plików ESTADI") from exc
+    else:
+        previous = {}
+
+    # Check every existing target before writing any files.
+    for filename, content in files.values():
+        target = root / filename
+        if target.exists():
+            actual = _digest(target.read_text(encoding="utf-8"))
+            recorded = previous.get(filename)
+            if recorded is None and actual != _digest(content):
+                raise ValueError("Istnieje niezarządzany plik. Nie nadpisano: " + str(target))
+            if recorded is not None and recorded != actual:
+                raise ValueError("Plik zmieniono ręcznie. Nie nadpisano: " + str(target))
+
+    targets: dict[str, str] = {}
+    updated = dict(previous)
+    for key, (filename, content) in files.items():
+        target = root / filename
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _write_atomic(target, content)
+        updated[filename] = _digest(content)
+        targets[key] = str(target)
+    if updated != previous:
+        _write_atomic(manifest_path, json.dumps(updated, sort_keys=True, indent=2) + "\n")
+    if javascript is not None:
+        targets["forecast_resource_url"] = FORECAST_CARD_RESOURCE
     return targets
