@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.3.1 (beta)
+# ESTADI Energy Pilot — wersja 0.3.2 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -48,11 +48,25 @@ Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemn
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
 
+## Wersja 0.3.2 — potwierdzona instalacja: Deye Load zawiera cały dom
+
+**Potwierdzono wprost:** `sensor.deye_load_power` obejmuje wszystkie odbiorniki domu, w tym **samochód EV i pompę ciepła**. Integracja przy pierwszym uruchomieniu po aktualizacji migruje wcześniejszy wybór `unknown` do **EV wliczone w Deye Load** (bez ponownego ustawiania encji). Jeżeli użytkownik kiedykolwiek fizycznie zmieni podłączenie i świadomie ustawi `excluded`, ta decyzja jest zachowywana.
+
+W encji **Uczenie zużycia domu** otrzymujemy dwa rozdzielone godzinowe profile:
+
+- **Dom bez EV, z pompą ciepła**: `Deye Load − EV`. Użyteczny do obrazu faktycznego zużycia domu bez ładowania auta.
+- **Dom bazowy bez EV i bez pompy**: `Deye Load − EV − moc pompy`. Ten profil może w przyszłości zostać zsumowany z *osobną* prognozą pracy pompy na podstawie temperatury. **Nigdy nie dodawać pompy ponownie do pierwszego profilu**.
+- Rzeczywisty bilans mocy przyłącza nadal korzysta z pomiaru **Grid** — nie odejmuje EV od realnego importu. Samochód wpływa na dostępny zapas mocy do ładowania magazynu.
+- Jeżeli pomiar EV lub pompy nie obejmuje wymaganej godziny, brak wartości jest oznaczany jako brak danych; niespójne pomiary (EV większe niż cały Load) są odrzucane, zamiast udawać dom o zerowym poborze.
+- Profile nadal wymagają co najmniej 7 dni kompletnej historii, a cel SOC w obecnej wersji jest liczony przez starszy silnik. Nowy model historyczny nie jest jeszcze wykonywany jako automatyczne sterowanie Deye.
+
+**Po aktualizacji:** pobierz ponownie integrację przez HACS/Marketplace, uruchom ponownie HA i sprawdź `Wersja integracji = 0.3.2`. W sensorze `Uczenie zużycia domu` odczytasz `ev_wliczony_w_dom: true`, `pompa_wliczona_w_dom: true`, a także oba profile. Nie ma potrzeby usuwać integracji ani ponownie wybierać czujników.
+
 ## Wersja 0.3.1 — pierwsza nauka zużycia domu (EP20-03)
 
 Nowa encja **Uczenie zużycia domu** pokazuje postęp budowy profilu z 7–30 pełnych dni. W jej atrybutach znajduje się **24-godzinny profil P50 i P90**, oddzielnie dla dni roboczych i weekendów. Przewidywanie jest statystyczne: nie zgaduje, kiedy dokładnie zostanie włączona pralka, tylko pokazuje typowe i wyższe możliwe zużycie danej godziny. Do uczenia kwalifikowane są dni z co najmniej 22 godzinami odczytów i kompletnością minimum 90% w każdej liczonej godzinie. Niepełne dni są pomijane.
 
-**Ważne:** odjęcie EV jest poprawne wyłącznie, jeśli `sensor.deye_load_power` obejmuje także samochód. W **Ustawienia → Urządzenia i usługi → ESTADI Energy Pilot → Konfiguruj → ustawienia zaawansowane** jest nowe pole **„Samochód: czy moc EV jest wliczona do zużycia Deye Load?”**. Domyślnie `Niepotwierdzone` — model nie będzie udawał, że zna prawdziwe zużycie domu bez EV. Po potwierdzeniu `Tak` automatycznie odejmie pomiar ładowarki z pomiaru całego domu. Po `Nie` nie odejmuje, ponieważ auto jest poza licznikiem domu. Brak pomiarów EV nie jest traktowany jako 0 W.
+**Ważne:** odjęcie EV jest poprawne wyłącznie, jeśli `sensor.deye_load_power` obejmuje także samochód. W **Ustawienia → Urządzenia i usługi → ESTADI Energy Pilot → Konfiguruj → ustawienia zaawansowane** jest nowe pole **„Samochód: czy moc EV jest wliczona do zużycia Deye Load?”**. Od 0.3.2 **domyślnie wybrane jest `Tak`**, zgodnie z potwierdzonym podłączeniem; starsze `Niepotwierdzone` migruje automatycznie. Po potwierdzeniu `Tak` automatycznie odejmie pomiar ładowarki z pomiaru całego domu. Po `Nie` nie odejmuje, ponieważ auto jest poza licznikiem domu. Brak pomiarów EV nie jest traktowany jako 0 W.
 
 **Na tym etapie** model jest tylko źródłem danych historycznych i wykresów. Planowanie docelowego SOC nadal korzysta ze starszego, ostrożnego modelu. Żeby zastosować nauczone zużycie w sterowaniu, potrzebne są jeszcze symulator przepływów 48h, walidacja sposobu pomiaru i testy dry-run. Automatyzacja Deye pozostaje wyłączona.
 
