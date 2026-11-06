@@ -209,6 +209,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
              if point["hour"] == last_hour_key), None
         )
         history = {
+            "energy_2_0": v2_info,
             "forecast_source": forecast_source,
             "forecast_error": forecast_error,
             "history_last_hour": last_hour_comparison,
@@ -272,19 +273,19 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             plan = get_all_plans(
                 now=now, pv_attrs=attrs, pv_slots=pv_slots, temps=temperatures,
                 current_temp=outdoor_temp, soc=soc,
-                capacity_kwh=float(selected[CONF_CAPACITY]),
+                capacity_kwh=model.estimated_chemical_capacity_kwh,
                 baseload_w=float(selected[CONF_BASE_W]),
-                reserve_soc=int(selected[CONF_RESERVE]),
-                max_soc=int(selected[CONF_MAX_SOC]),
+                reserve_soc=int(model.minimum_soc),
+                max_soc=int(model.maximum_soc),
                 pv_discount_pct=int(selected[CONF_PV_DISCOUNT]),
                 efficiency_pct=int(selected[CONF_EFFICIENCY]),
                 margin_kwh=float(selected[CONF_MARGIN]),
                 mild_w=float(selected[CONF_MILD_W]),
                 cold_w=float(selected[CONF_COLD_W]),
-                night_start=int(selected[CONF_NIGHT_START]),
-                night_end=int(selected[CONF_NIGHT_END]),
-                midday_start=int(selected[CONF_MIDDAY_START]),
-                afternoon_end=int(selected[CONF_AFTERNOON_END]),
+                night_start=22 if tariff == "G12w" or 4 <= now.month <= 9 else 21,
+                night_end=6 if tariff == "G12w" else 7,
+                midday_start=13,
+                afternoon_end=15 if tariff == "G12w" else 19 if 4 <= now.month <= 9 else 16,
             )
         except (ValueError, TypeError, KeyError, ZeroDivisionError) as err:
             _LOGGER.error("Cannot calculate energy plan: %s", err)
