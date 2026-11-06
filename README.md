@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.2.5
+# ESTADI Energy Pilot — wersja 0.2.6
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -41,6 +41,16 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 - Brak aktualnej prognozy lub pomiarów uniemożliwia wyliczenie zalecanego ładowania.
 
 
+
+## Wersja 0.2.6 — diagnostyka przy braku SOC lub temperatury
+
+- Sensor **Stan obliczeń** wyświetla teraz, czy brakuje wartości SOC czy temperatury, zamiast wspólnego niejasnego komunikatu.
+- W atrybutach sensora znajdziesz pole `diagnostyka`: identyfikatory encji, wartości i przyczyny błędu (brak encji, niedostępność, zła jednostka, wartość poza zakresem).
+- Puste wartości zapisane przez stary formularz nie zasłaniają już prawidłowo wykrytych encji Deye i pogody.
+- Przy poprawnym czujniku pompy to on służy jako bieżąca temperatura; jeśli nie działa, wykorzystywana jest temperatura z `weather.*`.
+- Nadal **nie steruje** falownikiem ani ładowarką.
+
+Po aktualizacji przez Marketplace/HACS i pełnym restarcie HA otwórz sensor **Stan obliczeń** i jego atrybuty. Jeśli problem pozostaje, wklej `diagnostyka` — nie trzeba robić zrzutów całego kreatora.
 
 ## Wersja 0.2.5 — temperatura z wbudowanej prognozy pogody
 
