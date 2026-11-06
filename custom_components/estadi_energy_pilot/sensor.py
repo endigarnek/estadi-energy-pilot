@@ -241,6 +241,10 @@ ENERGY_V2_SENSORS = (
     ("tariff", "Taryfa", None),
     ("tariff_zone", "Aktualna strefa taryfowa", None),
     ("tariff_price", "Cena w aktualnej strefie", "PLN/kWh"),
+    ("learning_status", "Uczenie domu", None),
+    ("learning_days", "Liczba pełnych dni do nauki", None),
+    ("learning_p50", "Zużycie domu prognoza 24h P50", "kWh"),
+    ("learning_p90", "Zużycie domu prognoza 24h P90", "kWh"),
     ("next_cheap", "Początek następnej taniej strefy", None),
     ("battery_nominal", "Pojemność nominalna magazynu", "kWh"),
     ("battery_window", "Energia w zakresie SOC", "kWh"),
@@ -272,6 +276,8 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
         d = (self.coordinator.data or {}).get("energy_2_0", {})
         g, model = d.get("grid", {}), d.get("model", {})
         p = d.get("charging_schedule") or {}
+        learning = d.get("house_learning", {})
+        forecast = learning.get("forecast", {})
         live = d.get("live", {})
         soc = d.get("current_soc_pct")
         imported = g.get("import_kw")
@@ -291,6 +297,10 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
             "tariff": d.get("tariff"),
             "tariff_zone": d.get("tariff_zone"),
             "tariff_price": d.get("price_current_pln_kwh"),
+            "learning_status": learning.get("status"),
+            "learning_days": learning.get("days_complete"),
+            "learning_p50": forecast.get("total_p50_kwh"),
+            "learning_p90": forecast.get("total_p90_kwh"),
             "next_cheap": d.get("next_cheap_start"),
             "battery_nominal": model.get("nominal_kwh"),
             "battery_window": model.get("soc_window_kwh"),
@@ -304,6 +314,8 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         d = (self.coordinator.data or {}).get("energy_2_0", {})
+        if self._key == "learning_status":
+            return {"learning": d.get("house_learning")}
         if self._key == "mini_status":
             return {
                 "moc_biezaca": d.get("live"),
