@@ -68,6 +68,7 @@ def _evaluate(
     baseload_w: float, mild_w: float, cold_w: float, pv_discount_pct: float,
     efficiency_pct: float, battery_max_kw: float, grid_limit_kw: float,
     buffer_kw: float, ev_kw: float | None, plan: dict | None,
+    future_ev_stress: dict | None = None,
 ) -> dict:
     """Calculate one strategy with 15-minute physical energy bookkeeping."""
     store_capacity = model.estimated_chemical_capacity_kwh
@@ -121,6 +122,14 @@ def _evaluate(
         # Deye Load already contains both EV and heat pump. The baseline
         # excludes both before these separate forecasts are added ONCE.
         ev_kwh = STEP_H * ev_kw if i == 0 and ev_kw is not None else 0.
+        if i > 0 and future_ev_stress and future_ev_stress.get("risk_ready"):
+            daytype = "weekend" if local.weekday() >= 5 else "weekday"
+            hours = (future_ev_stress.get("profiles", {}).get(daytype) or {}).get(
+                "p90_kwh_per_hour", [])
+            if len(hours) == 24:
+                historical_hour = _float(hours[local.hour])
+                if historical_hour is not None and historical_hour >= 0:
+                    ev_kwh = historical_hour * STEP_H
         demand = base_kwh + hp_kwh + ev_kwh
         direct = min(solar_kwh, demand)
         shortage = demand - direct
@@ -240,6 +249,7 @@ def compare_scenarios(
     baseload_w: float, mild_w: float, cold_w: float, pv_discount_pct: float,
     efficiency_pct: float, battery_max_kw: float, grid_limit_kw: float,
     grid_buffer_kw: float, ev_now_kw: float | None,
+    future_ev_stress: dict | None = None,
 ) -> dict:
     """Return two directly comparable forecasts, or explicit missing inputs.
 
@@ -308,6 +318,35 @@ def compare_scenarios(
     )
     baseline = _evaluate(**common, plan=None)
     projected = _evaluate(**common, plan=with_plan) if with_plan else None
+    # Separate stress calculation: NEVER silently mix hypothetical historical
+    # EV sessions into the normal base scenario or planner commands.
+    stress = None
+    if future_ev_stress and future_ev_stress.get("risk_ready"):
+        stress_base = _evaluate(**common, plan=None, future_ev_stress=future_ev_stress)
+        stress_plan = (_evaluate(**common, plan=with_plan, future_ev_stress=future_ev_stress)
+                       if with_plan else None)
+        stress = {
+            "status": "gotowy_scenariusz_stresowy" if stress_base["status"] == "gotowy"
+            and (stress_plan is None or stress_plan["status"] == "gotowy")
+            else "niepelne_dane",
+            "baseline": {
+                key: stress_base.get(key) for key in (
+                    "status", "hours", "ev_kwh", "home_kwh", "import_kwh",
+                    "import_cost_pln", "soc_end_pct", "grid_peak_kw",
+                    "grid_over_limit_steps",
+                )
+            },
+            "plan": {
+                key: stress_plan.get(key) for key in (
+                    "status", "hours", "ev_kwh", "home_kwh", "import_kwh",
+                    "import_cost_pln", "soc_end_pct", "grid_peak_kw",
+                    "grid_over_limit_steps", "grid_charge_clipped_steps",
+                )
+            } if stress_plan is not None else None,
+            "estimated_savings_pln": None,
+            "future_ev_sessions_confirmed": False,
+            "warning": future_ev_stress.get("warning"),
+        }
 
     incomplete = baseline["status"] != "gotowy" or (
         projected is not None and projected["status"] != "gotowy"
@@ -364,6 +403,7 @@ def compare_scenarios(
         "savings_pln": None,
         "realized_savings_pln": None,
         "future_ev_unknown": True,
+        "ev_stress": stress,
         "plan_written_to_deye": False,
         "phase_safety_not_verified": True,
         "note": (
