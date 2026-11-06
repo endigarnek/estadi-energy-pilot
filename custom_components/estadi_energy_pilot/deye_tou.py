@@ -60,12 +60,16 @@ def _read_value(state: Any, field: str) -> tuple[Any, str]:
             return None, "nieprawidlowa_moc"
         if not isfinite(value) or value < 0 or value > 100000:
             return None, "nieprawidlowa_moc"
-        if unit not in ("W", "kW"):
+        # Some Deye integrations expose power as a percentage of a
+        # register's maximum, not in kW. Never silently reinterpret it.
+        if unit not in ("W", "kW", "%"):
             return None, "niepotwierdzona_jednostka_mocy"
+        if unit == "%":
+            return (f"{value:g} %", "ok") if value <= 100 else (None, "nieprawidlowa_moc")
         kw = value / 1000 if unit == "W" else value
         if kw > 100:
             return None, "nieprawidlowa_moc"
-        return round(kw, 3), "ok"
+        return f"{kw:.3f} kW", "ok"
     # Charging is a device-specific mode. Show the source state verbatim,
     # but DO NOT assume its semantic meaning (e.g. 'Grid' vs 'Gen').
     if domain in ("select", "switch", "sensor"):
