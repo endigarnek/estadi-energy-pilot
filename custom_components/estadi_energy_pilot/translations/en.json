@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Quick setup — automatic sensor detection",
-        "description": "Automatically detected {detected_count} entities: {detected_entities}. Known sensors are connected automatically. Select only missing sources and confirm battery capacity. The module does not control the inverter.",
+        "description": "Forecast.Solar will be used automatically, without Solcast or an API key. Deye, heat pump, and EV entities are auto-selected. Fill in only missing fields and battery capacity. This integration does not control the inverter.",
         "data": {
           "solcast_today": "Solcast forecast today",
           "solcast_tomorrow": "Solcast forecast tomorrow",
@@ -17,7 +17,8 @@
           "pv_power": "Deye PV power (W)",
           "home_power": "Deye home load power (W)",
           "heat_pump_power": "Heat pump measured power (W)",
-          "ev_power": "EV charger corrected real power (W)"
+          "ev_power": "EV charger corrected real power (W)",
+          "forecast_solar_entry": "Forecast.Solar: choose installation (when several exist)"
         }
       }
     }
@@ -60,7 +61,8 @@
           "solcast_day3": "Solcast forecast day 3 (optional)",
           "battery_soc": "Deye battery SOC (%)",
           "outdoor_temp": "Outdoor temperature (°C)",
-          "weather_entity": "Hourly weather forecast (optional)"
+          "weather_entity": "Hourly weather forecast (optional)",
+          "forecast_solar_entry": "Forecast.Solar: selected configuration"
         }
       }
     },
