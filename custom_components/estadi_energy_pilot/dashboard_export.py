@@ -277,11 +277,13 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                 ("SOC magazynu", "source_soc"), ("Produkcja PV", "source_pv"),
                 ("Cały dom — Deye Load", "source_home"),
                 ("Samochód EV", "source_ev"),
-                ("Pompa ciepła", "source_pump"), ("Import sieci", "grid_import"),
+                ("Pompa ciepła", "source_pump"), ("Import sieci — zweryfikowany", "grid_import"),
+                ("Deye — odczyt mocy ze znakiem (nie import!)", "grid_raw_power"),
             ]), 3),
         _tiles("Planowanie i bezpieczeństwo", _existing(
             entities, [("Stan systemu", "health_status"),
                        ("Grid Guard", "grid_status"),
+                       ("Odczyt czujnika Deye", "grid_raw_status"),
                        ("Inteligentne ładowanie", "smart_charge_status"),
                        ("Kontrola faz", "grid_phase_status"),
                        ("Docelowy SOC", "smart_charge_target"),
@@ -302,7 +304,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
         _graph("Magazyn — SOC ostatnie 48h",
                [sources["source_soc"]] if sources.get("source_soc") else [], hours=48),
         _graph("Import i zapas przyłącza — ostatnie 48h",
-               [eid(k) for k in ("grid_import", "grid_headroom", "grid_charge_cap")
+               [eid(k) for k in ("grid_import", "grid_raw_power", "grid_headroom", "grid_charge_cap")
                 if eid(k)], hours=48),
         _tiles("Symulacja magazynu 48h", _existing(
             entities, [("SOC na koniec", "sim_soc_end"),
@@ -398,7 +400,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
 
     overview = _modern_overview_card(entities, sources)
     return (
-        "# ESTADI Energy Pilot — zarządzany pulpit, v0.4.6\n"
+        "# ESTADI Energy Pilot — zarządzany pulpit, v0.4.7\n"
         "title: \"ESTADI Energy Pilot\"\n"
         "views:\n"
         + view("Pulpit", "estadi-energia", "mdi:view-dashboard",

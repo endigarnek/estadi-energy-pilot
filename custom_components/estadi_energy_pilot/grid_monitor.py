@@ -120,6 +120,15 @@ def build_grid_readout(get_state: Callable, selected: dict,
         phase_voltages_v=tuple(voltage_vals) if phase_valid else None,
     )
     decision = guard.as_dict()
+    # Diagnostic only: preserve the signed Deye measurement even if its
+    # import/export polarity has not been calibrated. Never use this field to
+    # compute grid headroom, charging caps or automatic execution.
+    decision["raw_grid_kw"] = (
+        round(grid_w / 1000, 3) if grid_w is not None else None
+    )
+    decision["raw_grid_status"] = measurements[CONF_GRID_POWER]["status"]
+    decision["raw_grid_entity_id"] = measurements[CONF_GRID_POWER]["entity_id"]
+    decision["raw_grid_is_import"] = None
     decision["phase_status"] = (
         "pomiar_3_faz" if guard.phase_checked
         else "brak_limitu_pradu_faz" if not limits_set

@@ -1,6 +1,12 @@
-# ESTADI Energy Pilot — wersja 0.4.6 (beta)
+# ESTADI Energy Pilot — wersja 0.4.7 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
+
+## Wersja 0.4.7 — diagnostyka pomiaru sieci Deye
+
+Nowe czujniki **„Deye — moc sieci surowa, ze znakiem”** oraz **„Deye — jakość pomiaru mocy sieci”** pokazują, czy prawidłowy i aktualny odczyt dociera do systemu, nawet gdy Grid Guard ma blokadę niepotwierdzonej polaryzacji. Jest to odczyt diagnostyczny **niepozwalający wywnioskować importu lub eksportu przed kalibracją znaku**. Moduł nadal nie wylicza zapasu, bezpiecznej mocy ładowania ani nie wydaje poleceń w przypadku braku potwierdzenia.
+
+Po aktualizacji i restarcie HA na karcie urządzenia zobaczysz dodatkowe dwa sensory, a po ponownym wygenerowaniu zarządzanego YAML będą one także w zakładkach Historia i Diagnostyka.
 
 ## Aktualizacje z GitHub — bez ręcznych plików ZIP
 
