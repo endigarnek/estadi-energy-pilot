@@ -172,7 +172,7 @@ def plan_window(name: str, start: datetime, end: datetime, pv: list[PvSlot],
     if not solar_day_available:
         return Plan(name, start, end, round(pv_kwh, 2), round(load_kwh, 2),
                     round(heat_kwh, 2), round(gap_kwh, 2), reserve_soc, False,
-                    "Brak godzinowej prognozy Solcast na ten dzień")
+                    "Brak godzinowej prognozy PV na ten dzień")
     required = capacity_kwh * reserve_soc / 100 + gap_kwh / (efficiency_pct / 100) + margin_kwh
     target = max(reserve_soc, min(max_soc, ceil(100 * required / capacity_kwh)))
     reason = ("Cel ograniczony maksymalnym SOC" if required > capacity_kwh * max_soc / 100
@@ -198,8 +198,9 @@ def get_all_plans(now: datetime, pv_attrs: Iterable[Any], temps: list[TempSlot],
                   efficiency_pct: int = 90, margin_kwh: float = 1,
                   mild_w: float = 600, cold_w: float = 1200,
                   night_start: int = 21, night_end: int = 7,
-                  midday_start: int = 13, afternoon_end: int = 16) -> dict[str, Any]:
-    slots = parse_pv_slots(*pv_attrs)
+                  midday_start: int = 13, afternoon_end: int = 16,
+                  pv_slots: list[PvSlot] | None = None) -> dict[str, Any]:
+    slots = parse_pv_slots(*pv_attrs) if pv_slots is None else pv_slots
     night_window, afternoon_window = upcoming_windows(
         now, night_end, afternoon_end, night_start, midday_start)
     parameters = dict(pv=slots, temps=temps, current_temp=current_temp,

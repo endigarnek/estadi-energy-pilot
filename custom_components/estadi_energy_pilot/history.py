@@ -54,8 +54,8 @@ class HistoryBook:
         for key in sorted(self.days)[:-MAX_DAYS]:
             del self.days[key]
 
-    def lock_forecast(self, now: datetime, pv_slots: list[PvSlot]) -> bool:
-        """Snapshot tomorrow's 24h Solcast projection at/after 21:00 local time.
+    def lock_forecast(self, now: datetime, pv_slots: list[PvSlot], source: str = "Solcast") -> bool:
+        """Snapshot tomorrow's 24h PV projection at/after 21:00 local time.
 
         Do not create a daily comparison from a partial forecast.
         """
@@ -85,7 +85,7 @@ class HistoryBook:
         record = self._day(key)
         record["forecast"] = {
             "locked_at": now.isoformat(),
-            "source": "Solcast",
+            "source": source,
             "hours_kwh": {k: _round(v) for k, v in sorted(hourly.items())},
             "total_kwh": _round(sum(hourly.values())),
         }

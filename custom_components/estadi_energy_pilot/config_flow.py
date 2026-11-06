@@ -18,8 +18,10 @@ from .const import (
     CONF_CAPACITY, CONF_BASE_W, CONF_RESERVE, CONF_MAX_SOC,
     CONF_PV_DISCOUNT, CONF_EFFICIENCY, CONF_MARGIN, CONF_MILD_W, CONF_COLD_W,
     CONF_NIGHT_START, CONF_NIGHT_END, CONF_MIDDAY_START, CONF_AFTERNOON_END,
+    CONF_FORECAST_SOLAR_ENTRY,
 )
 from .discovery import detect_entities, missing_required_sources
+from .forecast_entry import available_entries, preferred_entry, forecast_config_schema
 
 
 ENTITY_KEYS = (
@@ -60,6 +62,10 @@ class EstadiEnergyPilotConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None):
         """Only show missing required entity IDs, never all known sensors."""
         detected = suggested_entities(self.hass)
+        forecast_entries = available_entries(self.hass)
+        selected_forecast = preferred_entry(self.hass)
+        if selected_forecast:
+            detected[CONF_FORECAST_SOLAR_ENTRY] = selected_forecast
         if user_input is not None:
             await self.async_set_unique_id("main")
             self._abort_if_unique_id_configured()
@@ -70,10 +76,17 @@ class EstadiEnergyPilotConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         schema = {}
-        for key in missing_required_sources(detected):
+        for key in missing_required_sources(
+            detected, forecast_solar_available=bool(forecast_entries)
+        ):
             if not detected.get(key):
                 schema[vol.Required(key)] = entity_field()
 
+        if forecast_entries and selected_forecast is None:
+            # Multiple Forecast.Solar entries: do not silently choose a roof.
+            schema[vol.Required(CONF_FORECAST_SOLAR_ENTRY)] = vol.In(
+                forecast_config_schema(self.hass)
+            )
         schema[vol.Required(CONF_CAPACITY)] = numeric(1, 200, 0.1)
         schema[vol.Required(CONF_BASE_W, default=DEFAULTS[CONF_BASE_W])] = numeric(0, 20000, 50)
 
@@ -176,4 +189,11 @@ class PilotOptionsFlow(OptionsFlow):
             vol.Required(CONF_AFTERNOON_END, default=values[CONF_AFTERNOON_END]): numeric(11, 20),
         }
         schema.update(_entity_fields(values))
+        forecast_entries = available_entries(self.hass)
+        if forecast_entries:
+            saved = values.get(CONF_FORECAST_SOLAR_ENTRY)
+            preferred = preferred_entry(self.hass, stored=saved)
+            marker = (vol.Optional(CONF_FORECAST_SOLAR_ENTRY, default=preferred)
+                      if preferred else vol.Optional(CONF_FORECAST_SOLAR_ENTRY))
+            schema[marker] = vol.In(forecast_config_schema(self.hass))
         return vol.Schema(schema)

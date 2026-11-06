@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Szybka konfiguracja — wykrywanie czujników",
-        "description": "Wykryto automatycznie {detected_count} encji: {detected_entities}. Zostały podłączone bez ręcznego wybierania. Uzupełnij tylko brakujące źródła danych i potwierdź pojemność magazynu. Moduł nie steruje jeszcze falownikiem.",
+        "description": "Forecast.Solar zostanie użyty automatycznie — bez Solcast i bez klucza API. Wykryte encje Deye, pompy i ładowarki są podłączane samoczynnie. Uzupełnij tylko brakujące pola oraz pojemność magazynu. Moduł nie steruje falownikiem.",
         "data": {
           "solcast_today": "Solcast: prognoza na dziś",
           "solcast_tomorrow": "Solcast: prognoza na jutro",
@@ -17,7 +17,8 @@
           "pv_power": "Deye: bieżąca moc paneli PV (W)",
           "home_power": "Deye: bieżąca moc zużycia domu (W)",
           "heat_pump_power": "Pompa ciepła: rzeczywista moc (W)",
-          "ev_power": "Ładowarka EV: poprawna rzeczywista moc (W)"
+          "ev_power": "Ładowarka EV: poprawna rzeczywista moc (W)",
+          "forecast_solar_entry": "Forecast.Solar: wybierz instalację (gdy wykryto kilka)"
         }
       }
     }
@@ -60,7 +61,8 @@
           "solcast_day3": "Solcast: prognoza na pojutrze (opcjonalna)",
           "battery_soc": "Deye: stan naładowania baterii (%)",
           "outdoor_temp": "Temperatura na zewnątrz (°C)",
-          "weather_entity": "Pogoda z prognozą godzinową (opcjonalna)"
+          "weather_entity": "Pogoda z prognozą godzinową (opcjonalna)",
+          "forecast_solar_entry": "Forecast.Solar: używana konfiguracja"
         }
       }
     },
