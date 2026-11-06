@@ -43,7 +43,8 @@ SENSORS = (
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([PilotSensor(coordinator, entry, description) for description in SENSORS])
+    async_add_entities([PilotSensor(coordinator, entry, description) for description in SENSORS] +
+                       [HistorySensor(coordinator, entry, key, title, unit, field) for key, title, unit, field in HISTORY_SENSORS])
 
 
 class PilotSensor(CoordinatorEntity, SensorEntity):
@@ -79,3 +80,49 @@ class PilotSensor(CoordinatorEntity, SensorEntity):
             "prognoza_temperatury": data["temperature_source"],
             "odczytane_przedzialy_pv": data["forecast_intervals"],
         }
+
+
+HISTORY_SENSORS = (
+    ("pv_forecast_yesterday", "Wczorajsza prognoza PV (z 21:00)", "kWh", "forecast_pv_kwh"),
+    ("pv_actual_yesterday", "Wczorajsza produkcja PV — pomiar", "kWh", "pv_kwh"),
+    ("pv_error_yesterday", "Błąd wczorajszej prognozy PV", "kWh", "pv_error_kwh"),
+    ("pv_coverage_yesterday", "Kompletność pomiaru PV wczoraj", "%", "pv_coverage_pct"),
+    ("ev_yesterday", "Energia ładowarki EV wczoraj (szacowana)", "kWh", "ev_kwh"),
+    ("ev_today", "Energia ładowarki EV dzisiaj (szacowana)", "kWh", "ev_kwh"),
+    ("heat_pump_yesterday", "Energia pompy ciepła wczoraj (szacowana)", "kWh", "heat_pump_kwh"),
+    ("pv_today", "Produkcja PV dzisiaj (szacowana)", "kWh", "pv_kwh"),
+)
+
+
+class HistorySensor(CoordinatorEntity, SensorEntity):
+    """History remains visible even if battery state is currently unavailable."""
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator, entry, key, title, unit, field):
+        super().__init__(coordinator)
+        self._key = key
+        self._field = field
+        self._attr_name = title
+        self._attr_native_unit_of_measurement = unit
+        self._attr_unique_id = f"{entry.entry_id}_{key}"
+        self._attr_device_info = {"identifiers": {(DOMAIN, entry.entry_id)},
+                                  "name": "ESTADI Energy Pilot"}
+
+    @property
+    def native_value(self):
+        data = self.coordinator.data or {}
+        day = data.get("history_today" if self._key in ("ev_today", "pv_today") else "history_yesterday", {})
+        if self._key == "pv_actual_yesterday" and day.get("pv_coverage_pct", 0) < 90:
+            return None
+        if self._key == "pv_error_yesterday" and not day.get("comparable"):
+            return None
+        return day.get(self._field)
+
+    @property
+    def extra_state_attributes(self):
+        if self._key != "pv_error_yesterday":
+            return None
+        data = self.coordinator.data or {}
+        return {"ostatnie_dni": data.get("history_recent", []),
+                "godziny_wczoraj": data.get("history_hours", []),
+                "dane_niepelne_nie_sa_oceniane": True}
