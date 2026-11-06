@@ -17,6 +17,7 @@ from .history import HistoryBook
 from .forecast_source import parse_forecast_solar_response
 from .forecast_entry import preferred_entry
 from .discovery import detect_entities
+from .weather_temperature import weather_temperature_c
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -131,18 +132,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         temperature_source = "sensor" if outdoor_temp is not None else "weather"
         weather_entity = selected.get(CONF_WEATHER)
         if outdoor_temp is None and weather_entity:
-            weather_state = self.hass.states.get(weather_entity)
-            if weather_state is not None and weather_state.state not in ("unknown", "unavailable"):
-                temp_unit = weather_state.attributes.get("temperature_unit", "°C")
-                try:
-                    weather_temp = float(weather_state.attributes.get("temperature"))
-                except (TypeError, ValueError):
-                    weather_temp = None
-                if weather_temp is not None and isfinite(weather_temp):
-                    if temp_unit == "°F":
-                        weather_temp = (weather_temp - 32) * 5 / 9
-                    if temp_unit in ("°C", "°F") and -70 <= weather_temp <= 65:
-                        outdoor_temp = weather_temp
+            outdoor_temp = weather_temperature_c(self.hass.states.get(weather_entity))
 
         if soc is None or outdoor_temp is None or not 0 <= soc <= 100:
             return {**history, "available": False,
