@@ -107,7 +107,9 @@
       const guardUnconfirmed = !guard || guard === "unknown" || guard === "unavailable" ||
         /blokad|brak|niezn|fail|error|stop|niesprawdz/i.test(guard);
       const gridUnconfirmed = guardUnconfirmed || importKw === null || limit === null;
-      const problem = !healthy || gridUnconfirmed;
+      const gridOverLimit = importKw !== null && limit !== null && importKw >= limit;
+      const gridNearLimit = importKw !== null && limit !== null && importKw >= limit * 0.9;
+      const problem = !healthy || gridUnconfirmed || gridNearLimit;
       const healthLabel = stale ? "Odczyty mogą być nieaktualne" :
         healthy ? "System działa" :
         !health || health === "unknown" || health === "unavailable" ?
@@ -239,7 +241,8 @@
         '.line:last-child{border-bottom:0}.line strong{text-align:right;max-width:55%;font-size:14px;' +
         'font-weight:680;overflow-wrap:anywhere}.progress{height:11px;background:var(--subtle);border-radius:30px;' +
         'overflow:hidden}.progress>i{display:block;height:100%;background:#46b88c;border-radius:30px}' +
-        '.progress.grid-progress>i{background:#6d89ca}.track-title{display:flex;justify-content:space-between;' +
+        '.progress.grid-progress>i{background:#6d89ca}.progress.grid-progress.near>i{background:#d6a143}' +
+'.progress.grid-progress.over>i{background:#d75c51}.track-title{display:flex;justify-content:space-between;' +
         'gap:12px;margin:12px 0 10px;font-size:13px}.track-title strong{font-variant-numeric:tabular-nums}' +
         '.twocol{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:19px}' +
         '.mini{border-radius:14px;background:var(--subtle);padding:14px;min-width:0}' +
@@ -275,6 +278,8 @@
         '<div class="status ' + (problem ? 'warning' : '') + '" role="status">' +
         '<ha-icon icon="' + (problem ? 'mdi:alert-circle-outline' : 'mdi:check-circle-outline') +
         '"></ha-icon><div><b>' + escape(healthLabel) + (gridUnconfirmed ? ' · Grid Guard wymaga weryfikacji' : '') +
+        (gridOverLimit ? ' · Przekroczono limit przyłącza!' :
+          gridNearLimit ? ' · Blisko limitu przyłącza' : '') +
         '</b><small>' + (problem ?
           'Wskazania są doradcze. Brak kalibracji lub pomiaru nie jest zerowym poborem.' :
           'Odczyty aktywne; wizualny wskaźnik nie zastępuje zabezpieczeń fizycznych.') +
@@ -310,7 +315,8 @@
         '"><i style="width:' + socPct + '%"></i></div>' +
         '<div class="track-title"><span>Import względem limitu</span><strong>' +
         escape(gridImportText) + ' / ' + escape(gridLimitText) + '</strong></div>' +
-        '<div class="progress grid-progress" role="img" aria-label="Obciążenie przyłącza: ' +
+        '<div class="progress grid-progress ' + (gridOverLimit ? 'over' : gridNearLimit ? 'near' : '') +
+'" role="img" aria-label="Obciążenie przyłącza: ' +
         escape(gridImportText) + ' z limitu ' + escape(gridLimitText) + '">' +
         '<i style="width:' + gridPct + '%"></i></div>' +
         '<p class="hint ' + (gridUnconfirmed ? 'attention' : '') + '">Grid Guard: ' + escape(guardLabel) +
