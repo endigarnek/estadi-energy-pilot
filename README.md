@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.4.5 (beta)
+# ESTADI Energy Pilot — wersja 0.4.6 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,17 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+
+## Wersja beta 0.4.6 — nowy pulpit i aktualizacje bez mnożenia plików
+
+- Nowy ekran główny z responsywną kartą ESTADI: PV, Deye Load (łącznie z EV i pompą), magazyn, sieć, kontrola przyłącza 15 kW, taryfa i podgląd planu.
+- Pięć zakładek: **Pulpit, Historia, Prognoza 48h, Koszty, Diagnostyka**. Stan doradczy jest oznaczony jednoznacznie; brak danych nie jest wyświetlany jako zero.
+- Przycisk eksportuje **jeden stały zestaw zarządzany**: `estadi-energy-pilot-dashboard-managed.yaml`, `estadi-energy-pilot-mini-managed.yaml` i `www/estadi-energy-pilot-ui-v046.js`. Kolejne uruchomienie aktualizuje te same pliki zamiast tworzyć `-2`, `-3`, `-4`.
+- Generator chroni ręczne modyfikacje. Jeśli użytkownik zmieni plik zarządzany, kolejne uruchomienie **przerwie się z czytelnym błędem** zamiast kasować zmianę lub tworzyć kopie. Pliki legacy pozostają nietknięte.
+- Pulpit zawierający encje sam aktualizuje **dane na żywo**. Aby aktualizować **układ** na bieżąco z YAML, należy raz zarejestrować YAML dashboard, zamiast wklejać cały plik do pulpitu zarządzanego przez UI.
+
+**Jednorazowa konfiguracja i instrukcja aktualizacji:** [docs/DASHBOARD_046.md](docs/DASHBOARD_046.md). Karta JS wymaga jednorazowego wpisania zasobu w Home Assistant. Integracja nadal **nie steruje Deye**, nie edytuje innych pulpitów i nie zmienia `configuration.yaml`.
 
 ## Wersja 0.4.5 — naprawa eksportu pulpitu Home Assistant
 
