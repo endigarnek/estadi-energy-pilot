@@ -50,6 +50,12 @@ class TariffTests(unittest.TestCase):
         start, end = tariffs.next_cheap_window(self.at(h=12, minute=5), "G12w")
         self.assertEqual((start.hour, end.hour), (13, 15))
 
+    def test_ceil_next_quarter(self):
+        t = datetime(2026, 11, 6, 13, 15, 10, tzinfo=TZ)
+        start, _ = tariffs.next_cheap_window(t, "G12w")
+        self.assertGreaterEqual(start, t)
+        self.assertEqual(start.minute, 30)
+
     def test_prices_no_invented_rates(self):
         self.assertIsNone(tariffs.zone_prices("G12w", None, None))
         self.assertIsNone(tariffs.zone_prices("G13", 0.5, 1.2))
