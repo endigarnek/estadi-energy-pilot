@@ -12,7 +12,7 @@ from math import isfinite, sqrt
 
 from .battery_model import BatteryModel
 from .engine import PvSlot, TempSlot, pump_power_w
-from .tariffs import tariff_zone, WARSAW
+from .tariffs import tariff_zone, is_day_off, WARSAW
 
 STEP_MINUTES = 15
 STEPS_48H = 48 * 60 // STEP_MINUTES
@@ -29,8 +29,9 @@ def _slot_energy(start: datetime, end: datetime, slots: list[PvSlot]) -> tuple[f
     for slot in slots:
         if not _is_finite_nonnegative(slot.power_kw) or slot.duration_minutes <= 0:
             continue
-        slot_end = slot.start + timedelta(minutes=slot.duration_minutes)
-        seconds = max(0.0, (min(end, slot_end) - max(start, slot.start)).total_seconds())
+        slot_start = slot.start.astimezone(timezone.utc)
+        slot_end = slot_start + timedelta(minutes=slot.duration_minutes)
+        seconds = max(0.0, (min(end, slot_end) - max(start, slot_start)).total_seconds())
         if seconds <= 0:
             continue
         produced += slot.power_kw * seconds / 3600
@@ -51,7 +52,7 @@ def _temperature(at: datetime, forecast: list[TempSlot], fallback: float) -> tup
 def _base_kwh_per_hour(at: datetime, learning: dict, fallback_w: float, variant: str) -> tuple[float, bool]:
     """P50/P90 home without EV and without pump; never use untrained histories."""
     if learning.get("baseline_ready"):
-        group = "weekend" if at.weekday() >= 5 else "weekday"
+        group = "weekend" if is_day_off(at.date()) else "weekday"
         rows = learning.get("base_profiles", {}).get(group, [])
         if len(rows) == 24:
             row = rows[at.hour]
@@ -96,6 +97,8 @@ def _calculate(
     hourly = []
     hour_row = None
     stop_reason = None
+    completed_steps = 0
+    current_soc = start_soc
     for i in range(STEPS_48H):
         at = utc_start + timedelta(minutes=i * STEP_MINUTES)
         following = at + timedelta(minutes=STEP_MINUTES)
@@ -120,6 +123,7 @@ def _calculate(
         ev = ev_kw * fraction_hours
         demand = base + pump + ev
 
+        soc_before = current_soc
         direct = min(demand, solar)
         shortage = max(0., demand - direct)
         surplus = max(0., solar - direct)
@@ -140,6 +144,7 @@ def _calculate(
         store = max(0., min(energy_capacity, store))
         current_soc = 100 * store / energy_capacity
         min_soc = min(min_soc, current_soc)
+        completed_steps += 1
 
         no_battery_import = max(0., demand - solar)
         zone = tariff_zone(at, tariff)
@@ -166,8 +171,7 @@ def _calculate(
         if i % 4 == 0:
             hour_row = {
                 "czas": local.strftime("%Y-%m-%d %H:%M%z"),
-                "soc_od": round(100 * (store - charged_from_pv * eta
-                                       + discharged / eta) / energy_capacity, 1),
+                "soc_od": round(soc_before, 1),
                 "soc_do": None,
                 "pv": 0., "dom": 0., "import": 0., "eksport": 0.,
                 "auto": 0., "pompa": 0., "strefa": zone,
@@ -184,17 +188,8 @@ def _calculate(
 
     if hour_row:
         hourly.append(_round_data(hour_row))
-    processed = int(round(sum(1 for row in hourly for _ in [row]) * 4))
-    # In a shortened final hour, compute from elapsed data, not row count.
-    if stop_reason:
-        # At least whole-hour graph points are still useful, but results must
-        # never be claimed as a complete 48-hour projection.
-        complete = False
-    else:
-        complete = True
-    forecast_hours = round(
-        (STEPS_48H if complete else min(i, STEPS_48H)) * STEP_MINUTES / 60, 2
-    )
+    complete = stop_reason is None
+    forecast_hours = round(completed_steps * STEP_MINUTES / 60, 2)
     quality = (
         "pelna" if complete and model_steps >= 0.9 * STEPS_48H
         and temp_steps >= 0.9 * STEPS_48H
@@ -211,7 +206,7 @@ def _calculate(
         "weather_slots": temp_steps,
         "current_ev_first_15min_only": bool(ev_now_kw is not None and ev_now_kw > 0),
         "future_ev_sessions_unknown": True,
-        "soc_end_pct": round(current_soc if hourly else start_soc, 1),
+        "soc_end_pct": round(current_soc, 1),
         "soc_min_pct": round(min_soc, 1),
         "grid_peak_kw": round(max_grid_kw, 2),
         "grid_over_limit_steps": grid_over_count,
