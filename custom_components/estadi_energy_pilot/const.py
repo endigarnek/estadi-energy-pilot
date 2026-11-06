@@ -1,6 +1,6 @@
 """ESTADI Energy Pilot constants."""
 DOMAIN = "estadi_energy_pilot"
-INTEGRATION_VERSION = "0.3.8"
+INTEGRATION_VERSION = "0.3.9"
 CONF_SOLCAST_TODAY = "solcast_today"
 CONF_SOLCAST_TOMORROW = "solcast_tomorrow"
 CONF_SOLCAST_DAY3 = "solcast_day3"
