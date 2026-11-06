@@ -29,6 +29,7 @@ from .charge_planner import propose
 from .house_learning import build_house_profile, resolve_ev_topology
 from .simulation_48h import simulate_48h
 from .charging_48h import recommend_charge
+from .deye_tou import inspect_tou, snapshot_config, changed_fields
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,10 +43,14 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         self.history = HistoryBook()
         self.health_store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.health")
         self.health = HealthJournal()
+        self.tou_store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.tou_snapshot")
+        self.tou_reference: dict | None = None
 
     async def async_initialize(self) -> None:
         self.history = HistoryBook(await self.storage.async_load())
         self.health = HealthJournal(await self.health_store.async_load())
+        stored_tou = await self.tou_store.async_load()
+        self.tou_reference = stored_tou if isinstance(stored_tou, dict) else None
 
     def _power_w(self, key: str) -> float | None:
         """Only measure energy when the power sensor explicitly reports W/kW."""
@@ -118,6 +123,24 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         data["health"] = self.diagnostics()
         return data
 
+    def tou_diagnostics(self) -> dict:
+        """Read the current six TOU programs; back up first complete inventory."""
+        inventory = inspect_tou(self.hass.states.async_all(), dt_util.utcnow())
+        if self.tou_reference is None:
+            snapshot = snapshot_config(inventory)
+            if snapshot is not None:
+                self.tou_reference = snapshot
+                self.tou_store.async_delay_save(lambda: self.tou_reference, 60)
+                self.health.add(
+                    "info", "DEYE_TOU_SNAPSHOT",
+                    "Zapisano pierwszą kompletną migawkę Deye TOU tylko lokalnie",
+                )
+                self.health_store.async_delay_save(self.health.export, 60)
+        inventory["migawka_o"] = (self.tou_reference or {}).get("captured_at")
+        inventory["zmiany_od_migawki"] = changed_fields(self.tou_reference, inventory)
+        inventory["liczba_zmian"] = len(inventory["zmiany_od_migawki"])
+        return inventory
+
     def refresh_grid_guard_live(self) -> None:
         """Update grid advisory from local HA states only, without PV API calls.
 
@@ -136,6 +159,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             return
         energy = dict(data["energy_2_0"])
         energy["grid"] = grid
+        energy["deye_tou"] = self.tou_diagnostics()
         # Avoid stale values in the small status after a change in EV/HP/PV.
         live = dict(energy.get("live", {}))
         live["ev_kw"] = self._kw_or_none(CONF_EV_POWER)
@@ -173,6 +197,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         v2_info = {
             "model": model.as_dict(),
             "grid": guard,
+            "deye_tou": self.tou_diagnostics(),
             "tariff": tariff,
             "tariff_zone": tariff_band,
             "next_cheap_start": tariff_window[0].isoformat() if tariff_window else None,
