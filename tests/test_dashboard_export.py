@@ -55,6 +55,36 @@ class DashboardExportTests(unittest.TestCase):
         self.assertIn("Deye WYŁĄCZONE", dashboard)
         self.assertNotIn("sensor.estadi_energy_pilot_szybki_status", dashboard)
 
+    def test_interactive_card_uses_actual_simulation_entity(self):
+        dashboard = mod.render_dashboard(ENTITIES, SOURCES)
+        self.assertIn("type: custom:estadi-energy-forecast-card", dashboard)
+        self.assertIn("sensor.energy_simulation", dashboard)
+        self.assertIn("default_series:", dashboard)
+        self.assertIn("zapasowa tabela 4h", dashboard)
+
+    def test_resource_export_creates_js_once_and_respects_edits(self):
+        full = mod.render_dashboard(ENTITIES, SOURCES)
+        mini = mod.render_mini_widget(ENTITIES, SOURCES)
+        javascript = "customElements.define('estadi-energy-forecast-card', class extends HTMLElement {});"
+        with TemporaryDirectory() as folder:
+            first = mod.export_files(folder, full, mini, javascript)
+            self.assertEqual(first["forecast_resource_url"], mod.FORECAST_CARD_RESOURCE)
+            self.assertEqual(Path(first["forecast_js"]).parent, Path(folder) / "www")
+            self.assertEqual(Path(first["forecast_js"]).read_text(), javascript)
+            second = mod.export_files(folder, full, mini, javascript)
+            self.assertEqual(second["forecast_js"], first["forecast_js"])
+            self.assertNotEqual(second["dashboard"], first["dashboard"])
+            Path(first["forecast_js"]).write_text("owner-custom", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Nie nadpisano"):
+                mod.export_files(folder, full, mini, javascript)
+            self.assertEqual(Path(first["forecast_js"]).read_text(), "owner-custom")
+
+    def test_reject_invalid_card_asset_without_exporting_yaml(self):
+        with TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(ValueError, "Nieprawidłowy"):
+                mod.export_files(folder, "views:\\n", "views:\\n", "console.log('bad')")
+            self.assertFalse(list(Path(folder).glob("*.yaml")))
+
     def test_mini_widget_small_self_contained(self):
         mini = mod.render_mini_widget(ENTITIES, SOURCES)
         self.assertIn("sensor.energy_status_renamed_by_owner", mini)
