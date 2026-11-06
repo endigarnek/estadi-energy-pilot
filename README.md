@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.2.4
+# ESTADI Energy Pilot — wersja 0.2.5
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -41,6 +41,10 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 - Brak aktualnej prognozy lub pomiarów uniemożliwia wyliczenie zalecanego ładowania.
 
 
+
+## Wersja 0.2.5 — temperatura z wbudowanej prognozy pogody
+
+Moduł automatycznie wybiera jedną istniejącą encję `weather.*` (np. pogodę „Dom”) i pobiera z niej aktualną temperaturę z atrybutu `temperature`, jeżeli osobny czujnik temperatury nie jest wybrany albo nie zwraca liczby. Do prognozowania poboru pompy używa także `weather.get_forecasts` z `type: hourly`. Nie trzeba tworzyć osobnego sensora z szablonu. Przy wielu encjach pogodowych wybierz właściwą w zaawansowanych ustawieniach. Jeśli fizyczny czujnik temperatury pompy jest poprawnie wybrany, zachowuje pierwszeństwo dla *aktualnej* temperatury; pogoda nadal służy do prognozy kolejnych godzin. Brak poprawnych danych nie jest interpretowany jako 0°C.
 
 ## Home Assistant 2026.11 i nowsze: Marketplace zamiast HACS
 
