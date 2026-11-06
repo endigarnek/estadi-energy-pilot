@@ -249,6 +249,17 @@ ENERGY_V2_SENSORS = (
     ("plan_start", "Plan ładowania — start", None),
     ("plan_power", "Plan ładowania — moc zalecana", "kW"),
     ("plan_target", "Plan ładowania — docelowy SOC", "%"),
+    ("sim_status", "Symulacja 48h — stan", None),
+    ("sim_quality", "Symulacja 48h — wiarygodność", None),
+    ("sim_hours", "Symulacja 48h — dostępne godziny", "h"),
+    ("sim_soc_end", "Symulacja 48h — SOC końcowy", "%"),
+    ("sim_soc_min", "Symulacja 48h — minimalny SOC", "%"),
+    ("sim_soc_min_cautious", "Symulacja 48h — minimalny SOC ostrożny", "%"),
+    ("sim_grid_kwh", "Symulacja 48h — import z sieci", "kWh"),
+    ("sim_pv_kwh", "Symulacja 48h — produkcja PV", "kWh"),
+    ("sim_home_kwh", "Symulacja 48h — zużycie domu", "kWh"),
+    ("sim_grid_peak", "Symulacja 48h — szczyt importu", "kW"),
+    ("sim_cost", "Symulacja 48h — koszt importu", "PLN"),
 )
 
 
@@ -282,7 +293,20 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
             f"Sieć {imported}/{g.get('connection_limit_kw')} kW" if imported is not None else "Sieć: brak kalibracji",
             f"Auto {ev} kW" if ev is not None else "Auto: brak danych",
         ))
+        sim = d.get("simulation_48h") or {}
+        cautious = sim.get("cautious") or {}
         values = {
+            "sim_status": sim.get("status", "brak_danych"),
+            "sim_quality": sim.get("quality"),
+            "sim_hours": sim.get("forecast_hours"),
+            "sim_soc_end": sim.get("soc_end_pct"),
+            "sim_soc_min": sim.get("soc_min_pct"),
+            "sim_soc_min_cautious": cautious.get("soc_min_pct"),
+            "sim_grid_kwh": sim.get("grid_import_kwh"),
+            "sim_pv_kwh": sim.get("pv_kwh"),
+            "sim_home_kwh": sim.get("house_kwh"),
+            "sim_grid_peak": sim.get("grid_peak_kw"),
+            "sim_cost": sim.get("cost_import_pln"),
             "mini_status": mini,
             "grid_import": g.get("import_kw"),
             "grid_headroom": g.get("headroom_kw"),
@@ -305,6 +329,19 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         d = (self.coordinator.data or {}).get("energy_2_0", {})
+        if self._key == "sim_status":
+            sim = d.get("simulation_48h") or {}
+            return {
+                "przyczyna": sim.get("reason"),
+                "harmonogram_48h": sim.get("timeline_hours", []),
+                "wariant_ostrozny": sim.get("cautious"),
+                "jakosc": sim.get("quality"),
+                "przedzial_minut": 15,
+                "wariant": sim.get("scenario"),
+                "przyszle_ladowanie_EV_nieznane": sim.get("future_ev_sessions_unknown"),
+                "prognoza_nie_jest_pomiarem": True,
+                "nie_steruje_magazynem": True,
+            }
         if self._key == "mini_status":
             return {
                 "moc_biezaca": d.get("live"),
