@@ -199,12 +199,14 @@ class DashboardExportTests(unittest.TestCase):
 
     def test_mini_widget_small_self_contained(self):
         mini = mod.render_mini_widget(ENTITIES, SOURCES)
-        self.assertIn("sensor.energy_status_renamed_by_owner", mini)
-        self.assertIn("sensor.energy_dry_run_action", mini)
         self.assertIn("sensor.deye_pv_power", mini)
-        self.assertIn("type: tile", mini)
-        self.assertIn("sterowanie Deye wyłączone", mini)
+        self.assertIn("sensor.deye_load_power", mini)
+        self.assertIn("type: custom:estadi-energy-overview-card", mini)
+        self.assertIn("mode: compact", mini)
+        self.assertIn("type: panel", mini)
         self.assertNotIn("harmonogram_48h", mini)
+        self.assertNotIn("type: tile", mini)
+
 
     def test_missing_core_entities_fail_without_fake_ids(self):
         with self.assertRaisesRegex(ValueError, "sim_status"):
