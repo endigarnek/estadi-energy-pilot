@@ -11,6 +11,16 @@ Data: 2026-11-06. Specyfikacja nadrzędna: [ENERGY_PILOT_2_0_SPEC.md](./ENERGY_P
 | EP20-04 | Symulacja 48h + decyzje | SOC w przedziałach 15 min, ograniczenia magazynu/BMS, najniższy SOC i marginesy; różnice rano vs w południe; podgląd „dlaczego”, scenariusze słońce/chmury/pobór szczytowy |
 | EP20-05 | Skuteczność i raport kosztów | PV forecast snapshot 21:00 vs liczniki Deye; niepełne dane oznaczone; scenariusze bez magazynu / obecny / optymalny; koszty netto + energia/cykle/straty, oszczędność nie udaje wykonanego wyniku |
 
+## Priorytet P0a — planowanie mocy ładowania (EP20-11)
+
+| ID | Temat | Weryfikowalne kryteria odbioru |
+|---|---|---|
+| EP20-11 | **Godzina rozpoczęcia i zalecana moc ładowania 28 kWh** | W oparciu o aktualny SOC, pojemność użyteczną, taryfę G12w/G13, limit prądu/mocy Deye+BMS, okno 2/3/8h, efektywność zależną od mocy, pobór domu/EV oraz prognozę PV: wskazuje start, koniec, kW i kWh. Porównuje wolniejsze 3–5 kW z szybszym 6–10 kW; nie wybiera skrajnie niskiej mocy, gdy straty jałowe ją dyskwalifikują. Respektuje limit importu i rezerwę czasu, a niemożliwość osiągnięcia SOC oznacza jako **nieosiągalne**, nie wysyła komend na ślepo. |
+
+**Szczegółowa specyfikacja:** [EP20-11 — moc i godzina ładowania 28 kWh](./EP20-11_SMART_CHARGING_POWER_28KWH.md).
+
+**Warunek startu:** wymaga EP20-01 (taryfa) i EP20-02 (EV/topologia) oraz EP20-04 (symulator SOC). **Warunek włączenia automatyki:** dodatkowo EP20-08, EP20-09 i ręczne potwierdzenie trybu automatycznego. Limit 10 kW jest przykładowy, a 28 kWh nie można utożsamiać bez weryfikacji z pojemnością użyteczną.
+
 ## Priorytet P1 — UX/dashboard
 
 | ID | Temat | Kryteria odbioru |
