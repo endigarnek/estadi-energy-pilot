@@ -20,7 +20,7 @@ from .dashboard_export import (
 _LOGGER = logging.getLogger(__name__)
 
 SENSOR_KEYS = (
-    "mini_status", "grid_status", "grid_import", "grid_headroom",
+    "mini_status", "grid_status", "grid_import", "grid_limit", "grid_headroom",
     "grid_charge_cap", "grid_phase_status", "grid_reason", "sim_status",
     "sim_soc_end", "sim_soc_min", "sim_soc_min_cautious",
     "sim_pv_kwh", "sim_grid_kwh", "sim_grid_peak", "sim_hours", "sim_quality",
