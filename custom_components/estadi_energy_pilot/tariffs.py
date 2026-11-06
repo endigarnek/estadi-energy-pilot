@@ -97,9 +97,12 @@ def next_cheap_window(moment: datetime, tariff: str, *, horizon_days: int = 8) -
         raise ValueError("Naive timestamp not supported")
     # Step over absolute time; local date/time automatically handles DST folds.
     from datetime import timezone
-    cursor = moment.astimezone(timezone.utc)
-    cursor += timedelta(minutes=(15 - (cursor.minute % 15)) % 15,
-                        seconds=-cursor.second, microseconds=-cursor.microsecond)
+    current = moment.astimezone(timezone.utc)
+    cursor = current.replace(second=0, microsecond=0)
+    if cursor < current:
+        cursor += timedelta(minutes=1)
+    if cursor.minute % 15:
+        cursor += timedelta(minutes=15 - cursor.minute % 15)
     began = None
     for index in range(horizon_days * 24 * 4):
         point = cursor + timedelta(minutes=15 * index)
