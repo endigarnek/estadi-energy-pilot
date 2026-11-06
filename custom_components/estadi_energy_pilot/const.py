@@ -31,6 +31,8 @@ CONF_MIN_SOC = "battery_min_soc"
 CONF_USER_MAX_SOC = "battery_max_soc"
 CONF_CORRECTION = "battery_reserve_correction_pp"
 CONF_GRID_POWER = "grid_power"
+CONF_BATTERY_POWER = "battery_power"
+CONF_BATTERY_CHARGE_SIGN = "battery_charge_sign"
 CONF_GRID_IMPORT_SIGN = "grid_import_sign"
 CONF_GRID_LIMIT = "grid_connection_limit_kw"
 CONF_GRID_BUFFER = "grid_safety_buffer_kw"
@@ -48,6 +50,7 @@ DEFAULTS = {
     CONF_USER_MAX_SOC: 100,
     CONF_CORRECTION: 0,
     CONF_GRID_IMPORT_SIGN: 0,
+    CONF_BATTERY_CHARGE_SIGN: 0,
     CONF_GRID_LIMIT: 15,
     CONF_GRID_BUFFER: 2,
     CONF_CHARGE_LIMIT: 10,
