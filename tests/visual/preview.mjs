@@ -3,11 +3,21 @@ import fs from "node:fs";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {chromium} from "playwright";
+import * as mdi from "@mdi/js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const output = path.join(root, "visual-artifacts");
 fs.mkdirSync(output, {recursive: true});
 const cardPath = path.join(root, "custom_components/estadi_energy_pilot/overview_card.js");
+const iconPaths = {
+  "mdi:solar-power": mdi.mdiSolarPower,
+  "mdi:home-lightning-bolt-outline": mdi.mdiHomeLightningBoltOutline,
+  "mdi:battery-80": mdi.mdiBattery80,
+  "mdi:transmission-tower": mdi.mdiTransmissionTower,
+  "mdi:shield-lock-outline": mdi.mdiShieldLockOutline,
+  "mdi:check-circle-outline": mdi.mdiCheckCircleOutline,
+  "mdi:alert-circle-outline": mdi.mdiAlertCircleOutline
+};
 const browser = await chromium.launch({headless: true});
 const keys = ["soc","pv","home","ev","pump","grid_import","grid_limit","grid_headroom",
   "grid_status","health_status","tariff_zone","next_cheap","smart_charge_power","smart_charge_target"];
@@ -46,8 +56,18 @@ for (const scenario of scenarios) {
     "--primary-text-color:#182332;--secondary-text-color:#5b6575;--card-background-color:#fff;--ha-card-background:#fff;--secondary-background-color:#f4f6f9;--divider-color:#e4eaf0;background:#f5f7f9;color:#162032";
   await page.setContent('<html lang="pl"><head><meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<style>html,body{margin:0;padding:0}body{font-family:Arial,sans-serif;' + darkCSS + '}' +
-    'ha-icon{display:inline-flex;width:20px;height:20px;border-radius:6px;background:currentColor;opacity:.65}</style>' +
+    'ha-icon{display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center} ha-icon svg{width:100%;height:100%;fill:currentColor}</style>' +
     '</head><body></body></html>');
+  await page.evaluate((paths) => {
+    class MockHaIcon extends HTMLElement {
+      connectedCallback() {
+        const d = paths[this.getAttribute("icon")] || paths["mdi:check-circle-outline"];
+        if (d) this.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' +
+          d + '"></path></svg>';
+      }
+    }
+    customElements.define("ha-icon", MockHaIcon);
+  }, iconPaths);
   await page.addScriptTag({path:cardPath});
   await page.evaluate(({keys,values}) => {
     const card=document.createElement("estadi-energy-overview-card");
