@@ -35,6 +35,7 @@ from .forecast_accuracy import AccuracyJournal
 from .scenario_economics import compare_scenarios
 from .load_calibration import analyze_load_history, analyze_ev_history, pv_bias_guidance
 from .heat_pump_learning import train_heat_pump, preview_48h
+from .pump_excess import inspect_pump_excess
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -521,6 +522,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         heat_pump_learning["measured_temperature_c"] = measured_temperature
         heat_pump_learning["sensor_status"] = temp_reason
         v2_info["heat_pump_learning"] = heat_pump_learning
+        v2_info["pump_excess"] = inspect_pump_excess(self.history.days, now.date())
 
         # Independent 48-hour forecast. Never issue inverter commands here.
         # Current EV draw is included ONLY in the first 15-minute slot:
