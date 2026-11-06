@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.3.2 (beta)
+# ESTADI Energy Pilot — wersja 0.3.3 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,29 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+## Wersja 0.3.3 — symulacja magazynu SOC na 48 godzin
+
+Pierwszy działający **symulator przepływów energii krok po kroku** (co 15 minut, maks. 192 kroki). Wykorzystuje już podłączone sensory Deye, prognozę godzinową Forecast.Solar, prognozę temperatury Met.no, rozdzielony profil domu **bez EV i bez pompy** (P50/P90 z 7–30 dni), pojemność nominalną 28 kWh / SoH, SOC min 10% i max 100%, sprawność oraz kalendarz G12w/G13.
+
+**Co oblicza:**
+- PV → bezpośrednie zasilenie domu → nadwyżka do baterii (z limitem mocy i miejsca) → eksport.
+- Gdy brak PV, bateria zasila dom do **minimalnego SOC**, po czym prognozowany import z sieci wzrasta; energia nie jest pożyczana z późniejszego słońca.
+- Energię importowaną, eksportowaną, produkcję PV, pobór domu, pompy i EV, SOC na początku/końcu godziny, minimum SOC oraz ostrzeżenie o szczycie importu powyżej przyłącza.
+- Dwa scenariusze: `typowy` (profil P50) oraz `ostrożny` (P90); zanim powstanie profil, bazuje na ręcznej mocy domu i flaguje jako `wstępny`.
+- Prognozowany koszt samego **importu** w PLN, ale wyłącznie po wpisaniu cen brutto/kWh dla wszystkich stref. **Oszczędności netto** pozostają nieznane dopóki nie uwzględnimy eksportu/net-billingu i obecnego harmonogramu magazynu.
+
+**Nowe sensory** na urządzeniu: `Symulacja 48h — stan`, `wiarygodność`, `dostępne godziny`, `SOC końcowy`, `minimalny SOC`, `minimalny SOC ostrożny`, `import z sieci`, `produkcja PV`, `zużycie domu`, `szczyt importu`, `koszt importu`. W atrybutach sensora **Symulacja 48h — stan** jest `harmonogram_48h` z maksymalnie 48 punktami godzinowymi, wygodnymi do późniejszego wykresu. Obliczenia wewnętrzne pozostają 15-minutowe.
+
+**Świadome ograniczenia bezpieczeństwa tego etapu:**
+1. Symulacja pokazuje scenariusz **bez dodatkowego ładowania baterii z sieci**. Obecny prosty doradca ładowania jest oddzielny; bez potwierdzonych pomiarów nie łączymy obu wyników w jedną rzekomo kompletną automatykę.
+2. Bieżące ładowanie EV jest uwzględnione tylko przez pierwsze 15 minut. Przyszłych sesji samochodu nie da się przewidzieć z jednego pomiaru; bez harmonogramu nie wolno ich wymyślać. Wyniki przyszłego importu mogą więc być zaniżone podczas długiej sesji EV.
+3. Jeżeli prognoza PV na dzień urywa się, wynik ma status **niepełna prognoza PV**, a nie „gotowy plan na 48h”. Brakujące dane pogodowe zastępuje aktualna temperatura, z niższą wiarygodnością.
+4. Model mocy pompy nadal jest uproszczeniem temperatury; rzeczywiste skoki CWU/odszraniania wymagają historii pomiarów Shelly.
+5. Sprawność modelowana jest uproszczonym wspólnym współczynnikiem. Limit importu 15 kW ma status alarmu w symulacji, **nie steruje przyłączem** i nie sprawdza jeszcze faz L1/L2/L3.
+6. Niczego nie zapisuje w Deye. Sterowanie automatyczne pozostaje **wyłączone**.
+
+Instalacja: zaktualizuj istniejącą integrację do **0.3.3** przez Marketplace/HACS, uruchom ponownie HA. W sensorze **Symulacja 48h — stan** sprawdź `status`, `przyczyna`, `harmonogram_48h` i prognozę ostrożną. Porównuj to z kolejnymi dniami rzeczywistych pomiarów. Nie przełączaj automatycznie Deye na podstawie wstępnych wyników.
 
 ## Wersja 0.3.2 — potwierdzona instalacja: Deye Load zawiera cały dom
 
