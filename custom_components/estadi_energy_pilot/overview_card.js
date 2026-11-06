@@ -122,9 +122,10 @@
       const scale = Math.max(1, pv || 0, home || 0);
       const pvShare = pv === null ? 0 : 100 * pv / scale;
       const homeShare = home === null ? 0 : 100 * home / scale;
-      const evShare = home > 0 && ev !== null ? clamp(100 * ev / home, 0, 100) : 0;
-      const pumpShare = home > 0 && pump !== null ?
-        clamp(100 * pump / home, 0, 100 - evShare) : 0;
+      const consistentBreakdown = home !== null && home > 0 && ev !== null &&
+        pump !== null && ev + pump <= home * 1.05;
+      const evShare = consistentBreakdown ? clamp(100 * ev / home, 0, 100) : 0;
+      const pumpShare = consistentBreakdown ? clamp(100 * pump / home, 0, 100 - evShare) : 0;
       const remainder = clamp(100 - evShare - pumpShare, 0, 100);
       const gridPct = importKw !== null && limit !== null ?
         clamp(100 * importKw / limit, 0, 100) : 0;
@@ -134,8 +135,6 @@
       const gridImportText = importKw === null ? "—" : format(importKw, 2) + " kW";
       const guardLabel = guard && guard !== "unknown" && guard !== "unavailable" ?
         String(guard) : "brak potwierdzonego odczytu";
-      const validSources = pv !== null && home !== null;
-
       if (this._config.mode === "compact") {
         const miniMetric = (name, readingValue) =>
           '<div class="cell"><span>' + escape(name) + '</span><strong>' +
@@ -293,11 +292,13 @@
         '<article class="panel balance"><div><h2>Bilans chwilowy</h2>' +
         this._bar('Fotowoltaika', power(pv).text + ' ' + power(pv).unit, pvShare, 'solar-fill') +
         this._bar('Pobór Deye Load', power(home).text + ' ' + power(home).unit, homeShare, 'house-fill') +
-        (validSources ? '<div class="usage" aria-label="Udziały znanych odbiorników w Deye Load">' +
+        (consistentBreakdown ? '<div class="usage" aria-label="Udziały EV i pompy w Deye Load">' +
           '<span class="ev" style="width:' + evShare + '%"></span>' +
           '<span class="pump" style="width:' + pumpShare + '%"></span>' +
           '<span class="rest" style="width:' + remainder + '%"></span></div>' :
-          '<div class="hint">Brak pełnego odczytu mocy.</div>') +
+          '<div class="hint attention">' + (home === null ? 'Brak odczytu domu.' :
+          ev === null || pump === null ? 'Brak pełnych odczytów EV i pompy.' :
+          'Odczyty EV i pompy przekraczają Deye Load — sprawdź liczniki.') + '</div>') +
         '<div class="legend"><span><i></i>EV</span><span><i class="pump-dot"></i>Pompa</span>' +
         '<span><i class="rest-dot"></i>Reszta domu</span></div></div>' +
         '<div class="aside"><b>Jak czytać bilans?</b><p>To porównanie mocy chwilowych, ' +
