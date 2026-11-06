@@ -242,6 +242,11 @@ ENERGY_V2_SENSORS = (
     ("grid_phase_status", "Grid Guard — kontrola faz", None),
     ("grid_last_check", "Grid Guard — ostatni odczyt", None),
     ("grid_current_charge", "Grid Guard — moc ładowania magazynu", "kW"),
+    ("deye_tou_status", "Deye TOU — stan rozpoznania", None),
+    ("deye_tou_fields", "Deye TOU — poprawnie odczytane pola", None),
+    ("deye_tou_snapshot", "Deye TOU — data migawki ustawień", None),
+    ("deye_tou_changes", "Deye TOU — zmiany od migawki", None),
+    ("deye_tou_ready", "Deye TOU — gotowość do automatyzacji", None),
     ("tariff", "Taryfa", None),
     ("tariff_zone", "Aktualna strefa taryfowa", None),
     ("tariff_price", "Cena w aktualnej strefie", "PLN/kWh"),
@@ -306,7 +311,13 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
         sim = d.get("simulation_48h") or {}
         cautious = sim.get("cautious") or {}
         smart = d.get("optimized_schedule") or {}
+        tou = d.get("deye_tou") or {}
         values = {
+            "deye_tou_status": tou.get("status", "brak_danych"),
+            "deye_tou_fields": tou.get("odczytane_pola"),
+            "deye_tou_snapshot": tou.get("migawka_o"),
+            "deye_tou_changes": tou.get("liczba_zmian"),
+            "deye_tou_ready": "NIE — tylko odczyt",
             "smart_charge_status": smart.get("status", "brak_danych"),
             "smart_charge_power": smart.get("power_kw"),
             "smart_charge_start": smart.get("start"),
@@ -350,6 +361,21 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         d = (self.coordinator.data or {}).get("energy_2_0", {})
+        if self._key in ("deye_tou_status", "deye_tou_ready", "deye_tou_changes"):
+            tou = d.get("deye_tou") or {}
+            return {
+                "przyczyna": tou.get("przyczyna"),
+                "programy_1_do_6": tou.get("programy", []),
+                "stan_globalny": tou.get("stan_globalny", {}),
+                "inne_mozliwe_encje": tou.get("inne_mozliwe_encje", []),
+                "blokady_uruchomienia": tou.get("blokady", []),
+                "odczytane_pola": tou.get("odczytane_pola"),
+                "brakujace_pola": tou.get("brakujace_pola"),
+                "migawka_o": tou.get("migawka_o"),
+                "zmiany_w_ustawieniach": tou.get("zmiany_od_migawki", []),
+                "odczyt_o": tou.get("odczyt_o"),
+                "nie_wykonano_zadnych_polecen": True,
+            }
         if self._key == "smart_charge_status":
             smart = d.get("optimized_schedule") or {}
             return {

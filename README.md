@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.3.5 (beta)
+# ESTADI Energy Pilot — wersja 0.3.6 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,18 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+## Wersja 0.3.6 — odczyt sześciu programów Deye TOU bez sterowania
+
+Kolejny etap przygotowań do automatyzacji: integracja **automatycznie rozpoznaje encje Home Assistant opisujące sześć programów Time of Use falownika Deye**. Pokazuje czas rozpoczęcia, SOC, moc i tryb ładowania każdego programu; niejednoznaczne/brakujące pola zgłasza jako problem, zamiast zgadywać.
+
+**Nowe sensory**: `Deye TOU — stan rozpoznania`, `poprawnie odczytane pola`, `data migawki ustawień`, `zmiany od migawki`, `gotowość do automatyzacji`. W atrybutach statusu widać wszystkie sześć programów i listę konkretnych blokad.
+
+Przy **pierwszym kompletnym odczycie** powstaje lokalna kopia wartości TOU (w `.storage`). Kolejne odczyty — przy pełnym planowaniu i po odświeżeniu Grid Guard co 15 sekund — pokazują różnice względem tej kopii. Kopia nie umożliwia jeszcze automatycznego przywracania; nie jest do tego używana.
+
+Moduł **nie wysyła żadnej komendy do Deye ani EV**. Nawet kompletny odczyt nie oznacza gotowości do automatyzacji: wymagane są pomiary faz, identyfikacja sprzętu i kontrolowany test zapisu/odczytu zwrotnego z procedurą przywrócenia.
+
+**[Instrukcja interpretacji odczytu Deye i wymagane kroki](docs/DEYE_TOU_DIAGNOSTYKA_036.md)**.
 
 ## Wersja 0.3.5 — Grid Guard LIVE i diagnostyka L1/L2/L3
 
