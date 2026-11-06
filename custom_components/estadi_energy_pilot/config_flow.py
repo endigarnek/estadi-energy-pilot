@@ -23,6 +23,9 @@ from .const import (
     CONF_CORRECTION, CONF_GRID_POWER, CONF_GRID_LIMIT, CONF_GRID_BUFFER,
     CONF_GRID_IMPORT_SIGN, CONF_BATTERY_POWER, CONF_BATTERY_CHARGE_SIGN, CONF_CHARGE_LIMIT, CONF_PREFERRED_CHARGE,
     CONF_TARIFF, CONF_PRICE_CHEAP, CONF_PRICE_PEAK, CONF_PRICE_EVENING, CONF_EV_TOPOLOGY,
+    CONF_PHASE_CURRENT_L1, CONF_PHASE_CURRENT_L2, CONF_PHASE_CURRENT_L3,
+    CONF_PHASE_VOLTAGE_L1, CONF_PHASE_VOLTAGE_L2, CONF_PHASE_VOLTAGE_L3,
+    CONF_PHASE_LIMIT_L1, CONF_PHASE_LIMIT_L2, CONF_PHASE_LIMIT_L3,
 )
 from .discovery import detect_entities, missing_required_sources
 from .forecast_entry import available_entries, preferred_entry, forecast_config_schema
@@ -32,6 +35,8 @@ ENTITY_KEYS = (
     CONF_PV_POWER, CONF_HOME_POWER, CONF_HEAT_PUMP_POWER, CONF_EV_POWER,
     CONF_GRID_POWER, CONF_BATTERY_POWER, CONF_BATTERY_SOC, CONF_OUTDOOR_TEMP, CONF_SOLCAST_TODAY,
     CONF_SOLCAST_TOMORROW, CONF_SOLCAST_DAY3, CONF_WEATHER,
+    CONF_PHASE_CURRENT_L1, CONF_PHASE_CURRENT_L2, CONF_PHASE_CURRENT_L3,
+    CONF_PHASE_VOLTAGE_L1, CONF_PHASE_VOLTAGE_L2, CONF_PHASE_VOLTAGE_L3,
 )
 
 
@@ -194,6 +199,9 @@ class PilotOptionsFlow(OptionsFlow):
             vol.Required(CONF_CORRECTION, default=values[CONF_CORRECTION]): numeric(-15, 15, 1),
             vol.Required(CONF_GRID_LIMIT, default=values[CONF_GRID_LIMIT]): numeric(1, 40, 0.1),
             vol.Required(CONF_GRID_BUFFER, default=values[CONF_GRID_BUFFER]): numeric(0, 10, 0.1),
+            vol.Required(CONF_PHASE_LIMIT_L1, default=values[CONF_PHASE_LIMIT_L1]): numeric(0, 125, 0.5),
+            vol.Required(CONF_PHASE_LIMIT_L2, default=values[CONF_PHASE_LIMIT_L2]): numeric(0, 125, 0.5),
+            vol.Required(CONF_PHASE_LIMIT_L3, default=values[CONF_PHASE_LIMIT_L3]): numeric(0, 125, 0.5),
             vol.Required(CONF_GRID_IMPORT_SIGN, default=values[CONF_GRID_IMPORT_SIGN]): vol.In({
                 0: "Niepotwierdzony znak importu",
                 1: "Wartość dodatnia oznacza import",
