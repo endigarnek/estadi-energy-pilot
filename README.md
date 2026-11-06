@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.3.7 (beta)
+# ESTADI Energy Pilot — wersja 0.3.8 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,29 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+## Wersja 0.3.8 — rzeczywista weryfikacja prognoz i celu SOC
+
+Wprowadzono **kontrolę prognoz w czasie**, bez przepisywania wcześniejszych przewidywań po poznaniu wyniku.
+
+1. Co najmniej co 6 godzin, gdy symulator ma pełne 48 godzin danych, system **zamraża prognozowany SOC na +3, +6, +12 i +24 godziny**. Każdą migawkę zapisuje osobno z czasem i jakością modelu. Nie zmienia jej przy kolejnych aktualizacjach pogody.
+2. W chwili docelowej porównuje zamrożoną prognozę z **rzeczywistym odczytem SOC Deye**. Odczyt musi mieć jednostkę `%`, poprawny znacznik czasu i być nie starszy niż 30 minut. Pomiar spóźniony o ponad 45 minut jest oznaczony jako `brak_odczytu`, a nie sztuczne zero.
+3. Wyniki pokazują odchylenie w punktach procentowych i **MAE** (średnią bezwzględną różnicę) osobno dla horyzontów 3/6/12/24h.
+4. Niezależnie rejestruje jeden **docelowy SOC na koniec danego taniego okna** i oznacza, czy rzeczywiście go osiągnięto. Jest to jedynie zaobserwowany stan — **nie** wykonanie planu przez integrację, ponieważ automatyka nadal jest wyłączona.
+5. Weryfikuje również **PV dzień wcześniej vs rzeczywisty pomiar** z istniejących migawek Forecast.Solar / Solcast (zamrożonych wieczorem). Liczy dni porównywalne, MAE w kWh, WAPE w procentach i średnie odchylenie `prognoza - rzeczywistość`. Niepełne dni są wykluczane.
+6. Wyniki i migawki są zachowywane w osobnym lokalnym magazynie HA do 14 dni (maks. 240 zapisów). Restart nie resetuje historii porównań.
+
+**Nowe sensory:** `Weryfikacja prognoz — stan`, `Weryfikacja — odchylenie SOC 3h/6h/12h/24h`, `Weryfikacja — błąd PV WAPE`, `Weryfikacja — porównane dni PV`, `Weryfikacja — cele SOC osiągnięte` i `nieosiągnięte`. Szczegóły ostatnich 12 prognoz i pomiarów są w atrybutach statusu.
+
+### Jak interpretować liczby
+
+- **MAE SOC 3h = 4 p.p.** oznacza, że dotychczasowe *obserwowane odchylenie* scenariusza na trzy godziny wynosiło średnio 4 punkty procentowe. Póki model opiera się na mniej niż siedmiu porównaniach, metryka jest wstępna.
+- **WAPE PV = 20%** oznacza sumę bezwzględnych błędów prognozy podzieloną przez sumę *rzeczywistej produkcji PV* w dniach porównywalnych. Gdy produkcja wynosi blisko zero, wskaźnik jest nieokreślony.
+- **Osiągnięty SOC** oznacza, że Deye rzeczywiście miał wymagany poziom energii na koniec wskazanego okna. Moduł nie sterował jego ładowaniem.
+- **Ważne ograniczenie:** model SOC z wersji 0.3.3 przewiduje scenariusz **bez dodatkowego ładowania magazynu z sieci i bez przyszłych sesji EV**. Jeśli Deye rzeczywiście ładował magazyn z sieci, różnica pomiędzy przewidywaniem a wynikiem **nie jest** obiektywnym błędem algorytmu sterowania. Dopiero późniejsza kontrola rzeczywistych przepływów import/eksport i mocy baterii pozwoli oceniać czystość symulacji i liczyć rzeczywiste oszczędności.
+- Moduł wciąż **nie podaje zrealizowanych oszczędności w PLN**, ponieważ nie mamy pewnego odtworzenia kontrfaktycznego scenariusza bez magazynu, kosztów eksportu/net-billingu i wykonywanych nastaw.
+
+**Bezpieczeństwo:** nie dodano żadnych komend Deye ani EV; `automatyzacja_wlaczona: false`.
 
 ## Wersja 0.3.7 — dziennik decyzji i test dry-run (bez wysyłania komend)
 

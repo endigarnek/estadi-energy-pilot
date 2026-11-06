@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import replace
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from math import isfinite
 
 from homeassistant.config_entries import ConfigEntry
@@ -31,6 +31,7 @@ from .simulation_48h import simulate_48h
 from .charging_48h import recommend_charge
 from .deye_tou import inspect_tou, snapshot_config, changed_fields
 from .dry_run import DryRunJournal, evaluate_dry_run
+from .forecast_accuracy import AccuracyJournal
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,6 +49,8 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         self.tou_reference: dict | None = None
         self.dry_run_store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.dry_run")
         self.dry_run = DryRunJournal()
+        self.accuracy_store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.accuracy")
+        self.accuracy = AccuracyJournal()
 
     async def async_initialize(self) -> None:
         self.history = HistoryBook(await self.storage.async_load())
@@ -55,6 +58,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         stored_tou = await self.tou_store.async_load()
         self.tou_reference = stored_tou if isinstance(stored_tou, dict) else None
         self.dry_run = DryRunJournal(await self.dry_run_store.async_load())
+        self.accuracy = AccuracyJournal(await self.accuracy_store.async_load())
 
     def _power_w(self, key: str) -> float | None:
         """Only measure energy when the power sensor explicitly reports W/kW."""
@@ -127,6 +131,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         # Save only hypothetical command candidates. This code path is never
         # permitted to call Home Assistant write services.
         self._update_dry_run(data, fresh_plan=bool(data.get("available")))
+        self._update_accuracy(data, capture=bool(data.get("available")))
         data["health"] = self.diagnostics()
         return data
 
@@ -160,6 +165,60 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                 "status": "blad_symulacji",
                 "przyczyna": type(exc).__name__,
                 "gotowosc_sterowania": False, "komendy_wyslane": 0,
+            }
+
+    def _measured_soc_now(self, now: datetime) -> tuple[float | None, str]:
+        """Read observed Deye SOC with validity AND reporting-age checks.
+
+        A stale state must never become a real observation of a past forecast.
+        """
+        entity_id = self._selected_settings.get(CONF_BATTERY_SOC)
+        state = self.hass.states.get(entity_id) if entity_id else None
+        value, reason = read_numeric(state, "%", 0, 100)
+        if value is None:
+            return None, reason
+        stamp = (getattr(state, "last_reported", None) or
+                 getattr(state, "last_updated", None))
+        if not isinstance(stamp, datetime) or stamp.tzinfo is None:
+            return None, "Brak znacznika czasu odczytu SOC"
+        age = (now.astimezone(timezone.utc) -
+               stamp.astimezone(timezone.utc)).total_seconds()
+        if not 0 <= age <= 30 * 60:
+            return None, "SOC jest nieaktualny (ponad 30 minut)"
+        return value, "OK"
+
+    def _update_accuracy(self, data: dict, *, capture: bool) -> None:
+        energy = data.get("energy_2_0")
+        if not isinstance(energy, dict):
+            return
+        now = dt_util.utcnow()
+        modified = False
+        try:
+            if capture:
+                modified |= self.accuracy.capture(
+                    now,
+                    energy.get("simulation_48h"),
+                    energy.get("optimized_schedule"),
+                    nominal_kwh=(energy.get("model") or {}).get("nominal_kwh"),
+                )
+            actual_soc, source_status = self._measured_soc_now(now)
+            modified |= self.accuracy.observe(now, actual_soc)
+            # PV comparisons use ONLY old snapshots that HistoryBook locked
+            # the evening before, paired with sufficiently complete actuals.
+            today = dt_util.now().date().isoformat()
+            report = self.accuracy.report(self.history.summaries(today, limit=30))
+            report["soc_pomiar_status"] = source_status
+            report["ostatni_zmierzony_soc"] = actual_soc
+            energy["accuracy"] = report
+            if modified:
+                self.accuracy_store.async_delay_save(self.accuracy.export, 60)
+        except (TypeError, ValueError, KeyError) as exc:
+            _LOGGER.warning("Forecast verification failed: %s", exc)
+            energy["accuracy"] = {
+                "stan": "blad_porownania",
+                "przyczyna": type(exc).__name__,
+                "automatyzacja_wlaczona": False,
+                "oszczednosci_pln": None,
             }
 
     def tou_diagnostics(self) -> dict:
@@ -211,6 +270,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         self._update_dry_run(current)
         energy = current["energy_2_0"]
         current["energy_2_0"] = energy
+        self._update_accuracy(current, capture=False)
         self.data = current
         self.async_update_listeners()
 
