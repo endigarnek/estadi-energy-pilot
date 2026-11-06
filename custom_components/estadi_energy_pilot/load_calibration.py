@@ -50,7 +50,18 @@ def _base_row(record: dict) -> list[float | None]:
 
 
 def _ev_row(record: dict) -> list[float | None]:
-    return [_channel(record, "ev", f"{h:02}:00") for h in range(24)]
+    output = []
+    for hour in range(24):
+        name = f"{hour:02}:00"
+        ev = _channel(record, "ev", name)
+        home = _channel(record, "home", name)
+        # The EV is physically inside Deye Load, so validate both sensors
+        # and reject implausible charger energy (>25 kWh in one clock hour).
+        if ev is None or home is None or ev > home + .2 or ev > 25:
+            output.append(None)
+        else:
+            output.append(ev)
+    return output
 
 
 def _history(history_days: dict, today: date) -> list[tuple[date, dict]]:
