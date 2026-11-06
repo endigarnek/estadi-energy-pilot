@@ -1,0 +1,53 @@
+name: Paczka instalacyjna ESTADI Energy Pilot
+on:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zbuduj instalacyjny ZIP integracji
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, zipfile
+
+          root = Path('.')
+          component = Path('custom_components/estadi_energy_pilot')
+          assert (component / 'manifest.json').is_file(), 'Brak manifestu integracji'
+          assert (component / 'dashboard_export.py').is_file(), 'Brak generatora pulpitu'
+          assert (component / 'overview_card.js').is_file(), 'Brak nowego UI'
+          out = Path('ESTADI-Energy-Pilot-0.4.6-beta.zip')
+          instructions = (
+              'ESTADI Energy Pilot 0.4.6 — wersja testowa\n'
+              '1. Wykonaj kopię zapasową Home Assistant.\n'
+              '2. Rozpakuj archiwum do /config (zachowaj strukturę custom_components).\n'
+              '3. Uruchom ponownie Home Assistant.\n'
+              '4. W integracji ESTADI użyj przycisku generowania pulpitu raz.\n'
+              '5. W pliku docs/DASHBOARD_046.md przeczytaj instrukcję podłączenia karty.\n'
+              'UWAGA: integracja nie steruje Deye; tryb doradczy.\n'
+              'Wersja testowa z Draft PR #33, nie jest wydaniem z main.\n'
+          )
+          files = sorted([p for p in component.rglob('*') if p.is_file()
+                          and '__pycache__' not in p.parts and not p.name.endswith('.pyc')])
+          files += [Path('README.md'), Path('docs/DASHBOARD_046.md')]
+          with zipfile.ZipFile(out, 'w', compression=zipfile.ZIP_DEFLATED) as z:
+              z.writestr('INSTRUKCJA-INSTALACJI.txt', instructions)
+              for p in files:
+                  assert p.is_file(), str(p)
+                  z.write(p, p.as_posix())
+          with zipfile.ZipFile(out) as z:
+              bad = z.testzip()
+              assert bad is None, f'Uszkodzone archiwum: {bad}'
+              names = set(z.namelist())
+              assert 'custom_components/estadi_energy_pilot/manifest.json' in names
+              assert 'custom_components/estadi_energy_pilot/overview_card.js' in names
+          print('ZIP:', out, 'pliki:', len(files), 'SHA256:', hashlib.sha256(out.read_bytes()).hexdigest())
+          PY
+      - name: Udostępnij paczkę ZIP do pobrania
+        uses: actions/upload-artifact@v4
+        with:
+          name: ESTADI-Energy-Pilot-0.4.6-beta
+          path: ESTADI-Energy-Pilot-0.4.6-beta.zip
+          if-no-files-found: error
