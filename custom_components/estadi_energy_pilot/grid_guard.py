@@ -65,11 +65,18 @@ def calculate_grid_guard(
         return blocked("Niepotwierdzony znak pomiaru importu Deye")
     grid = _num(grid_power_w)
     charging = _num(battery_charging_w)
-    if grid is None or charging is None or charging < 0:
-        return blocked("Brak prawidłowego pomiaru importu lub ładowania magazynu")
+    if grid is None:
+        return blocked("Brak prawidłowego pomiaru mocy na przyłączu")
 
     # Export values are negative; import is positive after polarity calibration.
     importing_kw = max(0.0, import_sign * grid / 1000)
+    if charging is None or charging < 0:
+        return GridDecision(
+            "blokada", round(importing_kw, 2), soft, connection_limit_kw, None,
+            None, round(soft - importing_kw, 2),
+            "Import widoczny; brak potwierdzonego kierunku/mocy ładowania baterii",
+            False,
+        )
     charging_kw = charging / 1000
     headroom = soft - importing_kw
     candidate = max(0.0, min(battery_max_kw, charging_kw + headroom))
