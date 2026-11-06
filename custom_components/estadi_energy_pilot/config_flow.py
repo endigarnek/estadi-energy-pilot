@@ -120,6 +120,12 @@ class PilotOptionsFlow(OptionsFlow):
             if show_advanced:
                 self._quick_changes = submitted
                 return await self.async_step_advanced()
+            if submitted[CONF_MIN_SOC] >= submitted[CONF_USER_MAX_SOC]:
+                return self.async_show_form(
+                    step_id="init", data_schema=self._quick_schema(),
+                    errors={"base": "invalid_battery"},
+                    description_placeholders={"detected_count": str(len(suggested_entities(self.hass)))},
+                )
             return self.async_create_entry(
                 data={**self.config_entry.options, **submitted},
             )
@@ -152,7 +158,10 @@ class PilotOptionsFlow(OptionsFlow):
                 **getattr(self, "_quick_changes", {}),
                 **user_input,
             }
-            if (proposed[CONF_RESERVE] >= proposed[CONF_MAX_SOC]
+            if (proposed[CONF_MIN_SOC] >= proposed[CONF_USER_MAX_SOC]
+                    or proposed[CONF_GRID_BUFFER] >= proposed[CONF_GRID_LIMIT]
+                    or proposed[CONF_PREFERRED_CHARGE] > proposed[CONF_CHARGE_LIMIT]
+                    or proposed[CONF_RESERVE] >= proposed[CONF_MAX_SOC]
                     or proposed[CONF_NIGHT_END] >= proposed[CONF_MIDDAY_START]
                     or proposed[CONF_MIDDAY_START] >= proposed[CONF_AFTERNOON_END]
                     or proposed[CONF_AFTERNOON_END] >= proposed[CONF_NIGHT_START]):
@@ -181,7 +190,24 @@ class PilotOptionsFlow(OptionsFlow):
             **getattr(self, "_quick_changes", {}),
         }
         schema = {
-            vol.Required(CONF_CAPACITY, default=values[CONF_CAPACITY]): numeric(1, 200, 0.1),
+            vol.Required(CONF_NOMINAL_KWH, default=values[CONF_NOMINAL_KWH]): numeric(1, 200, 0.1),
+            vol.Required(CONF_SOH, default=values[CONF_SOH]): numeric(50, 100, 0.5),
+            vol.Required(CONF_MIN_SOC, default=values[CONF_MIN_SOC]): numeric(0, 95, 1),
+            vol.Required(CONF_USER_MAX_SOC, default=values[CONF_USER_MAX_SOC]): numeric(10, 100, 1),
+            vol.Required(CONF_CORRECTION, default=values[CONF_CORRECTION]): numeric(-15, 15, 1),
+            vol.Required(CONF_GRID_LIMIT, default=values[CONF_GRID_LIMIT]): numeric(1, 40, 0.1),
+            vol.Required(CONF_GRID_BUFFER, default=values[CONF_GRID_BUFFER]): numeric(0, 10, 0.1),
+            vol.Required(CONF_GRID_IMPORT_SIGN, default=values[CONF_GRID_IMPORT_SIGN]): vol.In({
+                0: "Niepotwierdzony znak importu",
+                1: "Wartość dodatnia oznacza import",
+                -1: "Wartość ujemna oznacza import",
+            }),
+            vol.Required(CONF_CHARGE_LIMIT, default=values[CONF_CHARGE_LIMIT]): numeric(1, 20, 0.5),
+            vol.Required(CONF_PREFERRED_CHARGE, default=values[CONF_PREFERRED_CHARGE]): numeric(1, 20, 0.5),
+            vol.Required(CONF_TARIFF, default=values[CONF_TARIFF]): vol.In(("G12w", "G13")),
+            vol.Required(CONF_PRICE_CHEAP, default=values[CONF_PRICE_CHEAP]): numeric(0, 10, 0.01),
+            vol.Required(CONF_PRICE_PEAK, default=values[CONF_PRICE_PEAK]): numeric(0, 10, 0.01),
+            vol.Required(CONF_PRICE_EVENING, default=values[CONF_PRICE_EVENING]): numeric(0, 10, 0.01),
             vol.Required(CONF_BASE_W, default=values[CONF_BASE_W]): numeric(0, 20000, 50),
             vol.Required(CONF_RESERVE, default=values[CONF_RESERVE]): numeric(5, 80),
             vol.Required(CONF_MAX_SOC, default=values[CONF_MAX_SOC]): numeric(20, 100),
