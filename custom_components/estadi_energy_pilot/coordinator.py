@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import replace
 from datetime import timedelta
 from math import isfinite
 
@@ -23,7 +24,7 @@ from .source_diagnostics import read_numeric, select_nonempty_sources
 from .health import HealthJournal
 from .battery_model import BatteryModel
 from .grid_guard import calculate_grid_guard
-from .tariffs import tariff_zone, next_cheap_window, zone_prices
+from .tariffs import tariff_zone, next_cheap_window, zone_prices, is_day_off
 from .charge_planner import propose
 
 _LOGGER = logging.getLogger(__name__)
@@ -291,6 +292,34 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             _LOGGER.error("Cannot calculate energy plan: %s", err)
             return {**history, "available": False,
                     "reason": "Błędne ustawienia — sprawdź konfigurację"}
+        # Old energy windows use a simple daily model. Weekend planning and
+        # household learning will be implemented by the 48h simulation engine.
+        if tariff_window and not is_day_off(tariff_window[0].date()):
+            target_plan = (
+                plan["afternoon"] if tariff_window[0].hour == 13
+                else plan["night"]
+            )
+            if target_plan.can_calculate:
+                adjusted = round(model.adjusted_target(target_plan.target_soc))
+                target_plan = replace(target_plan, target_soc=adjusted)
+                if tariff_window[0].hour == 13:
+                    plan["afternoon"] = target_plan
+                else:
+                    plan["night"] = target_plan
+                proposed = propose(
+                    now=now, window=tariff_window, soc=soc,
+                    target_soc=adjusted, model=model,
+                    grid_headroom_kw=guard.allowed_charge_kw,
+                    power_limit_kw=float(selected[CONF_CHARGE_LIMIT]),
+                    preferred_kw=float(selected[CONF_PREFERRED_CHARGE]),
+                    efficiency=float(selected[CONF_EFFICIENCY]) / 100,
+                )
+                v2_info["charging_schedule"] = proposed.as_dict()
+        else:
+            v2_info["schedule_note"] = (
+                "Dzień wolny lub brak taniego okna — wymagany pełny symulator 48h"
+            )
+        v2_info["current_soc_pct"] = round(soc, 1)
         plan.update(history)
         plan["available"] = True
         plan["temperature_source"] = "hourly" if temperatures else temperature_source
