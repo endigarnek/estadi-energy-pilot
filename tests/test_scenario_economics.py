@@ -64,7 +64,7 @@ class EconomicsTests(unittest.TestCase):
         return economics.compare_scenarios(**values)
 
     def test_same_input_two_scenarios_different_cost_and_soc(self):
-        result = self.run_compare(export_value=.30)
+        result = self.run_compare(export_value=.30, base_w=100)
         self.assertEqual(result["status"], "rozny_soc_koncowy")
         self.assertGreater(result["plan"]["grid_battery_kwh"], 0)
         self.assertEqual(result["baseline"]["grid_battery_kwh"], 0)
