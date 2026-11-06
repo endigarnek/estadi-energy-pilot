@@ -290,7 +290,12 @@ class DashboardExportTests(unittest.TestCase):
         self.assertEqual(dashboard["views"][0]["type"], "panel")
         self.assertEqual(dashboard["views"][0]["cards"][0]["type"],
                          "custom:estadi-energy-overview-card")
-        self.assertGreater(len(dashboard["views"][4]["cards"]), 7)
+        self.assertEqual(dashboard["views"][1]["type"], "sections")
+        self.assertEqual(dashboard["views"][2]["type"], "sections")
+        self.assertGreater(len(dashboard["views"][4]["sections"]), 4)
+        self.assertTrue(all(section["cards"][0]["type"] == "heading"
+                            for view in dashboard["views"][1:]
+                            for section in view["sections"]))
 
 
 if __name__ == "__main__":
