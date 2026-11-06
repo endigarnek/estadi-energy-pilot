@@ -135,6 +135,19 @@ def inspect_tou(states: Iterable[Any], now: datetime) -> dict:
             raw = str(getattr(state, "state", "unknown"))
             globals_found[entity_id] = None if raw in ("unknown", "unavailable") else raw[:100]
 
+    # Show near-match entity IDs, so the user does not have to hunt through
+    # HA developer tools when their Modbus integration has different names.
+    identified_ids = {
+        state.entity_id for candidates in found.values() for state in candidates
+    }
+    possible_unmapped = sorted([
+        entity_id for entity_id in index
+        if re.match(r"^(sensor|number|select|time|switch)\\.", entity_id)
+        and any(marker in entity_id for marker in ("deye", "time_of_use", "tou"))
+        and any(marker in entity_id for marker in ("program", "time_of_use", "tou"))
+        and entity_id not in identified_ids and entity_id not in GLOBALS
+    ])[:30]
+
     complete = present_count == SLOT_COUNT * len(SLOT_FIELDS)
     if not found:
         status = "nie_wykryto"
@@ -166,6 +179,7 @@ def inspect_tou(states: Iterable[Any], now: datetime) -> dict:
         "brakujace_pola": missing_count,
         "niejednoznaczne_pola": ambiguous_count,
         "stan_globalny": globals_found,
+        "inne_mozliwe_encje": possible_unmapped,
         "programy": slots,
         "blokady": blockers,
         "odczyt_o": now.astimezone(timezone.utc).isoformat(),
