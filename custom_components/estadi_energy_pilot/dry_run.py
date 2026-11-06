@@ -114,12 +114,35 @@ def evaluate_dry_run(
     finish = _utc(p.get("end_window"))
     if start is None or finish is None or finish <= start:
         blockers.append("Brak poprawnego przedziału ładowania")
+    # Describe what the scheduler *would* want to do, separately from
+    # whether hardware safety permits execution. This is useful even when
+    # phases, BMS and the Deye write interface are still unverified.
+    hypothetical = None
+    if start is not None and finish is not None and nominal_power is not None:
+        if current_soc is not None and target is not None and current_soc >= target - .1:
+            hypothetical = "cel_osiagniety"
+            output["suggested_kw"] = 0.
+        elif at < start:
+            hypothetical = "czekaj"
+            output["suggested_kw"] = 0.
+        elif at >= finish:
+            hypothetical = "okno_zakonczone"
+            output["suggested_kw"] = 0.
+        elif tariff_band != "cheap":
+            hypothetical = "poza_tania_taryfa"
+            output["suggested_kw"] = 0.
+        elif allowed_power is None:
+            hypothetical = "brak_danych_o_mocy"
+        elif allowed_power <= 0:
+            hypothetical = "wstrzymaj_ladowanie"
+            output["suggested_kw"] = 0.
+        else:
+            hypothetical = "laduj_z_ograniczeniem" if allowed_power < nominal_power else "laduj_planowo"
+            output["suggested_kw"] = round(max(0., min(nominal_power, allowed_power)), 2)
+    output["hipotetyczna_akcja"] = hypothetical
     if blockers:
         output["code"] = "SAFETY_BLOCKERS"
         output["why"] = "; ".join(blockers[:3])
-        # Keep the candidate power separately: not a safe command.
-        if nominal_power is not None and allowed_power is not None:
-            output["suggested_kw"] = round(max(0., min(nominal_power, allowed_power)), 2)
         return output
 
     if current_soc >= target - 0.1:
@@ -186,6 +209,7 @@ class DryRunJournal:
             "at": event["at"], "status": event.get("status"), "code": event.get("code"),
             "why": str(event.get("why", ""))[:260],
             "suggested_kw": event.get("suggested_kw"),
+            "hipotetyczna_akcja": event.get("hipotetyczna_akcja"),
             "requested_kw": event.get("requested_kw"),
             "target_soc_pct": event.get("target_soc_pct"),
             "soc_now_pct": event.get("soc_now_pct"),
