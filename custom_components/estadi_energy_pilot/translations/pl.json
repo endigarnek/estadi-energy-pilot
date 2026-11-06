@@ -87,7 +87,16 @@
           "tariff_price_evening": "Cena wieczornego szczytu G13 (0: nieznana)",
           "grid_power": "Moc importu / eksportu Deye (W)",
           "battery_power": "Moc magazynu Deye (W)",
-          "ev_home_load_topology": "Samochód: czy moc EV jest wliczona do zużycia Deye Load?"
+          "ev_home_load_topology": "Samochód: czy moc EV jest wliczona do zużycia Deye Load?",
+          "grid_phase_current_l1": "Prąd na przyłączu — faza L1 (A)",
+          "grid_phase_current_l2": "Prąd na przyłączu — faza L2 (A)",
+          "grid_phase_current_l3": "Prąd na przyłączu — faza L3 (A)",
+          "grid_phase_voltage_l1": "Napięcie na przyłączu — faza L1 (V)",
+          "grid_phase_voltage_l2": "Napięcie na przyłączu — faza L2 (V)",
+          "grid_phase_voltage_l3": "Napięcie na przyłączu — faza L3 (V)",
+          "grid_phase_limit_l1_a": "Potwierdzony limit prądu fazy L1 (A, 0 = brak)",
+          "grid_phase_limit_l2_a": "Potwierdzony limit prądu fazy L2 (A, 0 = brak)",
+          "grid_phase_limit_l3_a": "Potwierdzony limit prądu fazy L3 (A, 0 = brak)"
         }
       }
     },
