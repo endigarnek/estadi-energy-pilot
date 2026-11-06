@@ -22,7 +22,7 @@ from .const import (
     CONF_NOMINAL_KWH, CONF_SOH, CONF_MIN_SOC, CONF_USER_MAX_SOC,
     CONF_CORRECTION, CONF_GRID_POWER, CONF_GRID_LIMIT, CONF_GRID_BUFFER,
     CONF_GRID_IMPORT_SIGN, CONF_BATTERY_POWER, CONF_BATTERY_CHARGE_SIGN, CONF_CHARGE_LIMIT, CONF_PREFERRED_CHARGE,
-    CONF_TARIFF, CONF_PRICE_CHEAP, CONF_PRICE_PEAK, CONF_PRICE_EVENING,
+    CONF_TARIFF, CONF_PRICE_CHEAP, CONF_PRICE_PEAK, CONF_PRICE_EVENING, CONF_EV_TOPOLOGY,
 )
 from .discovery import detect_entities, missing_required_sources
 from .forecast_entry import available_entries, preferred_entry, forecast_config_schema
@@ -202,6 +202,11 @@ class PilotOptionsFlow(OptionsFlow):
             vol.Required(CONF_BATTERY_CHARGE_SIGN, default=values[CONF_BATTERY_CHARGE_SIGN]): vol.In({0: 'Nieznany', 1: 'Dodatni = ładowanie', -1: 'Ujemny = ładowanie'}),
             vol.Required(CONF_CHARGE_LIMIT, default=values[CONF_CHARGE_LIMIT]): numeric(1, 20, 0.5),
             vol.Required(CONF_PREFERRED_CHARGE, default=values[CONF_PREFERRED_CHARGE]): numeric(1, 20, 0.5),
+            vol.Required(CONF_EV_TOPOLOGY, default=values[CONF_EV_TOPOLOGY]): vol.In({
+                "unknown": "Niepotwierdzone — bez uczenia zużycia bez EV",
+                "included": "Moc ładowarki EV jest już wliczona do Deye Load",
+                "excluded": "Moc ładowarki EV jest poza odczytem Deye Load",
+            }),
             vol.Required(CONF_TARIFF, default=values[CONF_TARIFF]): vol.In(("G12w", "G13")),
             vol.Required(CONF_PRICE_CHEAP, default=values[CONF_PRICE_CHEAP]): numeric(0, 10, 0.01),
             vol.Required(CONF_PRICE_PEAK, default=values[CONF_PRICE_PEAK]): numeric(0, 10, 0.01),

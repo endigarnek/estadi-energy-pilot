@@ -86,7 +86,8 @@
           "tariff_price_peak": "Peak price (PLN/kWh), 0=unknown",
           "tariff_price_evening": "Evening peak price (PLN/kWh), 0=unknown",
           "grid_power": "Grid power sensor",
-          "battery_power": "Battery power sensor"
+          "battery_power": "Battery power sensor",
+          "ev_home_load_topology": "EV: is charging power included in Deye Load?"
         }
       }
     },

@@ -49,7 +49,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
                        [HealthSensor(coordinator, entry, kind) for kind in ("status", "last_refresh", "last_success", "refresh_count", "error_count", "last_duration_ms")] +
                        [PilotSensor(coordinator, entry, description) for description in SENSORS] +
                        [HistorySensor(coordinator, entry, key, title, unit, field) for key, title, unit, field in HISTORY_SENSORS] +
-                       [EnergyV2Sensor(coordinator, entry, key, name, unit) for key, name, unit in ENERGY_V2_SENSORS])
+                       [EnergyV2Sensor(coordinator, entry, key, name, unit) for key, name, unit in ENERGY_V2_SENSORS] +
+                       [HouseLearningSensor(coordinator, entry)])
 
 
 class PilotSensor(CoordinatorEntity, SensorEntity):
@@ -319,3 +320,38 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
                     "strefa": d.get("tariff_zone"),
                     "bez_wykonania": True}
         return None
+
+
+class HouseLearningSensor(CoordinatorEntity, SensorEntity):
+    """Training progress and robust profiles, without assuming EV topology."""
+    _attr_has_entity_name = True
+    _attr_name = "Uczenie zużycia domu"
+    _attr_icon = "mdi:chart-bell-curve-cumulative"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_house_learning"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "ESTADI Energy Pilot",
+            "manufacturer": "ESTADI",
+        }
+
+    @property
+    def native_value(self):
+        learning = (self.coordinator.data or {}).get("energy_2_0", {}).get("house_learning", {})
+        return {"gotowy": "Gotowy", "ucze_sie": "Uczę się",
+                "niepotwierdzona_topologia_ev": "Sprawdź czy EV jest w Deye Load"}.get(
+                    learning.get("state"), "Brak danych")
+
+    @property
+    def extra_state_attributes(self):
+        learning = (self.coordinator.data or {}).get("energy_2_0", {}).get("house_learning", {})
+        return {
+            "kompletne_dni": learning.get("complete_days", 0),
+            "wymagane_dni": learning.get("required_days", 7),
+            "dni_pominiete": learning.get("skipped_days", 0),
+            "ev_wliczony_w_dom": learning.get("ev_in_home_load"),
+            "profil_godzinowy": learning.get("profiles", {}),
+            "uwagi": learning.get("note", "Brak historii"),
+        }
