@@ -12,6 +12,9 @@ from pathlib import Path
 from textwrap import indent
 from typing import Mapping
 
+FORECAST_CARD_JS = "estadi-energy-pilot-forecast-v040.js"
+FORECAST_CARD_RESOURCE = "/local/" + FORECAST_CARD_JS
+
 
 def _quote(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
@@ -196,7 +199,8 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                        ("Produkcja PV", "sim_pv_kwh"),
                        ("Import energii", "sim_grid_kwh"),
                        ("Szczyt poboru", "sim_grid_peak")]), 3),
-        _markdown("Prognoza — następne 48 godzin (krok 4h)", forecasts),
+        _interactive_forecast_card(sim),
+        _markdown("Prognoza — następne 48 godzin (zapasowa tabela 4h)", forecasts),
         _markdown("Dry-run — decyzje i wyjaśnienia", dry_text),
         _markdown("Jak trafnie przewidujemy?", accuracy_text),
         _entities("Diagnostyka i stan Deye", _existing(
@@ -222,7 +226,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
         "bez potwierdzonych przepływów import/eksport i cen rozliczenia."
     ))
     return (
-        "# ESTADI Energy Pilot — pulpit natywny, bez dodatkowych wtyczek\n"
+        "# ESTADI Energy Pilot — pulpit z lokalną kartą 48h (zarejestruj zasób JS w HA)\n"
         "title: \"ESTADI Energy Pilot\"\n"
         "views:\n"
         "  - title: \"Energia\"\n"
@@ -231,6 +235,20 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
         "    cards:\n"
         + "".join(_card(card) for card in cards)
     )
+
+
+def _interactive_forecast_card(entity_id: str) -> str:
+    """Local read-only JS card; user registers resource in Home Assistant."""
+    return ("- type: custom:estadi-energy-forecast-card\n"
+            + "  entity: " + _quote(entity_id) + "\n"
+            + "  title: " + _quote("Prognoza 48h • SOC, PV, dom, EV, pompa i sieć") + "\n"
+            + "  default_series:\n"
+            + "    - soc\n"
+            + "    - pv\n"
+            + "    - dom\n"
+            + "    - import\n"
+            + "    - pompa\n"
+            + "    - auto\n")
 
 
 def render_mini_widget(entities: Mapping[str, str], sources: Mapping[str, str]) -> str:
@@ -269,7 +287,8 @@ def render_mini_widget(entities: Mapping[str, str], sources: Mapping[str, str]) 
             + "".join(_card(card) for card in mini))
 
 
-def export_files(directory: str | Path, full: str, mini: str) -> dict[str, str]:
+def export_files(directory: str | Path, full: str, mini: str,
+                 javascript: str | None = None) -> dict[str, str]:
     """Safely create YAMLs with no overwrite of the owner's existing edits.
 
     This is triggered only by the explicit 'Eksportuj panel' HA button.
@@ -281,6 +300,23 @@ def export_files(directory: str | Path, full: str, mini: str) -> dict[str, str]:
     if not full.strip() or not mini.strip():
         raise ValueError("Pusta konfiguracja pulpitu")
     targets = {}
+    if javascript is not None:
+        if not javascript.strip() or "estadi-energy-forecast-card" not in javascript:
+            raise ValueError("Nieprawidłowy kod karty prognozy 48h")
+        www = root / "www"
+        www.mkdir(exist_ok=True)
+        resource = www / FORECAST_CARD_JS
+        # Never overwrite user edits; versioned name avoids stale browser cache.
+        try:
+            with resource.open("x", encoding="utf-8") as file:
+                file.write(javascript)
+        except FileExistsError:
+            if resource.read_text(encoding="utf-8") != javascript:
+                raise ValueError(
+                    "Istnieje zmodyfikowany zasób karty. Nie nadpisano: " + str(resource)
+                )
+        targets["forecast_js"] = str(resource)
+        targets["forecast_resource_url"] = FORECAST_CARD_RESOURCE
     for key, filename, text in (
         ("dashboard", "estadi-energy-pilot-dashboard.yaml", full),
         ("mini", "estadi-energy-pilot-mini.yaml", mini),
