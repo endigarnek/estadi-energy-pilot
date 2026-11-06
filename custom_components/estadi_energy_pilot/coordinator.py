@@ -34,6 +34,7 @@ from .dry_run import DryRunJournal, evaluate_dry_run
 from .forecast_accuracy import AccuracyJournal
 from .scenario_economics import compare_scenarios
 from .load_calibration import analyze_load_history, analyze_ev_history, pv_bias_guidance
+from .heat_pump_learning import train_heat_pump, preview_48h
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -488,6 +489,26 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             _LOGGER.error("Cannot calculate energy plan: %s", err)
             return {**history, "available": False,
                     "reason": "Błędne ustawienia — sprawdź konfigurację"}
+        # Historical outdoor-temperature/pump power pairing starts from
+        # version 0.4.3: older days cannot be backfilled reliably. Until
+        # enough measured weather and pump energy exist, no learned estimate.
+        heat_pump_learning = train_heat_pump(
+            self.history.days, now.date(),
+            mild_w=float(selected[CONF_MILD_W]),
+            cold_w=float(selected[CONF_COLD_W]),
+        )
+        heat_pump_learning["preview_48h"] = preview_48h(
+            now, temperatures, outdoor_temp, heat_pump_learning,
+            mild_w=float(selected[CONF_MILD_W]),
+            cold_w=float(selected[CONF_COLD_W]),
+        )
+        heat_pump_learning["temperature_sensor"] = (
+            temp_entity if measured_temperature is not None else None
+        )
+        heat_pump_learning["measured_temperature_c"] = measured_temperature
+        heat_pump_learning["sensor_status"] = temp_reason
+        v2_info["heat_pump_learning"] = heat_pump_learning
+
         # Independent 48-hour forecast. Never issue inverter commands here.
         # Current EV draw is included ONLY in the first 15-minute slot:
         # future sessions cannot be deduced from the instantaneous reading.
