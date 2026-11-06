@@ -18,6 +18,7 @@ from .forecast_source import parse_forecast_solar_response
 from .forecast_entry import preferred_entry
 from .discovery import detect_entities
 from .weather_temperature import weather_temperature_c
+from .source_diagnostics import read_numeric, select_nonempty_sources
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,8 +62,10 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         return value if isfinite(value) and -1000000 < value < 1000000 else None
 
     async def _async_update_data(self):
-        selected = {**DEFAULTS, **detect_entities(self.hass.states.async_all()),
-                    **self.entry.data, **self.entry.options}
+        selected = {**DEFAULTS, **select_nonempty_sources(
+            detect_entities(self.hass.states.async_all()),
+            {**self.entry.data, **self.entry.options},
+        )}
         self._selected_settings = selected
         now = dt_util.now()
         attrs = []
@@ -127,16 +130,44 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             "history_recent": self.history.summaries(date_today),
             "history_hours": self.history.hourly_comparison(date_yesterday),
         }
-        soc = self._entity_value(CONF_BATTERY_SOC)
-        outdoor_temp = self._entity_value(CONF_OUTDOOR_TEMP)
+        soc_entity = selected.get(CONF_BATTERY_SOC)
+        soc, soc_reason = read_numeric(
+            self.hass.states.get(soc_entity) if soc_entity else None, "%", 0, 100
+        )
+        temp_entity = selected.get(CONF_OUTDOOR_TEMP)
+        outdoor_temp, temp_reason = read_numeric(
+            self.hass.states.get(temp_entity) if temp_entity else None, "°C", -70, 65
+        )
         temperature_source = "sensor" if outdoor_temp is not None else "weather"
         weather_entity = selected.get(CONF_WEATHER)
+        weather_reason = "nie przypisano encji pogodowej"
         if outdoor_temp is None and weather_entity:
             outdoor_temp = weather_temperature_c(self.hass.states.get(weather_entity))
+            weather_reason = "OK" if outdoor_temp is not None else "brak poprawnej temperatury z pogody"
 
-        if soc is None or outdoor_temp is None or not 0 <= soc <= 100:
+        diagnostics = {
+            "soc_encja": soc_entity,
+            "soc_status": soc_reason,
+            "soc_wartosc": soc,
+            "temperatura_encja": temp_entity,
+            "temperatura_status": temp_reason,
+            "pogoda_encja": weather_entity,
+            "pogoda_status": weather_reason,
+            "temperatura_wartosc": outdoor_temp,
+            "zrodlo_temperatury": temperature_source if outdoor_temp is not None else None,
+            "prognoza_zrodlo": forecast_source,
+            "prognoza_blad": forecast_error,
+        }
+        history["diagnostics"] = diagnostics
+        if soc is None or outdoor_temp is None:
+            missing = []
+            if soc is None:
+                missing.append(f"SOC ({soc_reason})")
+            if outdoor_temp is None:
+                missing.append("temperatura (czujnik: " + temp_reason
+                               + "; pogoda: " + weather_reason + ")")
             return {**history, "available": False,
-                    "reason": "Brak prawidłowego SOC lub temperatury zewnętrznej"}
+                    "reason": "Brak danych: " + ", ".join(missing)}
 
         temperatures = []
         if weather_entity:
