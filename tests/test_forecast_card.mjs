@@ -157,3 +157,24 @@ test("does not include an inverter write path", () => {
     assert.equal(source.includes(forbidden), false, forbidden);
   }
 });
+
+test("mobile chart uses a narrower viewBox and readable reduced tick density", () => {
+  const item = card();
+  assert.deepEqual([...item._visible].sort(), ["import", "pv", "soc"].sort());
+  item._compact = true;
+  item._draw();
+  const html = item.shadowRoot.innerHTML;
+  assert.match(html, /viewBox="0 0 520 290"/);
+  assert.doesNotMatch(html, /min-width:670px/);
+  const ticks = (html.match(/text-anchor="middle"/g) || []).length;
+  assert.ok(ticks >= 3 && ticks <= 5, "mobile should show only a few time ticks");
+});
+
+test("missing series and zero energy values remain distinct", () => {
+  const dataPoints = data(3);
+  dataPoints[1].pv = null;
+  dataPoints[2].pv = 0;
+  const item = card(dataPoints);
+  assert.equal(item._data[1].pv, null);
+  assert.equal(item._data[2].pv, 0);
+});
