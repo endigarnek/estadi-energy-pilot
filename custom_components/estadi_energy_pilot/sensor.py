@@ -91,6 +91,8 @@ HISTORY_SENSORS = (
     ("ev_today", "Energia ładowarki EV dzisiaj (szacowana)", "kWh", "ev_kwh"),
     ("heat_pump_yesterday", "Energia pompy ciepła wczoraj (szacowana)", "kWh", "heat_pump_kwh"),
     ("pv_today", "Produkcja PV dzisiaj (szacowana)", "kWh", "pv_kwh"),
+    ("pv_last_hour_forecast", "PV: prognoza poprzedniej godziny", "kWh", "forecast_kwh"),
+    ("pv_last_hour_actual", "PV: rzeczywista poprzednia godzina", "kWh", "actual_kwh"),
 )
 
 
@@ -111,6 +113,11 @@ class HistorySensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         data = self.coordinator.data or {}
+        if self._key in ("pv_last_hour_forecast", "pv_last_hour_actual"):
+            sample = data.get("history_last_hour") or {}
+            if self._key == "pv_last_hour_actual" and sample.get("coverage_pct", 0) < 90:
+                return None
+            return sample.get(self._field)
         day = data.get("history_today" if self._key in ("ev_today", "pv_today") else "history_yesterday", {})
         if self._key == "pv_actual_yesterday" and day.get("pv_coverage_pct", 0) < 90:
             return None
@@ -120,6 +127,10 @@ class HistorySensor(CoordinatorEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
+        if self._key in ("pv_last_hour_forecast", "pv_last_hour_actual"):
+            data = self.coordinator.data or {}
+            return {"okres_od": data.get("history_last_hour_at"),
+                    "pokrycie_pomiaru": (data.get("history_last_hour") or {}).get("coverage_pct")}
         if self._key != "pv_error_yesterday":
             return None
         data = self.coordinator.data or {}
