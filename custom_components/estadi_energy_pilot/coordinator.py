@@ -439,8 +439,8 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         # Never advertise a charging decision while grid polarity is
         # unverified, when limits are unknown, or on whole-day cheap holidays.
         plan["recommended"] = bool(
-            plan.get("recommended") and guard.allowed_charge_kw is not None
-            and guard.allowed_charge_kw >= 3
+            plan.get("recommended") and guard.get("allowed_charge_kw") is not None
+            and guard["allowed_charge_kw"] >= 3
             and tariff_band == "cheap" and not is_day_off(now.date())
         )
         plan.update(history)
