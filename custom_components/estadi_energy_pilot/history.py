@@ -13,6 +13,18 @@ from typing import Any
 from .engine import PvSlot
 
 CHANNELS = ("pv", "home", "heat_pump", "ev")
+TEMP_MIN = -45.0
+TEMP_MAX = 55.0
+
+
+def _temperature(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (ValueError, TypeError):
+        return None
+    return number if isfinite(number) and TEMP_MIN <= number <= TEMP_MAX else None
 MAX_DAYS = 45
 MAX_INTERVAL_SECONDS = 30 * 60
 
@@ -93,7 +105,8 @@ class HistoryBook:
         return True
 
     def sample(self, now: datetime, *, pv: Any = None, home: Any = None,
-               heat_pump: Any = None, ev: Any = None) -> bool:
+               heat_pump: Any = None, ev: Any = None,
+               outdoor_temp: Any = None) -> bool:
         """Integrate up to 30-minute gaps using trapezoids, per channel.
 
         Longer gaps, missing/unavailable readings and implausible spikes are
@@ -101,8 +114,9 @@ class HistoryBook:
         """
         values = {channel: _power(value) for channel, value in
                   {"pv": pv, "home": home, "heat_pump": heat_pump, "ev": ev}.items()}
+        temperature = _temperature(outdoor_temp)
         old = self.last
-        self.last = {"at": now.isoformat(), "power_w": values}
+        self.last = {"at": now.isoformat(), "power_w": values, "outdoor_temp_c": temperature}
         if old is None:
             return False
         start = _parse_time(old.get("at"))
@@ -112,6 +126,7 @@ class HistoryBook:
         duration = (now.timestamp() - start.timestamp())
         if not (0 < duration <= MAX_INTERVAL_SECONDS):
             return False
+        previous_temp = _temperature(old.get("outdoor_temp_c"))
         for channel in CHANNELS:
             old_power, new_power = _power(previous.get(channel)), values[channel]
             if old_power is None or new_power is None:
@@ -136,6 +151,35 @@ class HistoryBook:
                 row[hour] = _round(row.get(hour, 0.0) + (power1 + power2) / 2 * hours / 1000)
                 coverage[hour] = _round(coverage.get(hour, 0.0) + hours)
                 cursor = boundary
+        # Pair outdoor temperature to the same wall-clock hour as recorded
+        # heat-pump consumption. Interpolate only across a <=30 min gap
+        # between two valid sensor readings; never infer from missing states.
+        if (previous_temp is not None and temperature is not None and
+                _power(previous.get("heat_pump")) is not None and
+                values["heat_pump"] is not None):
+            cursor = start.astimezone(now.tzinfo)
+            while cursor < now:
+                boundary = min(now, cursor.replace(
+                    minute=0, second=0, microsecond=0) + timedelta(hours=1))
+                if boundary <= cursor:
+                    break
+                start_fraction = (cursor.timestamp() - start.timestamp()) / duration
+                end_fraction = (boundary.timestamp() - start.timestamp()) / duration
+                interpolated = (
+                    previous_temp + (temperature - previous_temp) * start_fraction,
+                    previous_temp + (temperature - previous_temp) * end_fraction,
+                )
+                hours = (boundary.timestamp() - cursor.timestamp()) / 3600
+                key, hour = cursor.date().isoformat(), cursor.strftime("%H:00")
+                record = self._day(key)
+                degree_hours = record.setdefault("temperature_degree_hours", {})
+                temp_coverage = record.setdefault("temperature_coverage", {})
+                degree_hours[hour] = _round(
+                    degree_hours.get(hour, 0.0) +
+                    sum(interpolated) / 2 * hours
+                )
+                temp_coverage[hour] = _round(temp_coverage.get(hour, 0.0) + hours)
+                cursor = boundary
         self._prune()
         return True
 
@@ -146,6 +190,10 @@ class HistoryBook:
         coverage = record.get("coverage", {})
         result = {"date": day, "snapshot_at": forecast.get("locked_at"),
                   "forecast_pv_kwh": forecast.get("total_kwh")}
+        temperature_coverage = record.get("temperature_coverage", {})
+        result["temperature_coverage_pct"] = round(
+            min(100, 100 * sum(temperature_coverage.values()) / 24)
+        )
         for channel in CHANNELS:
             if channel not in actual:
                 result[f"{channel}_kwh"] = None
