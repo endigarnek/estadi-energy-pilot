@@ -48,7 +48,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([VersionSensor(entry)] +
                        [HealthSensor(coordinator, entry, kind) for kind in ("status", "last_refresh", "last_success", "refresh_count", "error_count", "last_duration_ms")] +
                        [PilotSensor(coordinator, entry, description) for description in SENSORS] +
-                       [HistorySensor(coordinator, entry, key, title, unit, field) for key, title, unit, field in HISTORY_SENSORS])
+                       [HistorySensor(coordinator, entry, key, title, unit, field) for key, title, unit, field in HISTORY_SENSORS] +
+                       [EnergyV2Sensor(coordinator, entry, key, name, unit) for key, name, unit in ENERGY_V2_SENSORS])
 
 
 class PilotSensor(CoordinatorEntity, SensorEntity):
@@ -228,3 +229,72 @@ class HealthSensor(CoordinatorEntity, SensorEntity):
             "czas_odswiezenia_ms": info["duration_ms"],
             "dziennik_ostatnich_zdarzen": info["events"],
         }
+
+
+ENERGY_V2_SENSORS = (
+    ("grid_import", "Pobór z przyłącza", "kW"),
+    ("grid_headroom", "Dostępny zapas mocy przyłącza", "kW"),
+    ("grid_charge_cap", "Bezpieczna moc ładowania — wstępna", "kW"),
+    ("grid_status", "Grid Guard — status", None),
+    ("grid_reason", "Grid Guard — przyczyna", None),
+    ("tariff", "Taryfa", None),
+    ("tariff_zone", "Aktualna strefa taryfowa", None),
+    ("next_cheap", "Początek następnej taniej strefy", None),
+    ("battery_nominal", "Pojemność nominalna magazynu", "kWh"),
+    ("battery_window", "Energia w zakresie SOC", "kWh"),
+    ("plan_status", "Plan ładowania — status", None),
+    ("plan_start", "Plan ładowania — start", None),
+    ("plan_power", "Plan ładowania — moc zalecana", "kW"),
+    ("plan_target", "Plan ładowania — docelowy SOC", "%"),
+)
+
+
+class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
+    """Interpret advisory outputs without confusing them with executed writes."""
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator, entry, key, title, unit):
+        super().__init__(coordinator)
+        self._key = key
+        self._attr_name = title
+        self._attr_unique_id = f"{entry.entry_id}_ep20_{key}"
+        self._attr_native_unit_of_measurement = unit
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "ESTADI Energy Pilot",
+            "manufacturer": "ESTADI",
+        }
+
+    @property
+    def native_value(self):
+        d = (self.coordinator.data or {}).get("energy_2_0", {})
+        g, model = d.get("grid", {}), d.get("model", {})
+        p = d.get("charging_schedule") or {}
+        values = {
+            "grid_import": g.get("import_kw"),
+            "grid_headroom": g.get("headroom_kw"),
+            "grid_charge_cap": g.get("allowed_charge_kw"),
+            "grid_status": g.get("state"),
+            "grid_reason": g.get("reason"),
+            "tariff": d.get("tariff"),
+            "tariff_zone": d.get("tariff_zone"),
+            "next_cheap": d.get("next_cheap_start"),
+            "battery_nominal": model.get("nominal_kwh"),
+            "battery_window": model.get("soc_window_kwh"),
+            "plan_status": p.get("state") or d.get("schedule_note", "Brak planu"),
+            "plan_start": p.get("start"),
+            "plan_power": p.get("power_kw"),
+            "plan_target": p.get("target_soc"),
+        }
+        return values.get(self._key)
+
+    @property
+    def extra_state_attributes(self):
+        d = (self.coordinator.data or {}).get("energy_2_0", {})
+        if self._key == "grid_status":
+            return {"szczegoly": d.get("grid"), "automatyzacja_wlaczona": False}
+        if self._key == "plan_status":
+            return {"harmonogram": d.get("charging_schedule"),
+                    "strefa": d.get("tariff_zone"),
+                    "bez_wykonania": True}
+        return None
