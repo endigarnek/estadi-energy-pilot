@@ -73,6 +73,25 @@ class GridMonitorTests(unittest.TestCase):
         self.assertLess(before["allowed_charge_kw"], after["allowed_charge_kw"])
         self.assertAlmostEqual(after["allowed_charge_kw"], 10)
 
+    def test_raw_grid_power_visible_with_unconfirmed_sign_but_never_treated_as_import(self):
+        self.settings[const.CONF_GRID_IMPORT_SIGN] = 0
+        result = self.evaluate()
+        self.assertEqual(result["state"], "blokada")
+        self.assertEqual(result["raw_grid_kw"], 12.0)
+        self.assertEqual(result["raw_grid_status"], "ok")
+        self.assertEqual(result["raw_grid_entity_id"], "sensor.deye_grid_power")
+        self.assertIsNone(result["raw_grid_is_import"])
+        self.assertIsNone(result["import_kw"])
+        self.assertIsNone(result["headroom_kw"])
+        self.assertIsNone(result["allowed_charge_kw"])
+
+    def test_raw_grid_power_unavailable_if_sensor_is_stale(self):
+        self.settings[const.CONF_GRID_IMPORT_SIGN] = 0
+        self.states["sensor.deye_grid_power"] = sensor(5000, "W", age=300)
+        result = self.evaluate()
+        self.assertIsNone(result["raw_grid_kw"])
+        self.assertEqual(result["raw_grid_status"], "dane_nieaktualne")
+
     def test_missing_sign_fails_closed(self):
         self.settings[const.CONF_GRID_IMPORT_SIGN] = 0
         result = self.evaluate()
