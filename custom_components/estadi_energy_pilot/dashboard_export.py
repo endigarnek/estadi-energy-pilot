@@ -180,6 +180,42 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
         "Gdy końcowy SOC jest różny, wynik pieniężny nie jest porównywalną oszczędnością.*"
     ) if economy_id else "Brak encji Opłacalność — status; sprawdź wersję i integrację."
 
+    ev_risk_text = (
+        "**To wariant stresowy na podstawie historii, NIE przewidywany "
+        "harmonogram samochodu.**\n\n"
+        "{% set risk = state_attr(" + _quote(economy_id) +
+        ", 'historyczny_wariant_ryzyka_EV') or {} %}\n"
+        "{% set base = risk.get('baseline') or {} %}\n"
+        "{% set plan = risk.get('plan') or {} %}\n"
+        "Status: **{{ risk.get('status', 'Brak dostatecznej historii EV') }}**\n\n"
+        "| Parametr | Bez ładowania magazynu | Plan magazynu |\n"
+        "|:--|--:|--:|\n"
+        "| EV (kWh) | {{ base.get('ev_kwh', '—') }} | {{ plan.get('ev_kwh', '—') }} |\n"
+        "| Import (kWh) | {{ base.get('import_kwh', '—') }} | {{ plan.get('import_kwh', '—') }} |\n"
+        "| Koszt importu (PLN) | {{ base.get('import_cost_pln', '—') }} "
+        "| {{ plan.get('import_cost_pln', '—') }} |\n"
+        "| SOC końcowy | {{ base.get('soc_end_pct', '—') }}% "
+        "| {{ plan.get('soc_end_pct', '—') }}% |\n\n"
+        "*Wiele historycznych godzin P90 może łączyć różne sesje EV. "
+        "Nie traktuj tego jako prawdopodobieństwa, gwarancji ani gotowego sterowania.*"
+    ) if economy_id else "Nie znaleziono sensora analizy ekonomicznej."
+    calib_id = eid("calibration_status")
+    calibration_text = (
+        "**Ocena danych przed dniem testu:** "
+        "najpierw uczymy się na starszych dniach, potem sprawdzamy kolejne.\n\n"
+        "{% set load = state_attr(" + _quote(calib_id) + ", 'profil_domu_analiza_wsteczna') or {} %}\n"
+        "{% set pv = state_attr(" + _quote(calib_id) + ", 'korekta_pv_rekomendacja') or {} %}\n"
+        "{% set ev = state_attr(" + _quote(calib_id) + ", 'ev_historyczny_scenariusz_stresowy') or {} %}\n"
+        "**Dom:** {{ load.get('tested_hours', 0) }} godzin testowanych "
+        "· MAE {{ load.get('mae_kwh_hour', '—') }} kWh/h "
+        "· WAPE {{ load.get('wape_pct', '—') }}%\n\n"
+        "**PV:** {{ pv.get('complete_pv_days', 0) }} pełnych dni "
+        "· sugerowana całkowita korekta {{ pv.get('suggested_total_pv_discount_pct', '—') }}%\n\n"
+        "**EV:** {{ ev.get('complete_days', 0) }} pełnych dni "
+        "· stan: {{ ev.get('status', 'brak') }}\n\n"
+        "*Żadna korekta nie jest stosowana automatycznie. "
+        "Deye Load obejmuje auto i pompę, więc odejmujemy je z bazy domu.*"
+    ) if calib_id else "Nie znaleziono sensora kalibracji."
     cards = [
         _markdown("Centrum sterowania — podgląd", header),
         _tiles("Stan instalacji", _existing(
@@ -230,6 +266,15 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                        ("Końcowy SOC bez planu", "economic_base_soc"),
                        ("Końcowy SOC z planem", "economic_plan_soc")]), 3),
         _markdown("Rachunek dwóch scenariuszy 48h", economics_markdown),
+        _tiles("Kalibracja prognoz i niepewność EV", _existing(
+            entities, [("Stan profilu domu", "calibration_status"),
+                       ("Błąd profilu", "calibration_load_mae"),
+                       ("WAPE domu", "calibration_load_wape"),
+                       ("Sugerowana korekta PV", "calibration_pv_discount"),
+                       ("Historyczne ryzyko EV", "calibration_ev_status"),
+                       ("Kompletne dni EV", "calibration_ev_days")]), 3),
+        _markdown("Jak uczymy się z rzeczywistych pomiarów", calibration_text),
+        _markdown("Co jeśli auto znowu będzie się ładować?", ev_risk_text),
         _markdown("Dry-run — decyzje i wyjaśnienia", dry_text),
         _markdown("Jak trafnie przewidujemy?", accuracy_text),
         _entities("Diagnostyka i stan Deye", _existing(

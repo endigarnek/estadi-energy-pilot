@@ -176,6 +176,60 @@ class EconomicsTests(unittest.TestCase):
         self.assertEqual(result["baseline"]["hours"], 48)
         self.assertEqual(result["baseline"]["status"], "gotowy")
 
+    def test_ev_stress_is_separate_and_never_sent_to_inverter(self):
+        ev_schedule = [0.] * 24
+        ev_schedule[17] = 7.
+        ev_schedule[18] = 7.
+        risk = {
+            "risk_ready": True,
+            "profiles": {
+                "weekday": {"p90_kwh_per_hour": ev_schedule},
+                "weekend": {"p90_kwh_per_hour": ev_schedule},
+            },
+            "warning": "To tylko historyczny wariant stresowy, nie pewna sesja EV",
+        }
+        result = self.run_compare(
+            soc=10, base_w=1000, export_value=.2,
+            future_ev_stress=risk,
+        )
+        stress = result["ev_stress"]
+        self.assertIsNotNone(stress)
+        self.assertEqual(stress["status"], "gotowy_scenariusz_stresowy")
+        self.assertGreater(stress["baseline"]["ev_kwh"], result["baseline"]["ev_kwh"])
+        self.assertGreater(stress["plan"]["ev_kwh"], result["plan"]["ev_kwh"])
+        self.assertGreaterEqual(
+            stress["plan"]["import_cost_pln"],
+            result["plan"]["import_cost_pln"],
+        )
+        self.assertIsNone(stress["estimated_savings_pln"])
+        self.assertFalse(stress["future_ev_sessions_confirmed"])
+        self.assertFalse(result["plan_written_to_deye"])
+
+    def test_ev_history_without_seven_complete_days_cannot_invent_plan(self):
+        risk = {"risk_ready": False, "profiles": {}, "warning": "Brak pomiarów"}
+        result = self.run_compare(future_ev_stress=risk)
+        self.assertIsNone(result["ev_stress"])
+        self.assertTrue(result["future_ev_unknown"])
+
+    def test_active_car_is_not_counted_twice_at_start_of_stress(self):
+        ev_schedule = [0.] * 24
+        ev_schedule[self.now.hour] = 8.  # 12:00 is currently active
+        risk = {
+            "risk_ready": True,
+            "profiles": {
+                "weekday": {"p90_kwh_per_hour": ev_schedule},
+                "weekend": {"p90_kwh_per_hour": ev_schedule},
+            },
+        }
+        result = self.run_compare(
+            soc=10, base_w=0, ev_now_kw=6.9, future_ev_stress=risk,
+        )
+        # First 15min uses the real 6.9 kW reading, not historical 8 kW.
+        # Remaining 45min of 12:00 may follow the stress EV profile.
+        self.assertAlmostEqual(result["baseline"]["ev_kwh"], 1.725, places=2)
+        self.assertGreater(result["ev_stress"]["baseline"]["ev_kwh"], 1.725)
+        self.assertFalse(result["plan_written_to_deye"])
+
     def test_costs_do_not_show_up_as_realized_savings(self):
         result = self.run_compare(export_value=.3)
         self.assertIsNone(result["savings_pln"])

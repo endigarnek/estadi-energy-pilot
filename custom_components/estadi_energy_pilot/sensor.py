@@ -294,6 +294,16 @@ ENERGY_V2_SENSORS = (
     ("economic_plan_soc", "Opłacalność — końcowy SOC z ładowaniem", "%"),
     ("economic_terminal_delta", "Opłacalność — różnica końcowego SOC", "pp"),
     ("economic_estimate", "Opłacalność — porównywalna różnica salda", "PLN"),
+    ("calibration_status", "Kalibracja — stan oceny modelu domu", None),
+    ("calibration_load_mae", "Kalibracja — błąd profilu domu", "kWh"),
+    ("calibration_load_wape", "Kalibracja — WAPE profilu domu", "%"),
+    ("calibration_load_tested", "Kalibracja — przetestowane godziny", None),
+    ("calibration_pv_discount", "Kalibracja — sugerowana całkowita korekta PV", "%"),
+    ("calibration_ev_status", "EV — stan historycznego scenariusza ryzyka", None),
+    ("calibration_ev_days", "EV — liczba dni pełnych pomiarów", None),
+    ("calibration_ev_peak", "EV — szczyt stresowy z historii", "kW"),
+    ("economic_ev_stress_import", "Opłacalność — import z planem i ryzykiem EV", "kWh"),
+    ("economic_ev_stress_soc", "Opłacalność — SOC z planem i ryzykiem EV", "%"),
     ("smart_charge_status", "Inteligentne ładowanie — stan", None),
     ("smart_charge_power", "Inteligentne ładowanie — proponowana moc", "kW"),
     ("smart_charge_start", "Inteligentne ładowanie — godzina startu", None),
@@ -338,6 +348,15 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
         economy = d.get("scenario_economics") or {}
         economic_base = economy.get("baseline") or {}
         economic_plan = economy.get("plan") or {}
+        stress = economy.get("ev_stress") or {}
+        stress_plan = stress.get("plan") or {}
+        calibration = d.get("calibration") or {}
+        house_calibration = calibration.get("load") or {}
+        pv_calibration = calibration.get("pv") or {}
+        ev_calibration = calibration.get("ev") or {}
+        ev_profiles = ev_calibration.get("profiles") or {}
+        ev_peaks = [item.get("peak_hour_kwh") for item in ev_profiles.values()
+                    if isinstance(item, dict) and item.get("peak_hour_kwh") is not None]
         cautious = sim.get("cautious") or {}
         smart = d.get("optimized_schedule") or {}
         tou = d.get("deye_tou") or {}
@@ -348,6 +367,16 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
         pv_accuracy = accuracy.get("pv") or {}
         outcomes = accuracy.get("obserwacje_celu") or {}
         values = {
+            "calibration_status": house_calibration.get("status", "brak_danych"),
+            "calibration_load_mae": house_calibration.get("mae_kwh_hour"),
+            "calibration_load_wape": house_calibration.get("wape_pct"),
+            "calibration_load_tested": house_calibration.get("tested_hours"),
+            "calibration_pv_discount": pv_calibration.get("suggested_total_pv_discount_pct"),
+            "calibration_ev_status": ev_calibration.get("status", "brak_danych"),
+            "calibration_ev_days": ev_calibration.get("complete_days"),
+            "calibration_ev_peak": round(max(ev_peaks), 2) if ev_peaks else None,
+            "economic_ev_stress_import": stress_plan.get("import_kwh"),
+            "economic_ev_stress_soc": stress_plan.get("soc_end_pct"),
             "economic_status": economy.get("status", "brak_danych"),
             "economic_base_cost": economic_base.get("import_cost_pln"),
             "economic_plan_cost": economic_plan.get("import_cost_pln"),
@@ -422,6 +451,16 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         d = (self.coordinator.data or {}).get("energy_2_0", {})
+        if self._key == "calibration_status":
+            calibration = d.get("calibration") or {}
+            return {
+                "profil_domu_analiza_wsteczna": calibration.get("load"),
+                "ev_historyczny_scenariusz_stresowy": calibration.get("ev"),
+                "korekta_pv_rekomendacja": calibration.get("pv"),
+                "automatyczne_zmiany_wylaczone": True,
+                "dodatkowe_ladowanie_EV_niepotwierdzone": True,
+                "uwaga": "Deye Load zawiera EV i pompę; model wyłącza je z profilu bazowego.",
+            }
         if self._key == "economic_status":
             ec = d.get("scenario_economics") or {}
             base = ec.get("baseline") or {}
@@ -434,6 +473,7 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
                 "szacunkowa_wartosc_eksportu_pln_kwh": ec.get("export_value_pln_kwh"),
                 "scenariusz_bez_ladowania": base,
                 "scenariusz_z_planem": planned,
+                "historyczny_wariant_ryzyka_EV": ec.get("ev_stress"),
                 "roznica_kosztu_importu_pln": ec.get("import_cost_delta_pln"),
                 "roznica_saldu_przed_korekta_soc_pln": ec.get("unadjusted_balance_difference_pln"),
                 "roznica_soc_koncowego_pp": ec.get("terminal_soc_difference_pp"),

@@ -33,6 +33,7 @@ from .deye_tou import inspect_tou, snapshot_config, changed_fields
 from .dry_run import DryRunJournal, evaluate_dry_run
 from .forecast_accuracy import AccuracyJournal
 from .scenario_economics import compare_scenarios
+from .load_calibration import analyze_load_history, analyze_ev_history, pv_bias_guidance
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -368,6 +369,19 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             heat_pump_in_home_load=True,
         )
         v2_info["house_learning"] = learned
+        # Historical calibration is read-only. Holdout evaluation must not
+        # train against measurements from the same test day.
+        house_accuracy = analyze_load_history(self.history.days, now.date())
+        ev_risk = analyze_ev_history(self.history.days, now.date())
+        pv_guidance = pv_bias_guidance(
+            self.history.summaries(now.date().isoformat(), limit=30),
+        )
+        v2_info["calibration"] = {
+            "load": house_accuracy,
+            "ev": ev_risk,
+            "pv": pv_guidance,
+            "automatic_corrections": False,
+        }
         date_today = now.date().isoformat()
         date_yesterday = (now.date() - timedelta(days=1)).isoformat()
         last_hour = now - timedelta(hours=1)
@@ -558,6 +572,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                 grid_limit_kw=float(selected[CONF_GRID_LIMIT]),
                 grid_buffer_kw=float(selected[CONF_GRID_BUFFER]),
                 ev_now_kw=self._kw_or_none(CONF_EV_POWER),
+                future_ev_stress=ev_risk if ev_risk.get("risk_ready") else None,
             )
         except (ValueError, TypeError, KeyError, ZeroDivisionError) as err:
             _LOGGER.warning("48h scenario economy comparison unavailable: %s", err)
