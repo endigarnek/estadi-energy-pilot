@@ -42,6 +42,13 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 
 
 
+## Rozwój 2.0 — zatwierdzony zakres do wdrożenia (2026-11-06)
+
+Projektowany jest nowy silnik planowania magazynu Deye: profil zużycia z 7–30 dni (pralka, kuchenka itd.), pompa zależna od pogody, oddzielne EV, G12w/G13 i ręczne ceny, symulator SOC 48h, raport oszczędności, duży dashboard oraz mały widżet Lovelace. Plan obejmuje **opcjonalne sterowanie TOU Deye**, ze świadomym przełącznikiem **„Włącz automatyzację” (domyślnie wyłączony)**, dry-run, backupem ustawień i odczytem zwrotnym. Aktualna wersja 0.2.7 pozostaje doradcza.
+
+- [Szczegółowa specyfikacja Energy Pilot 2.0](docs/roadmap/ENERGY_PILOT_2_0_SPEC.md)
+- [Backlog EP20-01…10 i kryteria odbioru](docs/roadmap/IMPLEMENTATION_BACKLOG_2_0.md)
+
 ## Nowość 0.2.7 — czy system działa? Diagnostyka i odświeżanie
 
 Integracja pokazuje odrębnie **czy aktualizuje się**, a także **czy potrafi sporządzić poprawny plan**. Sam fakt odczytania mocy ładowarki nie oznacza jeszcze poprawnej prognozy PV.
