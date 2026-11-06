@@ -16,6 +16,7 @@ for name in ("const", "discovery"):
     spec.loader.exec_module(module)
 const = sys.modules["autodetect_test.const"]
 detect_entities = sys.modules["autodetect_test.discovery"].detect_entities
+missing_required_sources = sys.modules["autodetect_test.discovery"].missing_required_sources
 
 
 class FakeState:
@@ -75,6 +76,36 @@ class TestDetectEntities(unittest.TestCase):
                          "sensor.solcast_pv_forecast_forecast_today")
         self.assertEqual(selected[const.CONF_SOLCAST_TOMORROW],
                          "sensor.solcast_pv_forecast_forecast_tomorrow")
+
+    def test_short_setup_skips_existing_sources(self):
+        states = [
+            FakeState("sensor.deye_pv_power", "W"),
+            FakeState("sensor.deye_load_power", "W"),
+            FakeState("sensor.moc_ladowarki_poprawna", "W"),
+            FakeState("sensor.shellyem3_08f9e051e0b0_channel_b_power", "W"),
+            FakeState("sensor.deye_battery", "%"),
+            FakeState("sensor.temperatura_zewnetrzna", "°C"),
+            FakeState("sensor.solcast_forecast_today", "kWh", detailedForecast=[]),
+            FakeState("sensor.solcast_forecast_tomorrow", "kWh", detailedForecast=[]),
+        ]
+        detected = detect_entities(states)
+        self.assertEqual(missing_required_sources(detected), ())
+        self.assertEqual(detected[const.CONF_BATTERY_SOC], "sensor.deye_battery")
+        self.assertEqual(detected[const.CONF_EV_POWER], "sensor.moc_ladowarki_poprawna")
+
+    def test_short_setup_only_asks_missing_mandatory_entities(self):
+        detected = detect_entities([
+            FakeState("sensor.deye_pv_power", "W"),
+            FakeState("sensor.deye_load_power", "W"),
+            FakeState("sensor.moc_ladowarki_poprawna", "W"),
+            FakeState("sensor.shellyem3_08f9e051e0b0_channel_b_power", "W"),
+            FakeState("sensor.deye_battery", "%"),
+        ])
+        self.assertEqual(missing_required_sources(detected), (
+            const.CONF_SOLCAST_TODAY,
+            const.CONF_SOLCAST_TOMORROW,
+            const.CONF_OUTDOOR_TEMP,
+        ))
 
     def test_ambiguous_solcast_does_not_choose_wrong_plant(self):
         selected = detect_entities([

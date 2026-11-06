@@ -3,8 +3,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect sensors — automatic detection",
-        "description": "Detected Deye, heat pump and EV sensors are preselected when available. Check battery capacity and any missing fields. This version does not control the inverter.",
+        "title": "Quick setup — automatic sensor detection",
+        "description": "Automatically detected {detected_count} entities: {detected_entities}. Known sensors are connected automatically. Select only missing sources and confirm battery capacity. The module does not control the inverter.",
         "data": {
           "solcast_today": "Solcast forecast today",
           "solcast_tomorrow": "Solcast forecast tomorrow",
@@ -25,8 +25,18 @@
   "options": {
     "step": {
       "init": {
-        "title": "Charging and forecast settings",
-        "description": "Known entities are auto-selected. Edit any sensor, confirm battery capacity, and adjust tariff settings.",
+        "title": "Simple settings — ESTADI Energy Pilot",
+        "description": "Automatically detected {detected_count} entities. Confirm battery capacity and baseline load. All sensor overrides are optional.",
+        "data": {
+          "battery_capacity_kwh": "Usable battery capacity (kWh)",
+          "base_load_w": "Average home power EXCLUDING heat pump (W)",
+          "reserve_soc": "Battery reserve SOC (%)",
+          "advanced": "Show advanced settings and all entities"
+        }
+      },
+      "advanced": {
+        "title": "Advanced sensors and tariff settings",
+        "description": "Manually change sensor sources, tariff hours and safety margins. Keep correctly detected sensors.",
         "data": {
           "base_load_w": "Average home power EXCLUDING heat pump (W)",
           "reserve_soc": "Battery reserve SOC (%)",

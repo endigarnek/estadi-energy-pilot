@@ -19,7 +19,7 @@ from .const import (
     CONF_PV_DISCOUNT, CONF_EFFICIENCY, CONF_MARGIN, CONF_MILD_W, CONF_COLD_W,
     CONF_NIGHT_START, CONF_NIGHT_END, CONF_MIDDAY_START, CONF_AFTERNOON_END,
 )
-from .discovery import detect_entities
+from .discovery import detect_entities, missing_required_sources
 
 
 ENTITY_KEYS = (
@@ -58,18 +58,34 @@ class EstadiEnergyPilotConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
+        """Only show missing required entity IDs, never all known sensors."""
+        detected = suggested_entities(self.hass)
         if user_input is not None:
             await self.async_set_unique_id("main")
             self._abort_if_unique_id_configured()
-            return self.async_create_entry(title="ESTADI Energy Pilot", data={**DEFAULTS, **user_input})
+            # Persist known sensors as soon as the user confirms the setup.
+            return self.async_create_entry(
+                title="ESTADI Energy Pilot",
+                data={**DEFAULTS, **detected, **user_input},
+            )
 
-        detected = suggested_entities(self.hass)
-        schema = dict(_entity_fields(detected))
-        schema.update({
-            vol.Required(CONF_CAPACITY, default=DEFAULTS[CONF_CAPACITY]): numeric(1, 200, 0.1),
-            vol.Required(CONF_BASE_W, default=DEFAULTS[CONF_BASE_W]): numeric(0, 20000, 50),
-        })
-        return self.async_show_form(step_id="user", data_schema=vol.Schema(schema))
+        schema = {}
+        for key in missing_required_sources(detected):
+            if not detected.get(key):
+                schema[vol.Required(key)] = entity_field()
+
+        schema[vol.Required(CONF_CAPACITY)] = numeric(1, 200, 0.1)
+        schema[vol.Required(CONF_BASE_W, default=DEFAULTS[CONF_BASE_W])] = numeric(0, 20000, 50)
+
+        known = [detected[key] for key in ENTITY_KEYS if key in detected]
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(schema),
+            description_placeholders={
+                "detected_count": str(len(known)),
+                "detected_entities": ", ".join(known) if known else "—",
+            },
+        )
 
     @staticmethod
     @callback
@@ -78,23 +94,63 @@ class EstadiEnergyPilotConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class PilotOptionsFlow(OptionsFlow):
-    """Change sensors and energy settings without removing the integration."""
+    """Simple settings first; manual configuration only on request."""
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            if (user_input[CONF_RESERVE] >= user_input[CONF_MAX_SOC]
-                    or user_input[CONF_NIGHT_END] >= user_input[CONF_MIDDAY_START]
-                    or user_input[CONF_MIDDAY_START] >= user_input[CONF_AFTERNOON_END]
-                    or user_input[CONF_AFTERNOON_END] >= user_input[CONF_NIGHT_START]):
-                return self.async_show_form(step_id="init", data_schema=self._schema(),
-                                            errors={"base": "invalid_schedule"})
-            # An explicitly cleared entity must not silently fall back to a stale saved ID.
-            options = {**self.config_entry.options, **user_input}
+            submitted = dict(user_input)
+            show_advanced = submitted.pop("advanced", False)
+            if show_advanced:
+                self._quick_changes = submitted
+                return await self.async_step_advanced()
+            return self.async_create_entry(
+                data={**self.config_entry.options, **submitted},
+            )
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self._quick_schema(),
+            description_placeholders={
+                "detected_count": str(len(suggested_entities(self.hass))),
+            },
+        )
+
+    def _quick_schema(self):
+        values = {**DEFAULTS, **self.config_entry.data, **self.config_entry.options}
+        return vol.Schema({
+            vol.Required(CONF_CAPACITY, default=values[CONF_CAPACITY]): numeric(1, 200, 0.1),
+            vol.Required(CONF_BASE_W, default=values[CONF_BASE_W]): numeric(0, 20000, 50),
+            vol.Required(CONF_RESERVE, default=values[CONF_RESERVE]): numeric(5, 80),
+            vol.Optional("advanced", default=False): bool,
+        })
+
+    async def async_step_advanced(self, user_input=None):
+        if user_input is not None:
+            proposed = {
+                **DEFAULTS,
+                **self.config_entry.data,
+                **self.config_entry.options,
+                **getattr(self, "_quick_changes", {}),
+                **user_input,
+            }
+            if (proposed[CONF_RESERVE] >= proposed[CONF_MAX_SOC]
+                    or proposed[CONF_NIGHT_END] >= proposed[CONF_MIDDAY_START]
+                    or proposed[CONF_MIDDAY_START] >= proposed[CONF_AFTERNOON_END]
+                    or proposed[CONF_AFTERNOON_END] >= proposed[CONF_NIGHT_START]):
+                return self.async_show_form(
+                    step_id="advanced",
+                    data_schema=self._schema(),
+                    errors={"base": "invalid_schedule"},
+                )
+            options = {**self.config_entry.options,
+                       **getattr(self, "_quick_changes", {}), **user_input}
+            # In advanced mode an omitted optional field is an intentional clear.
             for key in ENTITY_KEYS:
-                if key not in user_input and (key in self.config_entry.options or key in self.config_entry.data):
+                if key not in user_input and (
+                    key in self.config_entry.options or key in self.config_entry.data
+                ):
                     options[key] = ""
             return self.async_create_entry(data=options)
-        return self.async_show_form(step_id="init", data_schema=self._schema())
+        return self.async_show_form(step_id="advanced", data_schema=self._schema())
 
     def _schema(self):
         values = {
@@ -102,6 +158,7 @@ class PilotOptionsFlow(OptionsFlow):
             **suggested_entities(self.hass),
             **self.config_entry.data,
             **self.config_entry.options,
+            **getattr(self, "_quick_changes", {}),
         }
         schema = {
             vol.Required(CONF_CAPACITY, default=values[CONF_CAPACITY]): numeric(1, 200, 0.1),

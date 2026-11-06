@@ -3,8 +3,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Połącz pomiary — encje wykrywają się automatycznie",
-        "description": "Znane encje Deye, pompy i ładowarki są wstępnie wybrane, jeśli istnieją. Sprawdź jedynie pojemność magazynu i brakujące pola. Ta wersja nie steruje falownikiem.",
+        "title": "Szybka konfiguracja — wykrywanie czujników",
+        "description": "Wykryto automatycznie {detected_count} encji: {detected_entities}. Zostały podłączone bez ręcznego wybierania. Uzupełnij tylko brakujące źródła danych i potwierdź pojemność magazynu. Moduł nie steruje jeszcze falownikiem.",
         "data": {
           "solcast_today": "Solcast: prognoza na dziś",
           "solcast_tomorrow": "Solcast: prognoza na jutro",
@@ -25,8 +25,18 @@
   "options": {
     "step": {
       "init": {
-        "title": "Ustawienia ładowania i prognoz",
-        "description": "Znane encje zostały dobrane automatycznie. Możesz je zmienić, sprawdzić pozostałe źródła i potwierdzić pojemność magazynu.",
+        "title": "Proste ustawienia — ESTADI Energy Pilot",
+        "description": "Automatycznie rozpoznano {detected_count} encji. Normalnie wystarczy potwierdzić pojemność magazynu i średnie zużycie. Edycja wszystkich encji jest opcjonalna.",
+        "data": {
+          "battery_capacity_kwh": "Użyteczna pojemność magazynu (kWh)",
+          "base_load_w": "Średnia moc domu BEZ pompy ciepła (W)",
+          "reserve_soc": "Minimalna rezerwa magazynu (%)",
+          "advanced": "Pokaż zaawansowane ustawienia i wszystkie encje"
+        }
+      },
+      "advanced": {
+        "title": "Zaawansowana konfiguracja źródeł i taryfy",
+        "description": "Tu można ręcznie zmienić źródła, godziny i zabezpieczenia. Pozostaw poprawnie wykryte sensory.",
         "data": {
           "base_load_w": "Średnia moc domu BEZ pompy ciepła (W)",
           "reserve_soc": "Minimalna rezerwa magazynu (%)",
