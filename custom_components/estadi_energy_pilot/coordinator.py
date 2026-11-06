@@ -28,6 +28,7 @@ from .tariffs import tariff_zone, next_cheap_window, zone_prices, is_day_off
 from .charge_planner import propose
 from .house_learning import build_house_profile, resolve_ev_topology
 from .simulation_48h import simulate_48h
+from .charging_48h import recommend_charge
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -361,10 +362,36 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                     efficiency=float(selected[CONF_EFFICIENCY]) / 100,
                 )
                 v2_info["charging_schedule"] = proposed.as_dict()
+                # Detailed candidate calculation uses a 15-minute forecast,
+                # not a static capacity ceiling from the current moment.
+                # It never issues commands; unverified BMS/phase limits remain
+                # explicit blockers to active automation.
+                v2_info["optimized_schedule"] = recommend_charge(
+                    now=now, window=tariff_window, soc=soc,
+                    target_soc=adjusted, model=model, pv_slots=pv_slots,
+                    temperatures=temperatures, learning=learned,
+                    current_temp=outdoor_temp, tariff=tariff,
+                    baseload_w=float(selected[CONF_BASE_W]),
+                    mild_w=float(selected[CONF_MILD_W]),
+                    cold_w=float(selected[CONF_COLD_W]),
+                    pv_discount_pct=float(selected[CONF_PV_DISCOUNT]),
+                    efficiency_pct=float(selected[CONF_EFFICIENCY]),
+                    battery_max_kw=float(selected[CONF_CHARGE_LIMIT]),
+                    grid_limit_kw=float(selected[CONF_GRID_LIMIT]),
+                    grid_buffer_kw=float(selected[CONF_GRID_BUFFER]),
+                    preferred_kw=float(selected[CONF_PREFERRED_CHARGE]),
+                    ev_now_kw=self._kw_or_none(CONF_EV_POWER),
+                    prices=prices,
+                )
         else:
             v2_info["schedule_note"] = (
-                "Dzień wolny lub brak taniego okna — wymagany pełny symulator 48h"
+                "Dzień wolny lub brak danych dla celów SOC — wymagana pełna symulacja"
             )
+            v2_info["optimized_schedule"] = {
+                "status": "brak_celu",
+                "reason": v2_info["schedule_note"],
+                "hardware_control": False,
+            }
         v2_info["current_soc_pct"] = round(soc, 1)
         # Never advertise a charging decision while grid polarity is
         # unverified, when limits are unknown, or on whole-day cheap holidays.

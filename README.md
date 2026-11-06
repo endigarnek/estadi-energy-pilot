@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.3.3 (beta)
+# ESTADI Energy Pilot — wersja 0.3.4 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,25 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+## Wersja 0.3.4 — dobór godziny rozpoczęcia i mocy ładowania magazynu
+
+Wprowadzono **drugą, niezależną symulację**: 15-minutowy doradca ładowania w nadchodzącym oknie taniej taryfy G12w/G13. Wyznacza najlepszy wykonalny wariant `godzina startu`, `moc kW`, `cel SOC`, `energia do pobrania z sieci`, `przewidywany koniec`, a także do czterech alternatyw.
+
+**Jak liczy:**
+- 28 kWh nominalnie (edytowalne), SOC min 10%, maks. 100% oraz korekta SOC użytkownika zastosowana **raz** w istniejącym modelu.
+- Realna długość taniego okna (np. G12w w dni robocze 13–15, a nie 13–16); rezerwa 15 min przed końcem, sloty co 15 minut, obsługa zmian DST.
+- Preferowana moc 5 kW, kandydaci od 3 kW do zadanego maks. limitu baterii. Symuluje PV, profil domu bez EV i bez pompy (z historii), osobny pobór pompy oraz EV.
+- **15 kW przyłącza**, z konfigurowalnym buforem (np. 2 kW → limit roboczy 13 kW). Import nie jest obliczany przez ponowne dodawanie już zliczonych odbiorników.
+- **Ważna ostrożność wobec EV:** jeśli samochód ładuje się w chwili odświeżenia, model zakłada, że może pobierać tę moc przez całe tanie okno. Gdy EV przestanie ładować, nowe przeliczenie może zwiększyć zalecaną moc magazynu. Nie znamy z góry harmonogramu EV. Przeliczenia nadal odbywają się co 15 minut — to NIE jest układ szybkiego zabezpieczenia przyłącza.
+- PV jest kierowane najpierw do domu, potem do magazynu. Gdy w magazynie ma trwać ładowanie z sieci, model nie zakłada jego jednoczesnego rozładowywania do domu. Odmowa brakujących prognoz PV w godzinach potencjalnej produkcji; nieosiągalny SOC pokazuje szacowany pułap zamiast fałszywego planu.
+- Proponowany harmonogram jest **warunkowy i tylko doradczy**, ponieważ nie zweryfikowano jeszcze pomiarów/prądów wszystkich faz, dopuszczalnej mocy BMS ani skuteczności komend falownika Deye. **Nie wysyła jakichkolwiek poleceń do Deye ani ładowarki EV**.
+
+**Nowe sensory** Home Assistant: `Inteligentne ładowanie — stan`, `proponowana moc`, `godzina startu`, `przewidywany koniec`, `cel SOC`, `energia z sieci`, `szczyt poboru`. W atrybutach `Inteligentne ładowanie — stan` zobaczysz przyczynę decyzji oraz do 4 alternatywnych planów.
+
+**Rozgraniczenie wyników:** istniejąca `Symulacja 48h — stan` pokazuje scenariusz bez dodatkowego ładowania z sieci. `Inteligentne ładowanie` symuluje inne zachowanie baterii w najbliższym tanim oknie. Nie porównuj ich bezpośrednio jako dwóch prognoz *tego samego harmonogramu*; pełne porównanie opłacalności wymaga jeszcze wspólnego bilansu 48h, rzeczywistych cen importu/eksportu i historii EV.
+
+Po aktualizacji do **0.3.4** uruchom ponownie Home Assistant. Sprawdź **Wersja integracji** i sensory z przedrostkiem **Inteligentne ładowanie**. Komunikaty `nieosiagalny` / `brak_prognozy_pv` / `brak_celu` oznaczają brak warunków do wiarygodnego zalecenia, a nie błąd instalacji.
 
 ## Wersja 0.3.3 — symulacja magazynu SOC na 48 godzin
 
