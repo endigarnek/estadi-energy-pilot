@@ -479,39 +479,21 @@ def _interactive_forecast_card(entity_id: str) -> str:
 
 
 def render_mini_widget(entities: Mapping[str, str], sources: Mapping[str, str]) -> str:
-    """Render compact list of cards for a new HA dashboard view."""
-    status = entities.get("mini_status")
-    if not status:
+    """Compact, responsive and live card — no tiny legacy tile layout."""
+    if not entities.get("mini_status"):
         raise ValueError("Brak sensora Szybki status energii")
-    soc = sources.get("source_soc")
-    content = (
-        "## ⚡ ESTADI Energy Pilot\n"
-        "{{ states(" + _quote(status) + ") }}\n\n"
-        "**Tryb:** doradczy · sterowanie Deye wyłączone\n\n"
-        "**Decyzja testowa:** {{ states(" + _quote(entities.get("dry_run_action", "")) + ") }}\n"
-        "{% set decision = state_attr(" + _quote(entities.get("dry_run_status", "")) + ", 'hipotetyczna_decyzja') or {} %}\n"
-        "**Powód:** {{ decision.get('why', 'Brak danych') }}"
+    card = _modern_overview_card(entities, sources) + "  mode: compact\n"
+    return (
+        "# ESTADI — miniwidżet do osobnego widoku lub skopiowania jako karta\n"
+        "title: \"ESTADI — mini\"\n"
+        "views:\n"
+        "  - title: \"Szybki status\"\n"
+        "    path: estadi-mini\n"
+        "    icon: mdi:battery-charging\n"
+        "    type: panel\n"
+        "    cards:\n"
+        + _card(card)
     )
-    mini = [
-        _markdown("Status", content),
-        _tiles("Teraz", _existing(
-            {**sources, **entities},
-            [("SOC", "source_soc"), ("Import", "grid_import"),
-             ("PV", "source_pv"), ("Auto", "source_ev")]), 2),
-        _entities("Najbliższy plan", _existing(
-            entities, [("Początek", "smart_charge_start"),
-                       ("Docelowy SOC", "smart_charge_target"),
-                       ("Proponowana moc", "smart_charge_power"),
-                       ("Grid Guard", "grid_status") ])),
-    ]
-    return ("# ESTADI Energy Pilot — miniwidżet\n"
-            "title: \"ESTADI — mini\"\n"
-            "views:\n"
-            "  - title: \"Szybki status\"\n"
-            "    path: estadi-mini\n"
-            "    icon: mdi:battery-charging\n"
-            "    cards:\n"
-            + "".join(_card(card) for card in mini))
 
 
 def _digest(content: str) -> str:
