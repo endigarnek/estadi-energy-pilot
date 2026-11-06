@@ -17,7 +17,7 @@ from typing import Any
 from .battery_model import BatteryModel
 from .engine import PvSlot, TempSlot, pump_power_w
 from .simulation_48h import _slot_energy, _temperature, _base_kwh_per_hour
-from .tariffs import WARSAW, tariff_zone
+from .tariffs import WARSAW, tariff_zone, is_day_off
 
 STEP_H = 0.25
 STEPS = 192
@@ -123,7 +123,7 @@ def _evaluate(
         # excludes both before these separate forecasts are added ONCE.
         ev_kwh = STEP_H * ev_kw if i == 0 and ev_kw is not None else 0.
         if i > 0 and future_ev_stress and future_ev_stress.get("risk_ready"):
-            daytype = "weekend" if local.weekday() >= 5 else "weekday"
+            daytype = "weekend" if is_day_off(local.date()) else "weekday"
             hours = (future_ev_stress.get("profiles", {}).get(daytype) or {}).get(
                 "p90_kwh_per_hour", [])
             if len(hours) == 24:
