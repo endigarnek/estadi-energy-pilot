@@ -295,15 +295,15 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                        ("Przewidywany koniec", "smart_charge_finish"),
                        ("Energia z sieci", "smart_charge_energy"),
                        ("Powód decyzji", "grid_reason") ])),
-        _graph("Zużycie i produkcja — ostatnie 24h",
+        _graph("Produkcja i zużycie — ostatnie 48h",
                [sources[k] for k in ("source_pv", "source_home",
                                       "source_pump", "source_ev")
-                if sources.get(k)]),
-        _graph("Magazyn — SOC ostatnie 24h",
-               [sources["source_soc"]] if sources.get("source_soc") else []),
-        _graph("Import i zapas przyłącza — ostatnie 24h",
+                if sources.get(k)], hours=48),
+        _graph("Magazyn — SOC ostatnie 48h",
+               [sources["source_soc"]] if sources.get("source_soc") else [], hours=48),
+        _graph("Import i zapas przyłącza — ostatnie 48h",
                [eid(k) for k in ("grid_import", "grid_headroom", "grid_charge_cap")
-                if eid(k)]),
+                if eid(k)], hours=48),
         _tiles("Symulacja magazynu 48h", _existing(
             entities, [("SOC na koniec", "sim_soc_end"),
                        ("Minimalny SOC", "sim_soc_min"),
