@@ -122,6 +122,12 @@ REQUIRED_SETUP_KEYS = (
 )
 
 
-def missing_required_sources(detected: dict[str, str]) -> tuple[str, ...]:
-    """One-step wizard asks only for genuinely missing mandatory sensors."""
-    return tuple(key for key in REQUIRED_SETUP_KEYS if not detected.get(key))
+def missing_required_sources(
+    detected: dict[str, str], forecast_solar_available: bool = False
+) -> tuple[str, ...]:
+    """Only ask for Solcast sensors if built-in Forecast.Solar is absent."""
+    return tuple(
+        key for key in REQUIRED_SETUP_KEYS
+        if not detected.get(key)
+        and not (forecast_solar_available and key in (CONF_SOLCAST_TODAY, CONF_SOLCAST_TOMORROW))
+    )
