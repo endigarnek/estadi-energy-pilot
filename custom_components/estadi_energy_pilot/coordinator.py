@@ -117,6 +117,45 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         )}
         self._selected_settings = selected
         now = dt_util.now()
+        model = BatteryModel(
+            nominal_kwh=float(selected[CONF_NOMINAL_KWH]),
+            soh_pct=float(selected[CONF_SOH]),
+            minimum_soc=float(selected[CONF_MIN_SOC]),
+            maximum_soc=float(selected[CONF_USER_MAX_SOC]),
+            correction_pp=float(selected[CONF_CORRECTION]),
+        )
+        tariff = selected[CONF_TARIFF]
+        tariff_band = tariff_zone(now, tariff)
+        tariff_window = next_cheap_window(now, tariff)
+        prices = zone_prices(
+            tariff, selected[CONF_PRICE_CHEAP],
+            selected[CONF_PRICE_PEAK], selected[CONF_PRICE_EVENING],
+        )
+        grid_w = self._signed_power_w(CONF_GRID_POWER)
+        battery_w = self._signed_power_w(CONF_BATTERY_POWER)
+        battery_sign = int(selected[CONF_BATTERY_CHARGE_SIGN])
+        charging_w = max(0.0, battery_w * battery_sign) if (
+            battery_w is not None and battery_sign in (-1, 1)
+        ) else None
+        guard = calculate_grid_guard(
+            grid_w, charging_w,
+            import_sign=int(selected[CONF_GRID_IMPORT_SIGN]),
+            connection_limit_kw=float(selected[CONF_GRID_LIMIT]),
+            reserve_kw=float(selected[CONF_GRID_BUFFER]),
+            battery_max_kw=float(selected[CONF_CHARGE_LIMIT]),
+        )
+        v2_info = {
+            "model": model.as_dict(),
+            "grid": guard.as_dict(),
+            "tariff": tariff,
+            "tariff_zone": tariff_band,
+            "next_cheap_start": tariff_window[0].isoformat() if tariff_window else None,
+            "next_cheap_end": tariff_window[1].isoformat() if tariff_window else None,
+            "price_current_pln_kwh": prices.get(tariff_band) if prices else None,
+            "prices_confirmed": prices is not None,
+            "automation_enabled": False,
+            "charging_schedule": None,
+        }
         attrs = []
         for key in (CONF_SOLCAST_TODAY, CONF_SOLCAST_TOMORROW, CONF_SOLCAST_DAY3):
             entity_id = selected.get(key)
