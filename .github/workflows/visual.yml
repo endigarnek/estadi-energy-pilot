@@ -12,7 +12,7 @@ jobs:
           node-version: "22"
       - name: Instalacja testowej przeglądarki
         run: |
-          npm install --no-save playwright@1.57.0
+          npm install --no-save playwright@1.57.0 @mdi/js@7.4.47
           npx playwright install chromium
       - name: Renderuj i sprawdź widok PC, mobile, light i dark
         run: node tests/visual/preview.mjs
