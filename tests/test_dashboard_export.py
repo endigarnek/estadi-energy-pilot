@@ -135,6 +135,23 @@ class DashboardExportTests(unittest.TestCase):
         self.assertIn("tylko podgląd", result)
         self.assertIn("Temperatura a zużycie pompy", result)
 
+    def test_historical_heat_pump_excess_section_has_no_assumed_cause(self):
+        entities = {
+            **ENTITIES,
+            "pump_excess_status": "sensor.owner_pump_excess",
+            "pump_excess_hours": "sensor.owner_pump_evaluated_hours",
+            "pump_excess_events": "sensor.owner_pump_periods",
+            "pump_excess_kwh": "sensor.owner_extra_kwh",
+            "pump_excess_last": "sensor.owner_last_excess",
+        }
+        out = mod.render_dashboard(entities, SOURCES)
+        self.assertIn("sensor.owner_pump_excess", out)
+        self.assertIn("sensor.owner_extra_kwh", out)
+        self.assertIn("ostatnie_okresy", out)
+        self.assertIn("Przyczyna pozostaje nieustalona", out)
+        self.assertIn("nie liczymy cykli", out)
+        self.assertNotIn("climate.set_temperature", out)
+
     def test_mini_widget_small_self_contained(self):
         mini = mod.render_mini_widget(ENTITIES, SOURCES)
         self.assertIn("sensor.energy_status_renamed_by_owner", mini)
