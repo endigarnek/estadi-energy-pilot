@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.4.1 (beta)
+# ESTADI Energy Pilot — wersja 0.4.2 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,18 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+## Wersja 0.4.2 — kalibracja prognoz na historii i ryzyko przyszłego EV
+
+**Nowy moduł kalibracji** ocenia dotychczasowy profil domu na wcześniejszych dniach pomiarów (bez korzystania z danych ocenianego dnia). Oblicza błąd MAE i WAPE zużycia bazowego po odjęciu **EV i pompy**, które są już wliczone do Deye Load. Godziny z niepełnymi albo sprzecznymi pomiarami są odrzucane zamiast zastępowane zerami.
+
+**Korekta PV**: po 7 dniach z kompletną historią i zamrożoną poprzedniego wieczoru prognozą moduł wylicza sugerowany **całkowity procent ostrożnej korekty PV (0–40%)**. Sugestii nie stosuje automatycznie.
+
+**Nowy wariant niepewnego EV**: gdy są przynajmniej 7 kompletnych dni pomiaru (w tym 3 robocze i 3 wolne), liczy osobne godzinowe P90 energii samochodu, a następnie **osobno** sprawdza obie strategie ekonomiczne z takim historycznym obciążeniem. Pierwszy kwadrans pozostaje pomiarem bieżącej ładowarki. Wariant P90 to scenariusz stresowy, **nie pewny harmonogram ani prawdopodobieństwo**. Nie zmienia podstawowego planu i nie wysyła poleceń do Deye/EV.
+
+Dodano 10 sensorów z przedrostkami **Kalibracja**, **EV — stan historycznego scenariusza** i **Opłacalność — ... z ryzykiem EV**, ich szczegółowe atrybuty oraz dwie sekcje pulpitu. Aby odświeżyć dashboard, ponownie wygeneruj jego YAML i zaimportuj nowy plik. Nie są nadpisywane wcześniejsze pliki.
+
+**[Instrukcja kalibracji i interpretacji ryzyka EV](docs/CALIBRATION_EV_042.md)**. Zrealizowane oszczędności w PLN pozostają nieznane; pełna kontrola faz i BMS oraz sprzętowe sterowanie Deye nadal niewłączone.
 
 ## Wersja 0.4.1 — uczciwe porównanie kosztów pracy magazynu
 
