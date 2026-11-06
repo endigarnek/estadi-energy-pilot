@@ -53,6 +53,7 @@ CONF_TARIFF = "tariff_profile"
 CONF_PRICE_CHEAP = "tariff_price_cheap"
 CONF_PRICE_PEAK = "tariff_price_peak"
 CONF_PRICE_EVENING = "tariff_price_evening"
+CONF_EXPORT_VALUE = "estimated_export_value_pln_kwh"
 DEFAULTS = {
     CONF_CAPACITY: 15.0,
     CONF_EV_TOPOLOGY: "included",
@@ -74,6 +75,7 @@ DEFAULTS = {
     CONF_PRICE_CHEAP: 0,
     CONF_PRICE_PEAK: 0,
     CONF_PRICE_EVENING: 0,
+    CONF_EXPORT_VALUE: 0,
     CONF_BASE_W: 400,
     CONF_RESERVE: 20,
     CONF_MAX_SOC: 95,
