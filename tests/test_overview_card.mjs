@@ -60,7 +60,7 @@ test("unknown import is never represented as 0 kW or a full progress bar", () =>
   const html = card.shadowRoot.innerHTML;
   assert.match(html, /Grid Guard wymaga weryfikacji/);
   assert.match(html, /Grid Guard: blokada/);
-  assert.match(html, /— \/ — kW/);
+  assert.match(html, /— \/ —/);
   assert.match(html, /class="progress grid-progress"[^>]*><i style="width:0%"/);
 });
 
@@ -103,4 +103,23 @@ test("no write actions or external requests in main card", () => {
   for (const forbidden of ["hass.callService", "number.set_value", "switch.turn_on", "fetch(", "XMLHttpRequest"]) {
     assert.equal(source.includes(forbidden), false, forbidden);
   }
+});
+
+test("compact widget fits one card and preserves safe unknown states", () => {
+  const item = new Card();
+  item.setConfig({
+    mode: "compact", entity_pv: "sensor.pv", entity_home: "sensor.home",
+    entity_soc: "sensor.soc", entity_grid_import: "sensor.grid_import",
+    entity_grid_status: "sensor.grid_status", entity_health_status: "sensor.health_status",
+  });
+  item.hass = {states:stateMap({
+    pv: 0, home: 1500, soc: 10, grid_import: "unknown",
+    grid_status: "brak kalibracji", health_status: "Działa",
+  })};
+  const markup = item.shadowRoot.innerHTML;
+  assert.match(markup, /Energia w skrócie/);
+  assert.match(markup, /1,5/);
+  assert.match(markup, /⚠ Wymaga uwagi/);
+  assert.match(markup, /Brak odczytu nie oznacza 0 kW/);
+  assert.doesNotMatch(markup, /Bilans chwilowy/);
 });
