@@ -71,6 +71,17 @@ Dla kroku t o długości Δh:
 - Nie wolno wyliczać docelowego SOC wyłącznie z sumy dobowej PV: energia o 12:00 nie zaspokoi poboru z 7:00 bez wcześniejszego zapasu.
 - Optymalizator rolling horizon 24/48 h i replan co 15 minut; zaproponować tylko zmianę potwierdzoną w symulacji i z wystarczającymi danymi.
 
+### 3.4. Odpowiednia moc i moment rozpoczęcia ładowania — EP20-11
+
+- **Pojemność magazynu użytkownika: 28 kWh** (do weryfikacji jako użyteczna vs nominalna). Aktualny moduł 0.2.7 miał konfigurację bazową 15 kWh; należy to zweryfikować przed jakimkolwiek automatycznym sterowaniem, nie przepisywać wartości z modelu na ślepo.
+- Nie wystarczy powiedzieć „cel SOC 80%”: potrzebne są także `start godzina`, `stop godzina`, `zalecana moc kW`, `przewidywany pobór z sieci kWh`, `przewidywany koszt PLN` i komunikat `cel osiągalny / nieosiągalny`.
+- Rozważać ładowanie wcześniej mocą umiarkowaną zamiast ostatniej chwili maksymalną mocą 10 kW; jednocześnie zbyt mała moc może podnieść straty własne falownika. Nie przyjmować arbitralnego stałego optimum 3/5/10 kW: dobór ma wynikać z krzywej sprawności AC↔DC, czasu pracy, ograniczeń BMS i kosztu/kondycji akumulatora.
+- Przykład ilustracyjny: **40% → 80% przy pojemności użytecznej 28 kWh to 11,2 kWh w baterii**, a przy założonej sprawności 90% około 12,44 kWh z sieci. W rzeczywiście tanim oknie 13–16: start 13:30 i ok. 5 kW przez 2,5 h; start 14:00 wymaga ok. 6,2 kW przez 2 h (obie wartości *przed doliczeniem bufora czasu, PV i ograniczeń*). W G12w zwykły dzień tanie okno 13–15, więc **nie wolno planować ładowania do 16**.
+- Uwzględniać magazyn, dom i ładowanie EV jednocześnie: przy EV pobierającym 6,9–11 kW limit mocy sieci może wymusić obniżenie mocy ładowania baterii lub wcześniejszy start. EV wyłączamy tylko z *modelu typowego zużycia domu*, nie z rzeczywistego bilansu sieci.
+- Scheduler co 15 min z prognozą SOC 24–48 h i cennikiem G12w/G13; automatyzacja tylko po walidacji TOU Deye, teście dry-run i ręcznym przełączniku OFF→ON.
+- UI: **„Zacznij o 13:30, ładuj 5 kW do 15:50, uzyskasz 80%”**, obok wykres mocy kW i SOC oraz wyjaśnienie w PLN. Jeśli cel nieosiągalny: czytelne ostrzeżenie i bezpieczny plan częściowy bez ukrywania deficytu.
+- [Pełne wymagania i scenariusze testowe EP20-11](./EP20-11_SMART_CHARGING_POWER_28KWH.md).
+
 ## 4. Taryfy i ceny: G12w, G13, własna
 
 **Nie kodować na sztywno obecnych okien 21–07 / 13–16 jako G12w.**
