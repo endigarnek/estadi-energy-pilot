@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.4.3 (beta)
+# ESTADI Energy Pilot — wersja 0.4.4 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,16 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+## Wersja 0.4.4 — nietypowy pobór pompy ciepła
+
+Nowy moduł `pump_excess.py` analizuje **tylko ukończone dni** historii temperatury i elektrycznego zużycia pompy. Dla każdej godziny porównuje obserwację z P50/P90 **wyuczonym wyłącznie na wcześniejszych dniach**, w tym samym zakresie temperatur. Godzina wymaga co najmniej 90% pokrycia danych. Wykrywa konserwatywnie podwyższone zużycie (minimum +0,65 kWh względem P50, 135% P90 i 1 kWh poboru), scala sąsiadujące godziny w okresy i szacuje sumę dodatkowej energii względem historycznej mediany.
+
+Nowe sensory HA: **Pompa — stan oceny nietypowego poboru**, porównane godziny, okresy, nadwyżka kWh i ostatni okres. W atrybutach statusu znajduje się ostatnich 20 okresów z uzasadnieniem. Pełny pulpit rozszerzono o diagnostykę okresów zwiększonego poboru; do jej wyświetlenia wygeneruj ponownie pulpit YAML.
+
+**Nie nazywamy tych okresów CWU ani odszranianiem:** do rozpoznania konkretnych trybów potrzebne są sensory stanu sprężarki, CWU, grzałki lub defrost. Godzinowy pomiar energii nie pozwala policzyć rzeczywistych cykli. Liczniki pozostają nieznane, dopóki brak odpowiednio długiej i wiarygodnej historii. Model nie zmienia prognozy magazynu, nie wysyła komend Deye i nie steruje pompą.
+
+**[Instrukcja i ograniczenia diagnostyki pompy](docs/PUMP_EXCESS_044.md)**.
 
 ## Wersja 0.4.3 — pompa ciepła uczy się rzeczywistego zużycia według temperatury
 
