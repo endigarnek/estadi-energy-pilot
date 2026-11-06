@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.3.0 (beta)
+# ESTADI Energy Pilot — wersja 0.3.1 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,14 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+## Wersja 0.3.1 — pierwsza nauka zużycia domu (EP20-03)
+
+Nowa encja **Uczenie zużycia domu** pokazuje postęp budowy profilu z 7–30 pełnych dni. W jej atrybutach znajduje się **24-godzinny profil P50 i P90**, oddzielnie dla dni roboczych i weekendów. Przewidywanie jest statystyczne: nie zgaduje, kiedy dokładnie zostanie włączona pralka, tylko pokazuje typowe i wyższe możliwe zużycie danej godziny. Do uczenia kwalifikowane są dni z co najmniej 22 godzinami odczytów i kompletnością minimum 90% w każdej liczonej godzinie. Niepełne dni są pomijane.
+
+**Ważne:** odjęcie EV jest poprawne wyłącznie, jeśli `sensor.deye_load_power` obejmuje także samochód. W **Ustawienia → Urządzenia i usługi → ESTADI Energy Pilot → Konfiguruj → ustawienia zaawansowane** jest nowe pole **„Samochód: czy moc EV jest wliczona do zużycia Deye Load?”**. Domyślnie `Niepotwierdzone` — model nie będzie udawał, że zna prawdziwe zużycie domu bez EV. Po potwierdzeniu `Tak` automatycznie odejmie pomiar ładowarki z pomiaru całego domu. Po `Nie` nie odejmuje, ponieważ auto jest poza licznikiem domu. Brak pomiarów EV nie jest traktowany jako 0 W.
+
+**Na tym etapie** model jest tylko źródłem danych historycznych i wykresów. Planowanie docelowego SOC nadal korzysta ze starszego, ostrożnego modelu. Żeby zastosować nauczone zużycie w sterowaniu, potrzebne są jeszcze symulator przepływów 48h, walidacja sposobu pomiaru i testy dry-run. Automatyzacja Deye pozostaje wyłączona.
 
 ## Rozwój 2.0 — zatwierdzony zakres do wdrożenia (2026-11-06)
 
