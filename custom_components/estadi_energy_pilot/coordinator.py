@@ -79,6 +79,19 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         watts = value * (1000 if unit == "kW" else 1)
         return watts if isfinite(watts) and 0 <= watts <= 100000 else None
 
+    def _fresh_power_w(self, key: str, now: datetime,
+                       max_age_seconds: int = 1800) -> float | None:
+        """Use concurrent pump readings only for training new temperature pairs."""
+        entity_id = self._selected_settings.get(key)
+        state = self.hass.states.get(entity_id) if entity_id else None
+        stamp = (getattr(state, "last_reported", None) or
+                 getattr(state, "last_updated", None))
+        if (not isinstance(stamp, datetime) or stamp.tzinfo is None or
+                not 0 <= (now.astimezone(timezone.utc) -
+                          stamp.astimezone(timezone.utc)).total_seconds() <= max_age_seconds):
+            return None
+        return self._power_w(key)
+
     def _kw_or_none(self, key: str):
         watts = self._power_w(key)
         return round(watts / 1000, 2) if watts is not None else None
@@ -375,7 +388,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             now,
             pv=self._power_w(CONF_PV_POWER),
             home=self._power_w(CONF_HOME_POWER),
-            heat_pump=self._power_w(CONF_HEAT_PUMP_POWER),
+            heat_pump=self._fresh_power_w(CONF_HEAT_PUMP_POWER, dt_util.utcnow()),
             ev=self._power_w(CONF_EV_POWER),
             outdoor_temp=measured_temperature,
         )
