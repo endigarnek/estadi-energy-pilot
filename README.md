@@ -22,7 +22,7 @@ HACS może pobierać zawartość domyślnej gałęzi repozytorium także bez wyd
 - Uwzględnia rezerwę SOC, margines 1 kWh, redukcję prognozy PV ze względu na ryzyko i przybliżoną sprawność energetyczną.
 - Czujniki celu SOC, prognozy PV, zużycia oraz ilości kWh do doładowania w bieżącym tanim oknie. Odświeżanie co 15 minut.
 
-**Ważne:** integracja nie ma jeszcze dopracowanego interfejsu z wykresem ani własnego automatycznego uczenia się. Jest to MVP do sprawdzenia obliczeń na Twojej instalacji, nie gotowy sterownik.
+**Ważne:** wersja 0.4.6 zawiera nowy ekran główny, miniwidżet i wykresy 48h, natomiast **nie jest sterownikiem automatycznego ładowania**. Interfejs jest przeznaczony do obserwacji, prognoz i diagnostyki. Faktyczne sterowanie Deye jest nadal wyłączone.
 
 ## Solcast — opcjonalne źródło zapasowe
 
@@ -37,7 +37,7 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 - Nie podłączaj automatycznego zapisu celu SOC do falownika na podstawie tego prototypu.
 - Zweryfikuj wyliczenia na kilku dniach rzeczywistych danych przed rozważaniem sterowania.
 - Sprawdź godziny tanich taryf w umowie i popraw parametry w integracji; ustawienia domyślne (21–07, 13–16) są przykładowe.
-- Model nie obejmuje CWU, odmrażania, aut elektrycznych, indywidualnego harmonogramu pompy ani cen energii.
+- Model uwzględnia bieżący EV i pompę w Deye Load oraz niepewność na podstawie historii. Nie zna przyszłych sesji auta i bez dodatkowych czujników nie potwierdzi trybu CWU ani odszraniania. Oszczędności wymagają potwierdzenia cen i bilansu energii.
 - Brak aktualnej prognozy lub pomiarów uniemożliwia wyliczenie zalecanego ładowania.
 
 
@@ -51,10 +51,10 @@ Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemn
 
 ## Wersja beta 0.4.6 — nowy pulpit i aktualizacje bez mnożenia plików
 
-- Nowy ekran główny z responsywną kartą ESTADI: PV, Deye Load (łącznie z EV i pompą), magazyn, sieć, kontrola przyłącza 15 kW, taryfa i podgląd planu.
-- Pięć zakładek: **Pulpit, Historia, Prognoza 48h, Koszty, Diagnostyka**. Stan doradczy jest oznaczony jednoznacznie; brak danych nie jest wyświetlany jako zero.
+- Nowy ekran główny z responsywną kartą ESTADI: PV, Deye Load (łącznie z EV i pompą), magazyn, sieć, konfigurowalny limit przyłącza, taryfa i podgląd planu. Bilans nigdy nie przedstawia niepotwierdzonych przepływów jako rzeczywistych.
+- Pięć zakładek: **Pulpit, Historia, Prognoza 48h, Koszty, Diagnostyka**. Widoki szczegółowe wykorzystują natywne sekcje HA, historia obejmuje 48 godzin. Mały widżet korzysta z tej samej karty w trybie kompaktowym. Brak danych nie jest wyświetlany jako zero.
 - Przycisk eksportuje **jeden stały zestaw zarządzany**: `estadi-energy-pilot-dashboard-managed.yaml`, `estadi-energy-pilot-mini-managed.yaml` i `www/estadi-energy-pilot-ui-v046.js`. Kolejne uruchomienie aktualizuje te same pliki zamiast tworzyć `-2`, `-3`, `-4`.
-- Generator chroni ręczne modyfikacje. Jeśli użytkownik zmieni plik zarządzany, kolejne uruchomienie **przerwie się z czytelnym błędem** zamiast kasować zmianę lub tworzyć kopie. Pliki legacy pozostają nietknięte.
+- Generator chroni ręczne modyfikacje. Jeśli użytkownik zmieni plik zarządzany, kolejne uruchomienie **przerwie się z czytelnym błędem** zamiast kasować zmianę lub tworzyć kopie. Gdy pulpit został już raz wyeksportowany, po restarcie Home Assistant synchronizuje zarządzane pliki automatycznie (bez zakładania nowych). Pliki legacy pozostają nietknięte.
 - Pulpit zawierający encje sam aktualizuje **dane na żywo**. Aby aktualizować **układ** na bieżąco z YAML, należy raz zarejestrować YAML dashboard, zamiast wklejać cały plik do pulpitu zarządzanego przez UI.
 
 **Jednorazowa konfiguracja i instrukcja aktualizacji:** [docs/DASHBOARD_046.md](docs/DASHBOARD_046.md). Karta JS wymaga jednorazowego wpisania zasobu w Home Assistant. Integracja nadal **nie steruje Deye**, nie edytuje innych pulpitów i nie zmienia `configuration.yaml`.
