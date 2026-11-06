@@ -23,7 +23,7 @@ from .weather_temperature import weather_temperature_c
 from .source_diagnostics import read_numeric, select_nonempty_sources
 from .health import HealthJournal
 from .battery_model import BatteryModel
-from .grid_guard import calculate_grid_guard
+from .grid_monitor import build_grid_readout
 from .tariffs import tariff_zone, next_cheap_window, zone_prices, is_day_off
 from .charge_planner import propose
 from .house_learning import build_house_profile, resolve_ev_topology
@@ -118,6 +118,36 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         data["health"] = self.diagnostics()
         return data
 
+    def refresh_grid_guard_live(self) -> None:
+        """Update grid advisory from local HA states only, without PV API calls.
+
+        This 15-second check is not a safety controller and does NOT alter
+        inverter/charger settings or reset the 15-minute planning schedule.
+        """
+        data = self.data
+        if not data or not data.get("energy_2_0") or not self._selected_settings:
+            return
+        try:
+            grid = build_grid_readout(
+                self.hass.states.get, self._selected_settings, dt_util.utcnow(),
+            )
+        except (ValueError, TypeError, KeyError) as exc:
+            _LOGGER.warning("Grid read-only monitor cannot update: %s", exc)
+            return
+        energy = dict(data["energy_2_0"])
+        energy["grid"] = grid
+        # Avoid stale values in the small status after a change in EV/HP/PV.
+        live = dict(energy.get("live", {}))
+        live["ev_kw"] = self._kw_or_none(CONF_EV_POWER)
+        live["home_kw"] = self._kw_or_none(CONF_HOME_POWER)
+        live["heat_pump_kw"] = self._kw_or_none(CONF_HEAT_PUMP_POWER)
+        live["pv_kw"] = self._kw_or_none(CONF_PV_POWER)
+        energy["live"] = live
+        current = dict(data)
+        current["energy_2_0"] = energy
+        self.data = current
+        self.async_update_listeners()
+
     async def _async_collect_data(self):
         selected = {**DEFAULTS, **select_nonempty_sources(
             detect_entities(self.hass.states.async_all()),
@@ -139,22 +169,10 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             tariff, selected[CONF_PRICE_CHEAP],
             selected[CONF_PRICE_PEAK], selected[CONF_PRICE_EVENING],
         )
-        grid_w = self._signed_power_w(CONF_GRID_POWER)
-        battery_w = self._signed_power_w(CONF_BATTERY_POWER)
-        battery_sign = int(selected[CONF_BATTERY_CHARGE_SIGN])
-        charging_w = max(0.0, battery_w * battery_sign) if (
-            battery_w is not None and battery_sign in (-1, 1)
-        ) else None
-        guard = calculate_grid_guard(
-            grid_w, charging_w,
-            import_sign=int(selected[CONF_GRID_IMPORT_SIGN]),
-            connection_limit_kw=float(selected[CONF_GRID_LIMIT]),
-            reserve_kw=float(selected[CONF_GRID_BUFFER]),
-            battery_max_kw=float(selected[CONF_CHARGE_LIMIT]),
-        )
+        guard = build_grid_readout(self.hass.states.get, selected, dt_util.utcnow())
         v2_info = {
             "model": model.as_dict(),
-            "grid": guard.as_dict(),
+            "grid": guard,
             "tariff": tariff,
             "tariff_zone": tariff_band,
             "next_cheap_start": tariff_window[0].isoformat() if tariff_window else None,
@@ -356,7 +374,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                 proposed = propose(
                     now=now, window=tariff_window, soc=soc,
                     target=adjusted, model=model,
-                    grid_headroom_kw=guard.allowed_charge_kw,
+                    grid_headroom_kw=guard["allowed_charge_kw"],
                     power_limit_kw=float(selected[CONF_CHARGE_LIMIT]),
                     preferred_kw=float(selected[CONF_PREFERRED_CHARGE]),
                     efficiency=float(selected[CONF_EFFICIENCY]) / 100,

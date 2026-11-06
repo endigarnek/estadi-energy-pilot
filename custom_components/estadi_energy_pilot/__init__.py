@@ -36,6 +36,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             timedelta(minutes=1),
         )
     )
+    # Grid Guard has its own light read-only heartbeat. It must NOT call
+    # async_request_refresh(): doing so would repeatedly call Forecast.Solar,
+    # pollute historical samples and reset the 15-minute scheduler.
+    entry.async_on_unload(
+        async_track_time_interval(
+            hass, lambda _now: coordinator.refresh_grid_guard_live(),
+            timedelta(seconds=15),
+        )
+    )
     entry.async_on_unload(entry.add_update_listener(async_update_options))
     return True
 

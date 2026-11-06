@@ -1,6 +1,6 @@
 """ESTADI Energy Pilot constants."""
 DOMAIN = "estadi_energy_pilot"
-INTEGRATION_VERSION = "0.3.4"
+INTEGRATION_VERSION = "0.3.5"
 CONF_SOLCAST_TODAY = "solcast_today"
 CONF_SOLCAST_TOMORROW = "solcast_tomorrow"
 CONF_SOLCAST_DAY3 = "solcast_day3"
@@ -39,6 +39,16 @@ CONF_GRID_LIMIT = "grid_connection_limit_kw"
 CONF_GRID_BUFFER = "grid_safety_buffer_kw"
 CONF_CHARGE_LIMIT = "battery_preferred_max_charge_kw"
 CONF_PREFERRED_CHARGE = "battery_preferred_charge_kw"
+CONF_PHASE_CURRENT_L1 = "grid_phase_current_l1"
+CONF_PHASE_CURRENT_L2 = "grid_phase_current_l2"
+CONF_PHASE_CURRENT_L3 = "grid_phase_current_l3"
+CONF_PHASE_VOLTAGE_L1 = "grid_phase_voltage_l1"
+CONF_PHASE_VOLTAGE_L2 = "grid_phase_voltage_l2"
+CONF_PHASE_VOLTAGE_L3 = "grid_phase_voltage_l3"
+CONF_PHASE_LIMIT_L1 = "grid_phase_limit_l1_a"
+CONF_PHASE_LIMIT_L2 = "grid_phase_limit_l2_a"
+CONF_PHASE_LIMIT_L3 = "grid_phase_limit_l3_a"
+
 CONF_TARIFF = "tariff_profile"
 CONF_PRICE_CHEAP = "tariff_price_cheap"
 CONF_PRICE_PEAK = "tariff_price_peak"
@@ -54,6 +64,9 @@ DEFAULTS = {
     CONF_GRID_IMPORT_SIGN: 0,
     CONF_BATTERY_CHARGE_SIGN: 0,
     CONF_GRID_LIMIT: 15,
+    CONF_PHASE_LIMIT_L1: 0,
+    CONF_PHASE_LIMIT_L2: 0,
+    CONF_PHASE_LIMIT_L3: 0,
     CONF_GRID_BUFFER: 2,
     CONF_CHARGE_LIMIT: 10,
     CONF_PREFERRED_CHARGE: 5,

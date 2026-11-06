@@ -87,7 +87,16 @@
           "tariff_price_evening": "Evening peak price (PLN/kWh), 0=unknown",
           "grid_power": "Grid power sensor",
           "battery_power": "Battery power sensor",
-          "ev_home_load_topology": "EV: is charging power included in Deye Load?"
+          "ev_home_load_topology": "EV: is charging power included in Deye Load?",
+          "grid_phase_current_l1": "Grid current on L1 (A)",
+          "grid_phase_current_l2": "Grid current on L2 (A)",
+          "grid_phase_current_l3": "Grid current on L3 (A)",
+          "grid_phase_voltage_l1": "Grid voltage on L1 (V)",
+          "grid_phase_voltage_l2": "Grid voltage on L2 (V)",
+          "grid_phase_voltage_l3": "Grid voltage on L3 (V)",
+          "grid_phase_limit_l1_a": "Verified phase L1 current limit (A, 0 = unknown)",
+          "grid_phase_limit_l2_a": "Verified phase L2 current limit (A, 0 = unknown)",
+          "grid_phase_limit_l3_a": "Verified phase L3 current limit (A, 0 = unknown)"
         }
       }
     },
