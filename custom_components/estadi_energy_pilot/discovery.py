@@ -112,3 +112,16 @@ def detect_entities(states: Iterable[Any]) -> dict[str, str]:
     if len(weather) == 1:
         chosen[CONF_WEATHER] = weather[0]
     return chosen
+
+
+REQUIRED_SETUP_KEYS = (
+    CONF_SOLCAST_TODAY,
+    CONF_SOLCAST_TOMORROW,
+    CONF_BATTERY_SOC,
+    CONF_OUTDOOR_TEMP,
+)
+
+
+def missing_required_sources(detected: dict[str, str]) -> tuple[str, ...]:
+    """One-step wizard asks only for genuinely missing mandatory sensors."""
+    return tuple(key for key in REQUIRED_SETUP_KEYS if not detected.get(key))
