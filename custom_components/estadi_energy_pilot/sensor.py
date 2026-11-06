@@ -367,6 +367,7 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
                 "przyczyna": tou.get("przyczyna"),
                 "programy_1_do_6": tou.get("programy", []),
                 "stan_globalny": tou.get("stan_globalny", {}),
+                "inne_mozliwe_encje": tou.get("inne_mozliwe_encje", []),
                 "blokady_uruchomienia": tou.get("blokady", []),
                 "odczytane_pola": tou.get("odczytane_pola"),
                 "brakujace_pola": tou.get("brakujace_pola"),
