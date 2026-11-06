@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.2.1
+# ESTADI Energy Pilot — wersja 0.2.2
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -41,6 +41,16 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 - Brak aktualnej prognozy lub pomiarów uniemożliwia wyliczenie zalecanego ładowania.
 
 
+
+## Nowość 0.2.2 — krótki kreator, bez szukania encji
+
+Po aktualizacji przez HACS **pobierz ponownie integrację i uruchom ponownie cały Home Assistant**. W razie widocznego starego opisu („Wersja 0.1”) zamknij kreator i wszystkie karty przeglądarki z Home Assistant, a następnie otwórz panel ponownie. Samo przeładowanie integracji lub aktualizacja metadanych HACS nie wystarczy.
+
+Nowy kreator wyszukuje istniejące sensory, w tym cztery znane encje Deye/PV/dom/Shelly/EV. **Nie wyświetla wykrytych już czujników jako pól wyboru.** Prosi tylko o brakujące źródła Solcast, SOC i temperaturę zewnętrzną, plus dwie wartości: *rzeczywistą użyteczną pojemność magazynu* (bez automatycznego domyślnego 15 kWh) oraz średnią moc bazową domu (domyślnie 400 W; to założenie do weryfikacji).
+
+W istniejącej konfiguracji menu **Konfiguruj** pokazuje prosty ekran (pojemność, moc bazowa, rezerwa i pole „Pokaż zaawansowane ustawienia”). Gdy zaznaczysz pole, przejdziesz do wszystkich encji i harmonogramu. Rozpoznane sensory zapisywane są przy pierwszym zatwierdzeniu kreatora, a w istniejącej konfiguracji są automatycznie wykorzystywane bez reinstalacji.
+
+Jeżeli na formularzu pozostają puste pola Solcast, być może zainstalowana jest tylko integracja **Forecast.Solar**. To inne źródło danych niż **Solcast PV Forecast**; nie należy wybierać Forecast.Solar jako Solcast bez zaimplementowania adaptera.
 
 ## Wersja 0.2.1 — automatyczny wybór czujników
 
