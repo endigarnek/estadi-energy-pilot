@@ -253,6 +253,16 @@ ENERGY_V2_SENSORS = (
     ("dry_run_samples", "Dry-run — zapisane decyzje", None),
     ("dry_run_days", "Dry-run — kompletne dni testów", None),
     ("dry_run_last", "Dry-run — ostatnia decyzja o", None),
+    ("accuracy_status", "Weryfikacja prognoz — stan", None),
+    ("accuracy_soc_3h", "Weryfikacja — odchylenie SOC 3h", "pp"),
+    ("accuracy_soc_6h", "Weryfikacja — odchylenie SOC 6h", "pp"),
+    ("accuracy_soc_12h", "Weryfikacja — odchylenie SOC 12h", "pp"),
+    ("accuracy_soc_24h", "Weryfikacja — odchylenie SOC 24h", "pp"),
+    ("accuracy_pv_wape", "Weryfikacja — błąd PV WAPE", "%"),
+    ("accuracy_pv_days", "Weryfikacja — porównane dni PV", None),
+    ("accuracy_plan_met", "Weryfikacja — cele SOC osiągnięte", None),
+    ("accuracy_plan_missed", "Weryfikacja — cele SOC nieosiągnięte", None),
+
     ("tariff", "Taryfa", None),
     ("tariff_zone", "Aktualna strefa taryfowa", None),
     ("tariff_price", "Cena w aktualnej strefie", "PLN/kWh"),
@@ -320,7 +330,21 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
         tou = d.get("deye_tou") or {}
         dry = d.get("dry_run") or {}
         latest = dry.get("ostatnia_decyzja") or {}
+        accuracy = d.get("accuracy") or {}
+        horizons = accuracy.get("horyzonty_soc") or {}
+        pv_accuracy = accuracy.get("pv") or {}
+        outcomes = accuracy.get("obserwacje_celu") or {}
         values = {
+            "accuracy_status": accuracy.get("stan", "brak_danych"),
+            "accuracy_soc_3h": (horizons.get("3") or {}).get("mae_soc_pp"),
+            "accuracy_soc_6h": (horizons.get("6") or {}).get("mae_soc_pp"),
+            "accuracy_soc_12h": (horizons.get("12") or {}).get("mae_soc_pp"),
+            "accuracy_soc_24h": (horizons.get("24") or {}).get("mae_soc_pp"),
+            "accuracy_pv_wape": pv_accuracy.get("wape_pct"),
+            "accuracy_pv_days": pv_accuracy.get("dni"),
+            "accuracy_plan_met": outcomes.get("cel_osiagniety"),
+            "accuracy_plan_missed": outcomes.get("cel_nieosiagniety"),
+
             "dry_run_status": dry.get("status", "brak_pomiarow"),
             "dry_run_action": latest.get("hipotetyczna_akcja"),
             "dry_run_power": latest.get("suggested_kw"),
@@ -375,6 +399,21 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         d = (self.coordinator.data or {}).get("energy_2_0", {})
+        if self._key == "accuracy_status":
+            accuracy = d.get("accuracy") or {}
+            return {
+                "porownania_soc": accuracy.get("horyzonty_soc", {}),
+                "kontrola_celow_soc": accuracy.get("obserwacje_celu", {}),
+                "skutecznosc_pv": accuracy.get("pv", {}),
+                "ostatnie_porownania": accuracy.get("ostatnie_12", []),
+                "pomiar_soc": accuracy.get("soc_pomiar_status"),
+                "zmierzony_soc": accuracy.get("ostatni_zmierzony_soc"),
+                "brak_odczytow_w_terminie": accuracy.get("brak_odczytu_w_terminie", 0),
+                "liczba_migawek": accuracy.get("liczba_migawek", 0),
+                "interpretacja": accuracy.get("uwaga"),
+                "oszczednosci_rzeczywiste_pln": None,
+                "sterowanie_deye_wylaczone": True,
+            }
         if self._key in ("dry_run_status", "dry_run_action", "dry_run_power"):
             dry = d.get("dry_run") or {}
             latest = dry.get("ostatnia_decyzja") or {}
