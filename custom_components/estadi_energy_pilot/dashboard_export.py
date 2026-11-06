@@ -369,31 +369,78 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
         "jeszcze Deye ani ładowarką EV; nie obliczamy rzeczywistych oszczędności "
         "bez potwierdzonych przepływów import/eksport i cen rozliczenia."
     ))
-    def view(title: str, path: str, icon: str, selected: list[str], panel: bool = False) -> str:
-        """Separate concise everyday views from deeper technical diagnostics."""
-        return (
+    def view(title: str, path: str, icon: str,
+             groups: list[tuple[str, str, list[str]]],
+             panel: bool = False) -> str:
+        """Use the native HA Sections layout for clear two-column alignment."""
+        header = (
             "  - title: " + _quote(title) + "\n"
             "    path: " + path + "\n"
             "    icon: " + icon + "\n"
-            "    type: " + ("panel" if panel else "masonry") + "\n"
-            "    cards:\n"
-            + "".join(_card(card) for card in selected)
         )
+        if panel:
+            return (header + "    type: panel\n    cards:\n"
+                    + "".join(_card(card) for _, _, items in groups for card in items))
+        result = header + "    type: sections\n    max_columns: 2\n    sections:\n"
+        for heading, heading_icon, selected in groups:
+            if not selected:
+                continue
+            result += (
+                "      - type: grid\n"
+                "        cards:\n"
+                "          - type: heading\n"
+                "            heading: " + _quote(heading) + "\n"
+                "            icon: " + heading_icon + "\n"
+            )
+            for card in selected:
+                result += indent(card.rstrip(), "          ") + "\n"
+        return result
 
     overview = _modern_overview_card(entities, sources)
-    history = [cards[4], cards[5], cards[6], cards[1], cards[2]]
-    forecast = [cards[8], cards[7], cards[3], cards[9]]
-    finance = [cards[10], cards[11], cards[18]]
-    diagnostics = [cards[0]] + cards[12:18] + cards[19:]
     return (
         "# ESTADI Energy Pilot — zarządzany pulpit, v0.4.6\n"
         "title: \"ESTADI Energy Pilot\"\n"
         "views:\n"
-        + view("Pulpit", "estadi-energia", "mdi:view-dashboard", [overview], panel=True)
-        + view("Historia", "estadi-historia", "mdi:chart-line", history)
-        + view("Prognoza 48h", "estadi-prognoza", "mdi:chart-timeline-variant", forecast)
-        + view("Koszty", "estadi-koszty", "mdi:cash-multiple", finance)
-        + view("Diagnostyka", "estadi-diagnostyka", "mdi:stethoscope", diagnostics)
+        + view("Pulpit", "estadi-energia", "mdi:view-dashboard",
+               [("", "", [overview])], panel=True)
+        + view("Historia", "estadi-historia", "mdi:chart-line", [
+            ("Bilans domu", "mdi:home-lightning-bolt",
+             [cards[4]]),
+            ("Magazyn energii", "mdi:battery",
+             [cards[5]]),
+            ("Przyłącze", "mdi:transmission-tower",
+             [cards[6]]),
+            ("Aktualne pomiary", "mdi:gauge",
+             [cards[1]]),
+        ])
+        + view("Prognoza 48h", "estadi-prognoza", "mdi:chart-timeline-variant", [
+            ("Prognoza godzinowa", "mdi:chart-bell-curve-cumulative",
+             [cards[8]]),
+            ("Scenariusz 48 godzin", "mdi:calendar-clock",
+             [cards[7], cards[9]]),
+            ("Kolejne tanie okno", "mdi:clock-outline",
+             [cards[3]]),
+        ])
+        + view("Koszty", "estadi-koszty", "mdi:cash-multiple", [
+            ("Porównanie scenariuszy", "mdi:finance",
+             [cards[10], cards[11]]),
+            ("Niepewność ładowania EV", "mdi:car-electric",
+             [cards[18]]),
+        ])
+        + view("Diagnostyka", "estadi-diagnostyka", "mdi:stethoscope", [
+            ("Stan bezpieczeństwa", "mdi:shield-check-outline",
+             [cards[0], cards[2]]),
+            ("Kalibracja odczytów", "mdi:tune-variant",
+             [cards[12], cards[13]]),
+            ("Model pompy ciepła", "mdi:heat-pump-outline",
+             [cards[14], cards[15]]),
+            ("Nietypowe zużycie pompy", "mdi:chart-bell-curve",
+             [cards[16], cards[17]]),
+            ("Symulacje i trafność", "mdi:clipboard-pulse",
+             [cards[19], cards[20]]),
+            ("Integracja Deye", "mdi:solar-power-variant",
+             cards[21:]),
+        ])
     )
 
 
