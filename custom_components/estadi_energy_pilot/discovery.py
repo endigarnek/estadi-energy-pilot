@@ -22,6 +22,7 @@ POWER_PREFERRED = {
 
 SOC_PREFERRED = (
     "sensor.deye_battery_soc",
+    "sensor.deye_battery",
     "sensor.deye_battery_level",
     "sensor.deye_battery_state_of_charge",
 )
