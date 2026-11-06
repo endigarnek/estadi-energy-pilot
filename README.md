@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.3.4 (beta)
+# ESTADI Energy Pilot — wersja 0.3.5 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,21 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+## Wersja 0.3.5 — Grid Guard LIVE i diagnostyka L1/L2/L3
+
+**Szybki monitoring przyłącza, ale nadal bez sterowania Deye.**
+
+- Niezależny od planisty odczyt mocy sieci, baterii i opcjonalnych prądów/napięć L1/L2/L3 **co 15 sekund**. Nie wywołuje Forecast.Solar ani przeliczania 48h, nie zwiększa obciążenia falownika żadnymi zapisami.
+- Weryfikacja źródła: jednostka W/kW, A, V; ostatnia raportowana zmiana/odczyt; dane starsze niż **120 sekund** są odrzucane. Brak danych nie jest zerem.
+- Opcjonalny **limit prądu osobno na każdą fazę**, z warunków przyłączenia/rozdzielnicy. Domyślnie **0 A = niepotwierdzony**, więc brak fałszywej zgody na regulowanie baterią. Sensory fazowe i limity ustawia się w zaawansowanej konfiguracji. Nie wpisuj wartości „na oko”.
+- Grid Guard rozlicza rzeczywisty pomiar **importu z sieci** (Deye Grid) zawierający EV, pompę i już pracujące ładowanie baterii; nie dodaje żadnej z tych mocy ponownie. Po wyłączeniu auta nowy odczyt może podnieść wyliczony pułap ładowania magazynu, ale **nie zmienia nastaw falownika**.
+- Widoczne sensory: **Grid Guard — kontrola faz**, **ostatni odczyt**, **moc ładowania magazynu**. Atrybuty sensora **Grid Guard — status** zawierają stan każdego źródła (`ok`, `dane_nieaktualne`, `bledna_jednostka`, `brak_encji`), wiek odczytu i to, czy ustawiono rzeczywiste limity faz.
+- Przyłącze użytkownika **15 kW** i bufor **2 kW** pozostają parametrami modelu. Szybszy odczyt **nie jest zabezpieczeniem nadprądowym**: Home Assistant, Modbus i Deye mogą mieć opóźnienia, a obciążenie pojedynczej fazy może być niebezpieczne mimo prawidłowej sumy kW.
+
+**Ważne:** jeżeli wciąż nieznany jest znak pomiaru importu lub ładowania baterii, `Grid Guard` świadomie pozostaje w stanie `blokada`. Trzeba potwierdzić bieżący znak rzeczywistym pomiarem, a nie zmieniać opcji na chybił trafił. Gdy trzy fazy są poprawnie odczytane, widnieje status `pomiar_3_faz`, ale `automatic_ready` pozostaje **false** — nie zweryfikowano jeszcze mapy Deye, sprzętowej ochrony faz ani BMS.
+
+**Testy i kolejne kroki:** testy odmowy przy starych/błędnych sensorach, działania EV 11kW, stopniowego odzyskania zapasu i ograniczenia pojedynczej fazy; następnie analiza sprzętowej reakcji Deye, pełny dry-run i dopiero osobny przełącznik automatyzacji.
 
 ## Wersja 0.3.4 — dobór godziny rozpoczęcia i mocy ładowania magazynu
 
