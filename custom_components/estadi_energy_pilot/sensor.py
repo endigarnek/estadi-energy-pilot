@@ -247,6 +247,12 @@ ENERGY_V2_SENSORS = (
     ("deye_tou_snapshot", "Deye TOU — data migawki ustawień", None),
     ("deye_tou_changes", "Deye TOU — zmiany od migawki", None),
     ("deye_tou_ready", "Deye TOU — gotowość do automatyzacji", None),
+    ("dry_run_status", "Dry-run — stan testu", None),
+    ("dry_run_action", "Dry-run — hipotetyczna decyzja", None),
+    ("dry_run_power", "Dry-run — hipotetyczna moc magazynu", "kW"),
+    ("dry_run_samples", "Dry-run — zapisane decyzje", None),
+    ("dry_run_days", "Dry-run — kompletne dni testów", None),
+    ("dry_run_last", "Dry-run — ostatnia decyzja o", None),
     ("tariff", "Taryfa", None),
     ("tariff_zone", "Aktualna strefa taryfowa", None),
     ("tariff_price", "Cena w aktualnej strefie", "PLN/kWh"),
@@ -312,7 +318,15 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
         cautious = sim.get("cautious") or {}
         smart = d.get("optimized_schedule") or {}
         tou = d.get("deye_tou") or {}
+        dry = d.get("dry_run") or {}
+        latest = dry.get("ostatnia_decyzja") or {}
         values = {
+            "dry_run_status": dry.get("status", "brak_pomiarow"),
+            "dry_run_action": latest.get("hipotetyczna_akcja"),
+            "dry_run_power": latest.get("suggested_kw"),
+            "dry_run_samples": dry.get("zapisanych_decyzji"),
+            "dry_run_days": dry.get("pelnych_dni_testu"),
+            "dry_run_last": dry.get("ostatnia_proba"),
             "deye_tou_status": tou.get("status", "brak_danych"),
             "deye_tou_fields": tou.get("odczytane_pola"),
             "deye_tou_snapshot": tou.get("migawka_o"),
@@ -361,6 +375,19 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         d = (self.coordinator.data or {}).get("energy_2_0", {})
+        if self._key in ("dry_run_status", "dry_run_action", "dry_run_power"):
+            dry = d.get("dry_run") or {}
+            latest = dry.get("ostatnia_decyzja") or {}
+            return {
+                "hipotetyczna_decyzja": latest,
+                "wymagane_dni": dry.get("wymagane_dni_testu", 7),
+                "pelne_dni": dry.get("pelnych_dni_testu", 0),
+                "dni_pozostale": dry.get("dni_do_testu", 7),
+                "ostatnie_20_decyzji": dry.get("ostatnie_zdarzenia", []),
+                "autostart_automatyzacji": False,
+                "faktycznie_wyslane_polecenia": 0,
+                "bez_zapisu_do_deye": True,
+            }
         if self._key in ("deye_tou_status", "deye_tou_ready", "deye_tou_changes"):
             tou = d.get("deye_tou") or {}
             return {
