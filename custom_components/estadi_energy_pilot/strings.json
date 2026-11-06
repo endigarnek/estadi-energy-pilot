@@ -1,0 +1,46 @@
+{
+  "title": "ESTADI Energy Pilot",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Połącz Solcast, magazyn i pogodę",
+        "description": "Wersja 0.1: tylko obliczenia i rekomendacje, bez sterowania falownikiem. Moc pompy jest modelem przybliżonym — nie używaj jako pomiaru.",
+        "data": {
+          "solcast_today": "Solcast: prognoza na dziś",
+          "solcast_tomorrow": "Solcast: prognoza na jutro",
+          "solcast_day3": "Solcast: prognoza na pojutrze (opcjonalna)",
+          "battery_soc": "Deye: stan naładowania baterii (%)",
+          "outdoor_temp": "Temperatura na zewnątrz (°C)",
+          "weather_entity": "Pogoda z prognozą godzinową (opcjonalna)",
+          "battery_capacity_kwh": "Użyteczna pojemność magazynu (kWh)",
+          "base_load_w": "Średnia moc domu BEZ pompy ciepła (W)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ustawienia ładowania i prognoz",
+        "description": "Dostosuj taryfę, rezerwę SOC, margines i model pompy ciepła.",
+        "data": {
+          "base_load_w": "Średnia moc domu BEZ pompy ciepła (W)",
+          "reserve_soc": "Minimalna rezerwa magazynu (%)",
+          "max_soc": "Maksymalne dozwolone ładowanie (%)",
+          "pv_discount_pct": "Margines niepewności prognozy PV (%)",
+          "roundtrip_efficiency_pct": "Przyjęta sprawność rozładowania / obliczeń (%)",
+          "margin_kwh": "Zapas energii (kWh)",
+          "heat_pump_mild_w": "Pompa: średnia moc przy temperaturze poniżej +8°C (W)",
+          "heat_pump_cold_w": "Pompa: średnia moc przy -5°C i mniej (W)",
+          "night_start": "Początek taniej strefy nocnej (godzina)",
+          "night_end": "Koniec taniej strefy nocnej (godzina)",
+          "midday_start": "Początek taniej strefy popołudniowej (godzina)",
+          "afternoon_end": "Koniec taniej strefy popołudniowej (godzina)"
+        }
+      }
+    },
+    "error": {
+      "invalid_schedule": "Sprawdź kolejność godzin taryfy i zakres minimalnego/maksymalnego SOC."
+    }
+  }
+}
