@@ -30,6 +30,7 @@ from .house_learning import build_house_profile, resolve_ev_topology
 from .simulation_48h import simulate_48h
 from .charging_48h import recommend_charge
 from .deye_tou import inspect_tou, snapshot_config, changed_fields
+from .dry_run import DryRunJournal, evaluate_dry_run
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,12 +46,15 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         self.health = HealthJournal()
         self.tou_store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.tou_snapshot")
         self.tou_reference: dict | None = None
+        self.dry_run_store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.dry_run")
+        self.dry_run = DryRunJournal()
 
     async def async_initialize(self) -> None:
         self.history = HistoryBook(await self.storage.async_load())
         self.health = HealthJournal(await self.health_store.async_load())
         stored_tou = await self.tou_store.async_load()
         self.tou_reference = stored_tou if isinstance(stored_tou, dict) else None
+        self.dry_run = DryRunJournal(await self.dry_run_store.async_load())
 
     def _power_w(self, key: str) -> float | None:
         """Only measure energy when the power sensor explicitly reports W/kW."""
@@ -120,8 +124,43 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             elapsed_ms=round((time.monotonic() - started) * 1000),
         )
         self.health_store.async_delay_save(self.health.export, 60)
+        # Save only hypothetical command candidates. This code path is never
+        # permitted to call Home Assistant write services.
+        self._update_dry_run(data, fresh_plan=bool(data.get("available")))
         data["health"] = self.diagnostics()
         return data
+
+    def _update_dry_run(self, data: dict, *, fresh_plan: bool = False) -> None:
+        """Attach a dry-run record to every planning cycle or live grid update."""
+        energy = data.get("energy_2_0")
+        if not isinstance(energy, dict):
+            return
+        now = dt_util.utcnow()
+        if fresh_plan:
+            energy["plan_computed_at"] = now.isoformat()
+        try:
+            decision = evaluate_dry_run(
+                now=now,
+                plan=energy.get("optimized_schedule"),
+                grid=energy.get("grid"),
+                tou=energy.get("deye_tou"),
+                soc=energy.get("current_soc_pct"),
+                ev_kw=(energy.get("live") or {}).get("ev_kw"),
+                tariff_band=tariff_zone(now, energy.get("tariff", "G12w")),
+                plan_computed_at=energy.get("plan_computed_at"),
+                bms_confirmed=False,
+            )
+            recorded = self.dry_run.observe(decision)
+            energy["dry_run"] = self.dry_run.report()
+            if recorded:
+                self.dry_run_store.async_delay_save(self.dry_run.export, 60)
+        except (ValueError, TypeError, KeyError) as exc:
+            _LOGGER.warning("Dry-run failed: %s", exc)
+            energy["dry_run"] = {
+                "status": "blad_symulacji",
+                "przyczyna": type(exc).__name__,
+                "gotowosc_sterowania": False, "komendy_wyslane": 0,
+            }
 
     def tou_diagnostics(self) -> dict:
         """Read the current six TOU programs; back up first complete inventory."""
@@ -168,6 +207,9 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         live["pv_kw"] = self._kw_or_none(CONF_PV_POWER)
         energy["live"] = live
         current = dict(data)
+        current["energy_2_0"] = energy
+        self._update_dry_run(current)
+        energy = current["energy_2_0"]
         current["energy_2_0"] = energy
         self.data = current
         self.async_update_listeners()
@@ -439,8 +481,8 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         # Never advertise a charging decision while grid polarity is
         # unverified, when limits are unknown, or on whole-day cheap holidays.
         plan["recommended"] = bool(
-            plan.get("recommended") and guard.allowed_charge_kw is not None
-            and guard.allowed_charge_kw >= 3
+            plan.get("recommended") and guard.get("allowed_charge_kw") is not None
+            and guard["allowed_charge_kw"] >= 3
             and tariff_band == "cheap" and not is_day_off(now.date())
         )
         plan.update(history)

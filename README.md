@@ -1,4 +1,4 @@
-# ESTADI Energy Pilot — wersja 0.3.6 (beta)
+# ESTADI Energy Pilot — wersja 0.3.7 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
@@ -47,6 +47,18 @@ Ustawienia można później zmienić: **Ustawienia → Urządzenia i usługi →
 Obsługiwane teraz: pojemność 28 kWh nominalnie (SOC 10–100%), suwaki pojemności i korekty zapasu, kalendarz G12w/G13, podgląd przyłącza 15 kW, wstępna rekomendacja startu i mocy ładowania oraz wyjaśnienia. **Nie włącza automatycznego sterowania Deye.** Najpierw trzeba potwierdzić znaki mocy importu i ładowania, pomiary faz i limity falownika.
 
 **[Instrukcja aktualizacji, kalibracji i ograniczenia bety](docs/EP20_BETA_03.md)** · **[Miniwidżet na pulpit Home Assistant](docs/MINI_WIDGET_03.md)**.
+
+## Wersja 0.3.7 — dziennik decyzji i test dry-run (bez wysyłania komend)
+
+Nowy **tryb testowy dry-run** pozwala przez 7 dni obserwować, jakie nastawy zaproponowałby ESTADI Energy Pilot, co zrobiłby po uruchomieniu EV albo pompy i dlaczego plan został ograniczony. Zapisuje lokalnie decyzje, ich przyczyny, bieżący import oraz hipotetyczną moc magazynu. Oddzielnie pokazuje **plan** i **blokady bezpieczeństwa**.
+
+- Sensory: `Dry-run — stan testu`, `hipotetyczna decyzja`, `hipotetyczna moc magazynu`, `zapisane decyzje`, `kompletne dni testów`, `ostatnia decyzja o`.
+- Archiwum: maksymalnie 8 dni / 1000 zdarzeń w lokalnym storage; 20 ostatnich zdarzeń w atrybutach statusu. Dzień uznajemy za kompletny po 80 **różnych** 15-minutowych pomiarach, a nie po 80 przypadkowych zmianach.
+- Bieżący Grid Guard nadal odświeża się co 15 sekund, pełny plan co 15 minut. Hypotetyczne reakcje zapisują się przy zmianie decyzji.
+- Poprawiono błąd wywołania `guard.allowed_charge_kw` na słowniku — w niektórych przypadkach powodował nieudany pełny plan.
+- **Zero wysyłanych poleceń do Deye/EV**, nawet jeśli zebrano pełne 7 dni. Wymagane są nadal L1/L2/L3, potwierdzenie BMS, modelu/TOU i test sprzętowy.
+
+**[Instrukcja i interpretacja dry-run 0.3.7](docs/DRY_RUN_037.md).**
 
 ## Wersja 0.3.6 — odczyt sześciu programów Deye TOU bez sterowania
 
