@@ -235,6 +235,8 @@ class HealthSensor(CoordinatorEntity, SensorEntity):
 ENERGY_V2_SENSORS = (
     ("mini_status", "Szybki status energii", None),
     ("grid_import", "Pobór z przyłącza", "kW"),
+    ("grid_raw_power", "Deye — moc sieci surowa, ze znakiem", "kW"),
+    ("grid_raw_status", "Deye — jakość pomiaru mocy sieci", None),
     ("grid_limit", "Limit przyłącza — ustawiony", "kW"),
     ("grid_headroom", "Dostępny zapas mocy przyłącza", "kW"),
     ("grid_charge_cap", "Orientacyjny limit ładowania (bez sterowania)", "kW"),
@@ -460,6 +462,8 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
             "sim_cost": sim.get("cost_import_pln"),
             "mini_status": mini,
             "grid_import": g.get("import_kw"),
+            "grid_raw_power": g.get("raw_grid_kw"),
+            "grid_raw_status": g.get("raw_grid_status"),
             "grid_limit": g.get("connection_limit_kw"),
             "grid_headroom": g.get("headroom_kw"),
             "grid_charge_cap": g.get("allowed_charge_kw"),
@@ -627,10 +631,13 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
                 "taryfa": d.get("tariff"),
                 "automatyzacja_wlaczona": False,
             }
-        if self._key in ("grid_status", "grid_phase_status"):
+        if self._key in ("grid_status", "grid_phase_status", "grid_raw_power", "grid_raw_status"):
             g = d.get("grid", {})
             return {
                 "szczegoly": g,
+                "surowy_pomiar_to_nie_import": True,
+                "kierunek_importu_potwierdzony": g.get("import_sign_confirmed"),
+                "zrodlo_deye": g.get("raw_grid_entity_id"),
                 "stan_zrodel": g.get("source_status", {}),
                 "kontrola_faz": g.get("phase_status"),
                 "limity_pradu_faz_a": g.get("nominal_phase_limits_a"),
