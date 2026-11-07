@@ -216,6 +216,9 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
         sim = (coordinator_data.get("energy_2_0") or {}).get("simulation_48h") or {}
         plan = (coordinator_data.get("energy_2_0") or {}).get("optimized_schedule") or {}
         problems = []
+        observed_tou = inspect_tou(states.async_all(), now)
+        for blocker in observed_tou.get("operational_blockers", []):
+            problems.append("TOU: " + blocker)
         if guard.get("state") != "ok":
             problems.append("Grid Guard: " + str(guard.get("reason") or guard.get("state")))
         if not guard.get("import_sign_confirmed"):
