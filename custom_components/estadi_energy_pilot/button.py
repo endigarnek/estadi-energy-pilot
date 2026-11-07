@@ -16,11 +16,12 @@ from .const import (
 from .dashboard_export import (
     render_dashboard, render_mini_widget, export_files, FORECAST_CARD_RESOURCE,
 )
+from .lab_checks import DIAGNOSTIC_TESTS, inspect_test
 
 _LOGGER = logging.getLogger(__name__)
 
 SENSOR_KEYS = (
-    "mini_status", "history_status", "grid_status", "grid_import", "grid_raw_power", "grid_raw_status", "grid_limit", "grid_headroom",
+    "mini_status", "history_status", "lab_status", "grid_status", "grid_import", "grid_raw_power", "grid_raw_status", "grid_limit", "grid_headroom",
     "grid_charge_cap", "grid_phase_status", "grid_reason", "sim_status",
     "sim_soc_end", "sim_soc_min", "sim_soc_min_cautious",
     "sim_pv_kwh", "sim_grid_kwh", "sim_grid_peak", "sim_hours", "sim_quality",
@@ -52,6 +53,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([
         RefreshNowButton(coordinator, entry),
         ExportDashboardButton(coordinator, entry),
+        *[LabTestButton(coordinator, entry, test) for test in DIAGNOSTIC_TESTS],
     ])
 
 
@@ -108,6 +110,10 @@ class ExportDashboardButton(ButtonEntity):
             f"{self.entry.entry_id}_health_status": "health_status",
             f"{self.entry.entry_id}_integration_version": "version",
             f"{self.entry.entry_id}_refresh_now": "refresh",
+        })
+        wanted.update({
+            f"{self.entry.entry_id}_lab_{test}": f"lab_{test}"
+            for test in DIAGNOSTIC_TESTS
         })
         ids = {}
         for item in registry.entities.values():
@@ -207,3 +213,53 @@ class ExportDashboardButton(ButtonEntity):
         }
         _LOGGER.info("ESTADI Lovelace export saved: %s", paths)
         self.async_write_ha_state()
+
+
+
+class LabTestButton(ButtonEntity):
+    """Manual, live diagnostic button. Cannot send any command to Deye."""
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:flask-outline"
+
+    def __init__(self, coordinator, entry, test: str):
+        self.coordinator = coordinator
+        self.entry = entry
+        self.test = test
+        self._attr_name = DIAGNOSTIC_TESTS[test]
+        self._attr_unique_id = f"{entry.entry_id}_lab_{test}"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "ESTADI Energy Pilot",
+            "manufacturer": "ESTADI",
+        }
+        self._attr_extra_state_attributes = {
+            "status": "nie_uruchomiono",
+            "bez_zapisu_do_deye": True,
+        }
+
+    async def async_press(self) -> None:
+        from datetime import datetime, timezone
+        data = self.coordinator.data or {}
+        settings = self.coordinator._selected_settings or {
+            **self.entry.data, **self.entry.options,
+        }
+        try:
+            result = inspect_test(
+                self.test,
+                states=self.coordinator.hass.states,
+                selected=settings,
+                coordinator_data=data,
+                now=datetime.now(timezone.utc),
+            )
+        except Exception as exc:
+            _LOGGER.exception("Błąd diagnostyki %s", self.test)
+            result = {
+                "test": self.test, "status": "blad",
+                "reason": f"Test przerwany: {type(exc).__name__}",
+                "command_sent": False,
+            }
+        result["checked_at"] = datetime.now(timezone.utc).isoformat()
+        self.coordinator.lab_last_result = result
+        self._attr_extra_state_attributes = result
+        self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
