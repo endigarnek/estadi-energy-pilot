@@ -1,6 +1,16 @@
-# ESTADI Energy Pilot — wersja 0.5.5 (beta)
+# ESTADI Energy Pilot — wersja 0.5.6 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
+
+## 0.5.6 — 24/24 poprawny odczyt ≠ zgoda na sterowanie
+
+- Wynik z 07.11.2026 potwierdził **6/6 godzin** (01:00, 05:00, 09:00, 13:00, 17:00, 21:00), 24/24 pól poprawnych, globalne Grid Charge **OFF**, wszystkie programy **Disabled**, tryb dni `Week` (semantyka niezweryfikowana) i protokół `PYLON` (limit BMS niepotwierdzony). Nie potrzebujemy więcej encji TOU.
+- Poprzedni test błędnie zwracał zielone `ok` przy 24/24, choć falownik nie był gotowy do wykonania planu. Teraz test pokazuje osobno **„Odczyt TOU OK”** i **„Sterowanie: ZABLOKOWANE”**. Wynik ogólny nadal jest blokadą.
+- Dodano **przedwdrożeniowy audyt** dla sześciu przedziałów: granice czasu, plan ładowania, brak aktywnego Grid Charge, brak programów Grid/Both, ograniczenia BMS i trzech faz oraz brak testów zapisu/odczytu.
+- **Uwaga na zgodność zegara:** dotychczasowe okresy to 01:00–05:00 itd. Plan np. 01:30–04:45 nie pasuje bezpośrednio do tych granic. Nie wolno przepisywać takiego planu do Deye bez mapowania i sprawdzenia całego harmonogramu.
+- **Migawka ustawień** może być przygotowana w pamięci dla 24/24 poprawnych pól, lecz NIE jest jeszcze trwałym backupem. Nie ma automatycznego przywracania, ani jakichkolwiek poleceń fizycznych do falownika.
+- Raport w **Testy → Programy Deye TOU → Kopiuj mapę TOU** pokazuje granice sześciu okresów, zgodność proponowanego okna, blokady, stan migawki i jednoznaczną informację `zapis: NIE`.
+- Pełne sterowanie będzie wymagać osobnego testu z zatwierdzonymi parametrami BMS, bezpiecznym rollbackiem i kontrolą przyłącza 15 kW oraz poszczególnych faz.
 
 ## 0.5.5 — rzeczywista mapa TOU Deye i brakujące godziny
 
