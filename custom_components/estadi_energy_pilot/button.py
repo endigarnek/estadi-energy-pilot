@@ -10,7 +10,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 
 from .const import (
-    DOMAIN, CONF_BATTERY_SOC, CONF_PV_POWER, CONF_HOME_POWER,
+    DOMAIN, CONF_BATTERY_SOC, CONF_BATTERY_POWER, CONF_PV_POWER, CONF_HOME_POWER,
     CONF_EV_POWER, CONF_HEAT_PUMP_POWER,
 )
 from .dashboard_export import (
@@ -20,7 +20,7 @@ from .dashboard_export import (
 _LOGGER = logging.getLogger(__name__)
 
 SENSOR_KEYS = (
-    "mini_status", "grid_status", "grid_import", "grid_raw_power", "grid_raw_status", "grid_limit", "grid_headroom",
+    "mini_status", "history_status", "grid_status", "grid_import", "grid_raw_power", "grid_raw_status", "grid_limit", "grid_headroom",
     "grid_charge_cap", "grid_phase_status", "grid_reason", "sim_status",
     "sim_soc_end", "sim_soc_min", "sim_soc_min_cautious",
     "sim_pv_kwh", "sim_grid_kwh", "sim_grid_peak", "sim_hours", "sim_quality",
@@ -123,6 +123,7 @@ class ExportDashboardButton(ButtonEntity):
         }
         mapping = {
             "source_soc": CONF_BATTERY_SOC,
+            "source_battery": CONF_BATTERY_POWER,
             "source_pv": CONF_PV_POWER,
             "source_home": CONF_HOME_POWER,
             "source_ev": CONF_EV_POWER,
@@ -134,6 +135,20 @@ class ExportDashboardButton(ButtonEntity):
             # Only display configured sensor IDs, never manufactured names.
             if isinstance(entity_id, str) and entity_id.startswith("sensor."):
                 sources[key] = entity_id
+        # Optional losses meter: use a real HA entity, not a guessed number.
+        losses_candidates = []
+        for item in self.coordinator.hass.states.async_all():
+            entity_id = getattr(item, "entity_id", "")
+            title = str((getattr(item, "attributes", {}) or {}).get("friendly_name", "")).lower()
+            unit = (getattr(item, "attributes", {}) or {}).get("unit_of_measurement")
+            if not entity_id.startswith("sensor.") or unit not in ("W", "kW"):
+                continue
+            if entity_id == "sensor.deye_power_losses" or (
+                    "deye" in entity_id and "loss" in entity_id and "power" in entity_id
+                    or "deye" in title and "power losses" in title):
+                losses_candidates.append(entity_id)
+        if len(set(losses_candidates)) == 1:
+            sources["source_losses"] = losses_candidates[0]
         return ids, sources
 
     async def async_generate_managed_files(self):
@@ -145,7 +160,10 @@ class ExportDashboardButton(ButtonEntity):
         overview = await self.coordinator.hass.async_add_executor_job(
             Path(__file__).with_name("overview_card.js").read_text, "utf-8",
         )
-        script = forecast + "\n" + overview
+        cockpit = await self.coordinator.hass.async_add_executor_job(
+            Path(__file__).with_name("control_card.js").read_text, "utf-8",
+        )
+        script = forecast + "\n" + overview + "\n" + cockpit
         full = render_dashboard(ids, sources)
         mini = render_mini_widget(ids, sources)
         paths = await self.coordinator.hass.async_add_executor_job(
