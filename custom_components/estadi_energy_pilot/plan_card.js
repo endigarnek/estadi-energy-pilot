@@ -99,7 +99,8 @@ class EstadiPlan extends HTMLElement{
      '<td>'+esc(nfmt(num(r.ladowanie_pv_kwh),2))+'</td>'+
      '<td>'+esc(nfmt(num(r.rozladowanie_kwh),2))+'</td>'+
      '<td>'+esc(nfmt(num(r.import_plan_kwh),2))+'</td>'+
-     '<td>'+esc(nfmt(num(r.soc_plan_pct),0))+'% / '+esc(nfmt(num(r.soc_bazowy_pct),0))+'%</td></tr>';
+     '<td>'+esc(num(r.soc_plan_pct)===null?"—":nfmt(num(r.soc_plan_pct),0)+"%")+
+     ' / '+esc(num(r.soc_bazowy_pct)===null?"—":nfmt(num(r.soc_bazowy_pct),0)+"%")+'</td></tr>';
    }).join("")+'</tbody></table></div>';
   const css=[
    ':host{--surface:var(--ha-card-background,var(--card-background-color,#fff));'+
