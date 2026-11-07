@@ -25,6 +25,8 @@ ENTITIES = {
     "sim_status": "sensor.energy_simulation",
     "plan_timeline": "sensor.energy_plan_timeline",
     "lab_preflight": "button.energy_preflight",
+    "lab_charge_limits": "button.energy_charge_limits",
+    "lab_write_capability_more": "button.lab_more_controls",
     "sim_hours": "sensor.energy_sim_hours",
     "sim_quality": "sensor.energy_sim_quality",
     "smart_charge_status": "sensor.energy_charging_status",
@@ -288,6 +290,8 @@ class DashboardExportTests(unittest.TestCase):
         self.assertIn("custom:estadi-energy-plan-card", rendered)
         self.assertIn("sensor.energy_plan_timeline", rendered)
         self.assertIn("button.energy_preflight", rendered)
+        self.assertIn("button.energy_charge_limits", rendered)
+        self.assertIn("button.lab_more_controls", rendered)
         self.assertNotIn("number.set_value", rendered)
         self.assertNotIn("select.select_option", rendered)
 

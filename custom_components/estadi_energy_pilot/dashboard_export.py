@@ -18,7 +18,7 @@ from typing import Mapping
 FORECAST_CARD_JS = "estadi-energy-pilot-ui-v046.js"
 # Increment together with manifest version. HA caches /local/ assets for weeks.
 # A new resource URL forces every client to load newly introduced custom cards.
-FORECAST_CARD_RESOURCE = "/local/" + FORECAST_CARD_JS + "?v=0.5.2"
+FORECAST_CARD_RESOURCE = "/local/" + FORECAST_CARD_JS + "?v=0.5.3"
 
 
 def _quote(value: str) -> str:
@@ -438,7 +438,9 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
         test_button("limits", "Sprawdź limity i fazy"),
         test_button("forecast", "Sprawdź prognozę 48h"),
         test_button("tou", "Sprawdź Deye TOU"),
-        test_button("write_capability", "Sprawdź możliwość regulacji"),
+        test_button("write_capability", "Regulatory 1/2"),
+        test_button("write_capability_more", "Regulatory 2/2"),
+        test_button("charge_limits", "Konfigurowalne limity"),
         test_button("preflight", "Sprawdź gotowość sterowania"),
     ]
     lab_buttons = [card for card in lab_buttons if card]
@@ -466,7 +468,8 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                 "      entity_id: " + _quote(entities["lab_" + key]) + "\n"
                 for key in (
                     "meters", "polarity", "limits", "forecast",
-                    "tou", "write_capability", "preflight"
+                    "tou", "write_capability", "write_capability_more",
+                    "charge_limits", "preflight"
                 ) if entities.get("lab_" + key)
             )
         )
@@ -480,7 +483,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
 
     overview = _control_cockpit_card(entities, sources)
     return (
-        "# ESTADI Energy Pilot — zarządzany pulpit, v0.5.1\n"
+        "# ESTADI Energy Pilot — zarządzany pulpit, v0.5.3\n"
         "title: \"ESTADI Energy Pilot\"\n"
         "views:\n"
         + view("Pulpit", "estadi-energia", "mdi:view-dashboard",

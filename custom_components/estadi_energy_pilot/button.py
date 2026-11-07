@@ -8,6 +8,7 @@ from pathlib import Path
 from homeassistant.components.button import ButtonEntity
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr
 
 from .const import (
     DOMAIN, CONF_BATTERY_SOC, CONF_BATTERY_POWER, CONF_GRID_POWER, CONF_PV_POWER, CONF_HOME_POWER,
@@ -285,7 +286,8 @@ class LabTestButton(ButtonEntity):
             # more reliable discovery than searching for "deye" in entity IDs.
             # This only reads Entity Registry; never sends a control service.
             related_entities = set()
-            if self.test == "write_capability":
+            reported_model = None
+            if self.test in ("write_capability", "write_capability_more"):
                 registry = er.async_get(self.coordinator.hass)
                 monitored = {
                     settings.get(CONF_GRID_POWER),
@@ -301,6 +303,22 @@ class LabTestButton(ButtonEntity):
                         ("number.", "select.", "switch.")
                     )
                 }
+            if self.test == "charge_limits":
+                registry = er.async_get(self.coordinator.hass)
+                monitored = {
+                    settings.get(CONF_GRID_POWER),
+                    settings.get(CONF_BATTERY_POWER),
+                }
+                devices = {
+                    item.device_id for item in registry.entities.values()
+                    if item.entity_id in monitored and item.device_id
+                }
+                if len(devices) == 1:
+                    device = dr.async_get(self.coordinator.hass).async_get(
+                        next(iter(devices))
+                    )
+                    if device is not None:
+                        reported_model = device.model
             result = inspect_test(
                 self.test,
                 states=self.coordinator.hass.states,
@@ -308,6 +326,7 @@ class LabTestButton(ButtonEntity):
                 coordinator_data=data,
                 now=datetime.now(timezone.utc),
                 same_deye_device_entities=related_entities,
+                deye_device_model=reported_model,
             )
         except Exception as exc:
             _LOGGER.exception("Błąd diagnostyki %s", self.test)

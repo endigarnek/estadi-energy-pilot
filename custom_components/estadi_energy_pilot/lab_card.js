@@ -14,12 +14,16 @@
   const TEST_LABELS = {
     meters: "Odczyty Deye", polarity: "Kierunki mocy", limits: "Przyłącze i fazy",
     forecast: "Prognoza i plan", tou: "Programy Deye TOU",
-    write_capability: "Dostępne regulatory", preflight: "Gotowość sterowania"
+    write_capability: "Regulatory 1/2",
+    write_capability_more: "Regulatory 2/2",
+    charge_limits: "Nastawy ładowania", preflight: "Gotowość sterowania"
   };
   const TEST_ICON = {
     meters: "gauge", polarity: "swap-horizontal", limits: "shield-check",
     forecast: "chart-timeline-variant", tou: "clock-outline",
-    write_capability: "tune", preflight: "clipboard-check-outline"
+    write_capability: "tune", write_capability_more: "format-list-numbered",
+    charge_limits: "battery-charging",
+    preflight: "clipboard-check-outline"
   };
   class Lab extends HTMLElement {
     constructor() {
@@ -76,14 +80,56 @@
     }
     _details(result) {
       if (!result.test) return '<p class="empty">Naciśnij test powyżej. Wynik pojawi się tutaj, bez przechodzenia do narzędzi deweloperskich.</p>';
-      if (result.test === "write_capability") {
+      if (["write_capability", "write_capability_more"].includes(result.test)) {
         const count = result.discovered ?? 0;
-        return '<div class="result-head"><h3>' + esc(count) + ' potencjalnych regulatorów</h3>'+
+        return '<div class="result-head"><h3>Regulatory: strona '+
+          esc(result.page ?? 1)+' / '+esc(result.pages ?? 1)+' · '+esc(count)+' wszystkich</h3>'+
           '<span>Wspólne urządzenie Deye: '+esc(result.same_deye_device_count ?? 0)+'</span></div>'+
           '<p class="note">To kandydaci z Home Assistant. Odczyt zakresów nie dowodzi, że falownik przyjmie zmianę. Nie wysłano żadnych poleceń.</p>'+
           this._table(result.candidates || []) +
-          (result.truncated ? '<p class="warning">Lista została skrócona do 40 pozycji.</p>' : '') +
+          (result.remaining > 0 ? '<p class="warning">Pozostało '+esc(result.remaining)+
+             ' regulatorów. Uruchom „Regulatory 2/2”, aby je zobaczyć i skopiować.</p>' : '') +
           '<button class="copy" type="button" data-copy="1"><ha-icon icon="mdi:content-copy"></ha-icon> Kopiuj wykaz encji</button>';
+      }
+      if (result.test === "charge_limits") {
+        const entries = [
+          ["Prąd ładowania z sieci", result.settings?.grid_charge_current],
+          ["Maks. prąd ładowania", result.settings?.max_charge_current],
+          ["Limit importu ustawiony w Deye", result.settings?.max_grid_import],
+          ["Próg peak shaving", result.settings?.peak_shaving]
+        ];
+        const table = entries.map(([label, setting]) => {
+          const unit = setting?.unit || "";
+          const v = setting?.value;
+          const range = setting?.min_ui != null && setting?.max_ui != null ?
+            String(setting.min_ui)+"–"+String(setting.max_ui) : "nieznany";
+          return '<div class="limit"><span>'+esc(label)+'</span><strong>'+
+              esc(v == null ? "Brak danych" : v+" "+unit)+'</strong>'+
+              '<small>Konfigurowalne · zakres encji '+esc(range)+
+              ' · bez potwierdzenia BMS</small></div>';
+        }).join("");
+        const estimated=result.approximate_dc_charge_kw_at_current_setting;
+        return '<p class="note">Zakresy edycji Home Assistant nie są fizycznymi limitami BMS. '+
+          'Nie wysyłamy żadnych zapisów do falownika.</p>'+
+          '<div class="values limits">'+table+'</div>'+
+          '<p class="note">Limit przyłącza w ESTADI: <b>'+
+          esc(plain(result.contracted_connection_kw))+' kW</b>. '+
+          'Orientacyjna moc DC przy bieżącej nastawie: <b>'+
+          esc(estimated == null ? "brak aktualnego napięcia" : estimated+" kW")+
+          '</b> — to nie limit AC ani potwierdzenie bezpieczeństwa.</p>'+
+          (result.inverter_setting_above_connection_limit ?
+           '<p class="warning">Nastawa maksymalnego importu w Deye jest większa '+
+           'niż limit przyłącza w ESTADI. Nie podnoś jej automatycznie.</p>' : '') +
+          '<p class="note">Producent podaje 280 A maks. prądu baterii dla modelu '+
+          'SUN-15K-SG05LP3-EU-SM2. To dane REFERENCYJNE — dokładny model na '+
+          'tej instalacji: <b>'+esc(result.model_reference?.device_model_from_ha_registry||
+            "niepotwierdzony")+'</b>. '+
+          (result.model_reference?.matched_exact_official_model ?
+            'Zgodny symbol w rejestrze HA (nadal zweryfikuj tabliczkę).' :
+            'Bez zgodnego modelu nie stosujemy tej wartości jako limitu.')+
+          '</p>'+
+          '<p class="warning">Do aktywnego sterowania wymagane są potwierdzenie BMS, '+
+          'limity faz, test fizycznego odczytu zwrotnego i cofania zmian.</p>';
       }
       if (result.test === "preflight") {
         const blockers = (result.blockers || []).map(s =>
@@ -141,14 +187,29 @@
         "Przyczyna: " + plain(result.reason),
         "Wysłane polecenia do Deye: NIE",
       ];
-      if(result.test==="write_capability"){
+      if(["write_capability","write_capability_more"].includes(result.test)){
         lines.push("Wykrytych kandydatów: " + plain(result.discovered));
+        lines.push("Strona: " + plain(result.page || 1) +
+          " / " + plain(result.pages || 1));
         for(const c of result.candidates || []){
           lines.push([c.entity,c.label,"obecnie="+plain(c.state),
             "typ="+plain(c.domain),"jednostka="+plain(c.unit),
             "min="+plain(c.min),"max="+plain(c.max),"krok="+plain(c.step),
             "opcje="+(c.options||[]).join("|"),
             "źródło="+plain(c.detected_by)].join(" ; "));
+        }
+      } else if(result.test==="charge_limits") {
+        lines.push("Model według rejestru HA: "+
+          plain(result.model_reference?.device_model_from_ha_registry));
+        lines.push("Model 15 kW SUN-15K-SG05LP3-EU-SM2 (tylko odniesienie): 280 A; "+
+          "inne modele wymagają osobnej weryfikacji");
+        lines.push("Limit przyłącza (ESTADI): "+plain(result.contracted_connection_kw)+" kW");
+        lines.push("Przybliżona moc DC przy bieżącym ustawieniu: "+
+          plain(result.approximate_dc_charge_kw_at_current_setting)+" kW");
+        for(const [k,v] of Object.entries(result.settings||{})){
+          lines.push(k+": "+plain(v.value)+" "+plain(v.unit)+
+            " ; zakres UI="+plain(v.min_ui)+"–"+plain(v.max_ui)+
+            " ; nastawa konfigurowalna, bez potwierdzenia BMS");
         }
       } else if(result.test==="preflight") {
         for(const blocker of result.blockers || []) lines.push("BLOKADA: "+blocker);
@@ -216,6 +277,7 @@
         '.copy{margin-top:11px;background:var(--surface);color:#198368}.warning{font-size:12px;color:#b78334;line-height:1.5}',
         '.values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.values div{padding:10px;background:var(--soft);border-radius:9px;min-width:0}',
         '.values span{display:block;font-size:10px;color:var(--muted)}.values b{font-size:12px;display:block;margin-top:6px;overflow-wrap:anywhere}',
+        '.limits .limit{background:var(--soft);padding:11px;border-radius:10px}.limit span,.limit small{display:block;font-size:11px;color:var(--muted)}.limit strong{display:block;font-size:16px;margin:5px 0}.limit small{font-size:10px}',
         '.blockers{padding-left:22px;font-size:12px;line-height:1.6}.blockers li{margin-bottom:3px}',
         '.notice{font-size:12px;color:#269775;margin-top:9px}',
         '@media(max-width:850px){.tests{grid-template-columns:repeat(2,minmax(0,1fr))}.values{grid-template-columns:repeat(2,minmax(0,1fr))}}',
