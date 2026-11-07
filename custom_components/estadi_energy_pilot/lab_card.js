@@ -120,6 +120,14 @@
           (result.inverter_setting_above_connection_limit ?
            '<p class="warning">Nastawa maksymalnego importu w Deye jest większa '+
            'niż limit przyłącza w ESTADI. Nie podnoś jej automatycznie.</p>' : '') +
+          '<p class="note">Producent podaje 280 A maks. prądu baterii dla modelu '+
+          'SUN-15K-SG05LP3-EU-SM2. To dane REFERENCYJNE — dokładny model na '+
+          'tej instalacji: <b>'+esc(result.model_reference?.device_model_from_ha_registry||
+            "niepotwierdzony")+'</b>. '+
+          (result.model_reference?.matched_exact_official_model ?
+            'Zgodny symbol w rejestrze HA (nadal zweryfikuj tabliczkę).' :
+            'Bez zgodnego modelu nie stosujemy tej wartości jako limitu.')+
+          '</p>'+
           '<p class="warning">Do aktywnego sterowania wymagane są potwierdzenie BMS, '+
           'limity faz, test fizycznego odczytu zwrotnego i cofania zmian.</p>';
       }
@@ -191,6 +199,10 @@
             "źródło="+plain(c.detected_by)].join(" ; "));
         }
       } else if(result.test==="charge_limits") {
+        lines.push("Model według rejestru HA: "+
+          plain(result.model_reference?.device_model_from_ha_registry));
+        lines.push("Model 15 kW SUN-15K-SG05LP3-EU-SM2 (tylko odniesienie): 280 A; "+
+          "inne modele wymagają osobnej weryfikacji");
         lines.push("Limit przyłącza (ESTADI): "+plain(result.contracted_connection_kw)+" kW");
         lines.push("Przybliżona moc DC przy bieżącym ustawieniu: "+
           plain(result.approximate_dc_charge_kw_at_current_setting)+" kW");
