@@ -398,6 +398,45 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                 result += indent(card.rstrip(), "          ") + "\n"
         return result
 
+    def test_button(key: str, title: str) -> str:
+        eid = entities.get("lab_" + key)
+        if not eid:
+            return ""
+        return (
+            "- type: button\n"
+            "  entity: " + _quote(eid) + "\n"
+            "  name: " + _quote(title) + "\n"
+            "  icon: mdi:flask-outline\n"
+            "  show_state: false\n"
+            "  tap_action:\n"
+            "    action: perform-action\n"
+            "    perform_action: button.press\n"
+            "    target:\n"
+            "      entity_id: " + _quote(eid) + "\n"
+        )
+
+    lab_buttons = [
+        test_button("meters", "Sprawdź pomiar Deye"),
+        test_button("polarity", "Sprawdź kierunki mocy"),
+        test_button("limits", "Sprawdź limity i fazy"),
+        test_button("forecast", "Sprawdź prognozę 48h"),
+        test_button("tou", "Sprawdź Deye TOU"),
+        test_button("write_capability", "Sprawdź możliwość regulacji"),
+    ]
+    lab_buttons = [card for card in lab_buttons if card]
+    lab_result = entities.get("lab_status")
+    lab_info = [_markdown("Laboratorium Deye",
+        "**Wszystkie przyciski są testami tylko do odczytu.** "
+        "Nie wysyłają komend, nie zmieniają mocy ładowania i nie zapisują "
+        "ustawień falownika. Test możliwości regulacji wykrywa wyłącznie "
+        "potencjalne encje number, select lub switch. "
+        "**Rzeczywisty test zmiany mocy wymaga potwierdzenia modelu, "
+        "semantyki komendy, odczytu zwrotnego i sposobu przywrócenia ustawień.**")]
+    if lab_result:
+        lab_info.append("- type: entities\n"
+                        "  title: \"Wynik ostatniego testu — dotknij po szczegóły\"\n"
+                        "  entities:\n"
+                        "    - entity: " + _quote(lab_result) + "\n")
     overview = _control_cockpit_card(entities, sources)
     return (
         "# ESTADI Energy Pilot — zarządzany pulpit, v0.4.8\n"
@@ -428,6 +467,12 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
              [cards[10], cards[11]]),
             ("Niepewność ładowania EV", "mdi:car-electric",
              [cards[18]]),
+        ])
+        + view("Testy", "estadi-testy", "mdi:flask-outline", [
+            ("Diagnostyka bez sterowania", "mdi:shield-check",
+             lab_info),
+            ("Uruchom test", "mdi:flask-outline",
+             lab_buttons),
         ])
         + view("Diagnostyka", "estadi-diagnostyka", "mdi:stethoscope", [
             ("Stan bezpieczeństwa", "mdi:shield-check-outline",
