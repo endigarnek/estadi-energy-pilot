@@ -10,7 +10,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 
 from .const import (
-    DOMAIN, CONF_BATTERY_SOC, CONF_BATTERY_POWER, CONF_PV_POWER, CONF_HOME_POWER,
+    DOMAIN, CONF_BATTERY_SOC, CONF_BATTERY_POWER, CONF_GRID_POWER, CONF_PV_POWER, CONF_HOME_POWER,
     CONF_EV_POWER, CONF_HEAT_PUMP_POWER,
 )
 from .dashboard_export import (
@@ -263,12 +263,33 @@ class LabTestButton(ButtonEntity):
             **self.entry.data, **self.entry.options,
         }
         try:
+            # Same device as the configured Deye grid/battery meters gives
+            # more reliable discovery than searching for "deye" in entity IDs.
+            # This only reads Entity Registry; never sends a control service.
+            related_entities = set()
+            if self.test == "write_capability":
+                registry = er.async_get(self.coordinator.hass)
+                monitored = {
+                    settings.get(CONF_GRID_POWER),
+                    settings.get(CONF_BATTERY_POWER),
+                }
+                devices = {
+                    item.device_id for item in registry.entities.values()
+                    if item.entity_id in monitored and item.device_id
+                }
+                related_entities = {
+                    item.entity_id for item in registry.entities.values()
+                    if item.device_id in devices and item.entity_id.startswith(
+                        ("number.", "select.", "switch.")
+                    )
+                }
             result = inspect_test(
                 self.test,
                 states=self.coordinator.hass.states,
                 selected=settings,
                 coordinator_data=data,
                 now=datetime.now(timezone.utc),
+                same_deye_device_entities=related_entities,
             )
         except Exception as exc:
             _LOGGER.exception("Błąd diagnostyki %s", self.test)
