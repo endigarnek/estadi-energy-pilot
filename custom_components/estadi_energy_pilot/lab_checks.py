@@ -16,6 +16,7 @@ from .const import (
 )
 from .grid_monitor import build_grid_readout, read_source
 from .deye_tou import inspect_tou
+from .inverter_specs import comparison_for_laboratory
 
 DIAGNOSTIC_TESTS = {
     "meters": "Sprawdź odczyty sieci i baterii",
@@ -35,7 +36,8 @@ def _result(kind: str, status: str, reason: str, **data) -> dict:
 
 
 def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
-                 now: datetime, same_deye_device_entities: set[str] | None = None) -> dict:
+                 now: datetime, same_deye_device_entities: set[str] | None = None,
+                 deye_device_model: str | None = None) -> dict:
     """Return a structured and auditable result from actual HA states only."""
     if kind not in DIAGNOSTIC_TESTS:
         raise ValueError("Nieznany test ESTADI")
@@ -161,6 +163,7 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
             kind, "informacja",
             "To konfigurowalne nastawy Deye, a nie stałe limity fizyczne.",
             settings=settings, battery_voltage_v=battery_voltage,
+            model_reference=comparison_for_laboratory(deye_device_model),
             approximate_dc_charge_kw_at_current_setting=approx_dc_kw,
             contracted_connection_kw=contracted_grid_kw,
             inverter_import_setting_kw=(
