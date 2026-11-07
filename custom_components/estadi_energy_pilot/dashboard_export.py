@@ -452,6 +452,12 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                         "  title: \"Wynik ostatniego testu — dotknij po szczegóły\"\n"
                         "  entities:\n"
                         "    - entity: " + _quote(lab_result) + "\n")
+    full_plan = (
+        "- type: custom:estadi-energy-plan-card\n"
+        "  entity: " + _quote(entities["plan_timeline"]) + "\n"
+    ) if entities.get("plan_timeline") else _markdown(
+        "Plan dobowy", "Brakuje encji harmonogramu 48h — odśwież integrację.")
+
     overview = _control_cockpit_card(entities, sources)
     return (
         "# ESTADI Energy Pilot — zarządzany pulpit, v0.4.8\n"
@@ -470,6 +476,8 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
              [cards[1]]),
         ])
         + view("Prognoza 48h", "estadi-prognoza", "mdi:chart-timeline-variant", [
+            ("Rzeczywisty plan magazynu (tylko symulacja)", "mdi:battery-clock",
+             [full_plan]),
             ("Prognoza godzinowa", "mdi:chart-bell-curve-cumulative",
              [cards[8]]),
             ("Scenariusz 48 godzin", "mdi:calendar-clock",
@@ -540,6 +548,7 @@ def _control_cockpit_card(entities: Mapping[str, str], sources: Mapping[str, str
         "sim_soc_end": entities.get("sim_soc_end"),
         "next_cheap": entities.get("next_cheap"),
         "history_status": entities.get("history_status"),
+        "plan_timeline": entities.get("plan_timeline"),
     }
     return ("- type: custom:estadi-energy-control-card\n" +
             "".join("  entity_" + key + ": " + _quote(eid) + "\n"
@@ -641,7 +650,8 @@ def export_files(directory: str | Path, full: str, mini: str,
         "estadi-energy-forecast-card" not in javascript or
         "estadi-energy-overview-card" not in javascript or
         "estadi-energy-control-card" not in javascript or
-        "estadi-energy-details-card" not in javascript
+        "estadi-energy-details-card" not in javascript or
+        "estadi-energy-plan-card" not in javascript
     ):
         raise ValueError("Nieprawidłowy kod kart ESTADI")
 
