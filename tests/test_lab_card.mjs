@@ -34,7 +34,7 @@ test("Deye candidates display readable metadata and copy complete inventory",()=
   discovered:2,same_deye_device_count:1,checked_at:"2026-11-07",
   reason:"To tylko odczyt",candidates:[
    {entity:"number.program_1_power",label:"Deye TOU power",
-    state:"5000",unit:"W",min:0,max:10000,step:100,
+    state:"5000",domain:"number",unit:"W",min:0,max:10000,step:100,
     detected_by:"same_deye_device",options:[]},
    {entity:"switch.deye_grid_charge",label:"Grid charging",
     state:"off",detected_by:"name_match",options:[]}
