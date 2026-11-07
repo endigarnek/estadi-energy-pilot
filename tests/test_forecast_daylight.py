@@ -74,6 +74,7 @@ class WinterCoverageTests(unittest.TestCase):
         report = geometry.summarize_forecast(self.now,self.pv,latitude=LATITUDE,longitude=LONGITUDE)
         self.assertEqual(report["missing_daylight_steps"],0,report)
         self.assertEqual(report["covered_daylight_pct"],100.0)
+        self.assertEqual(report["continuous_daylight_steps"],report["required_daylight_steps"])
 
     def test_missing_actual_midday_forecast_remains_blocked(self):
         midday = datetime(2026,11,8,12,0,tzinfo=WARSAW).astimezone(timezone.utc)
@@ -84,6 +85,8 @@ class WinterCoverageTests(unittest.TestCase):
         report = geometry.summarize_forecast(self.now,slots,latitude=LATITUDE,longitude=LONGITUDE)
         self.assertGreater(report["missing_daylight_steps"],0)
         self.assertIsNotNone(report["first_missing_daylight_at"])
+        self.assertLess(report["continuous_daylight_steps"],report["required_daylight_steps"])
+        self.assertIn("+01:00",report["first_missing_daylight_at"])
 
     def test_without_location_legacy_guard_remains_strict(self):
         sim=self.simulate()
