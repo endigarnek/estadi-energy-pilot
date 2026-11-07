@@ -183,8 +183,23 @@
           '<li>'+esc(v)+'</li>').join("");
         const times=(result.time_entities||[]).map(v=>
           '<li><code>'+esc(v.entity)+'</code> · '+esc(plain(v.value))+'</li>').join("");
+        const alignment=result.plan_window_alignment||{};
+        const plannedStart=alignment.plan_start_local;
+        const plannedEnd=alignment.plan_end_local;
+        const mismatch=plannedStart && plannedEnd && (
+          alignment.start_aligned===false || alignment.end_aligned===false
+        );
+        const boundaryText=mismatch
+          ?'<p class="warning">Planowane okno '+esc(plannedStart)+'–'+esc(plannedEnd)+
+           ' nie pokrywa się z granicami aktualnych sześciu okresów TOU. '+
+           'Nie wolno wprost kopiować tego planu do falownika.</p>'
+          :'';
+        const readout='<p class="note"><b>Odczyt TOU: '+esc(plain(result.read_fields))+
+          '/24 poprawny. Sterowanie: ZABLOKOWANE.</b> '+
+          'Sama możliwość odczytu nie potwierdza możliwości zapisu.</p>';
         return '<div class="result-head"><h3>Mapowanie harmonogramu Deye</h3>'+
           '<span>'+esc(plain(result.read_fields))+' / 24 pól</span></div>'+
+          readout+boundaryText+
           '<div class="values">'+
           '<div><span>Time of Use</span><b>'+esc(plain(result.tou_mode_raw))+'</b></div>'+
           '<div><span>Grid Charge globalnie</span><b>'+
@@ -201,6 +216,9 @@
           (times?'<ul class="blockers">'+times+'</ul>':
              '<p class="warning">Nie wykryto encji time.* na urządzeniu Deye. '+
              'Zegar może pochodzić z innej domeny lub integracja nie wystawia go jako osobnej encji.</p>')+
+          '<p class="note">Kopia bieżących ustawień (migawka w pamięci): <b>'+
+          esc(result.commissioning_snapshot_in_memory?"Możliwa":"Niekompletna")+
+          '</b>. Trwały backup i automatyczne przywracanie: <b>NIE</b>.</p>'+
           '<p class="note">Protokół BMS z rejestru: <b>'+
           esc(plain(result.bms_protocol_raw))+
           '</b>. To nie oznacza potwierdzenia limitów prądowych baterii.</p>'+
@@ -237,6 +255,16 @@
         lines.push("Programy Grid/Both: "+
           (result.grid_charging_programs||[]).join(", "));
         lines.push("Odczytane pola TOU: "+plain(result.read_fields)+" / 24");
+        lines.push("Odczyt TOU: "+plain(result.readback_status));
+        lines.push("Gotowość sterowania: "+plain(result.operational_status));
+        const a=result.plan_window_alignment||{};
+        lines.push("Granice TOU: "+(a.tou_boundaries_local||[]).join(", "));
+        if(a.plan_start_local && a.plan_end_local){
+          lines.push("Okno planu: "+a.plan_start_local+"–"+a.plan_end_local);
+          lines.push("Start zgodny z granicami TOU: "+plain(a.start_aligned));
+          lines.push("Koniec zgodny z granicami TOU: "+plain(a.end_aligned));
+        }
+        lines.push("Trwały backup: NIE; zapis: NIE; automatyczny rollback: NIE");
         for(const row of result.slots||[]){
           const field=name=>{
             const cell=row[name]||{};
@@ -251,6 +279,8 @@
           lines.push(plain(row.entity)+" = "+plain(row.value));
         for(const problem of result.operational_blockers||[])
           lines.push("BLOKADA: "+plain(problem));
+        for(const problem of result.commissioning_blockers||[])
+          lines.push("WARUNEK URUCHOMIENIA: "+plain(problem));
         lines.push("BMS: "+plain(result.bms_protocol_raw)+
           " (brak potwierdzenia parametrów BMS)");
       } else if(result.test==="charge_limits") {
