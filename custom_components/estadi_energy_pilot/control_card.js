@@ -101,7 +101,24 @@
      const simHours=this.n("sim_hours",0,48),simStatus=this.state("sim_status");
      const ready=simStatus==="gotowa"&&simHours!==null&&simHours>=47.75;
      const simReason=this.entity("sim_status")?.attributes?.przyczyna||"";
-     const planReason=this.entity("smart_charge_status")?.attributes?.przyczyna||"";
+     const planAttrs=this.entity("smart_charge_status")?.attributes||{};
+     const planReason=planAttrs.przyczyna||"";
+     const socAtChargeStart=num(planAttrs.soc_przed_planowanym_ladowaniem);
+     const socNoChargeEnd=num(planAttrs.soc_na_koniec_bez_ladowania);
+     const socWithPlanEnd=num(planAttrs.prognozowany_soc_na_koniec);
+     const forecastedDrop=planAttrs.cel_nizszy_od_obecnego_przez_przyszle_zuzycie===true;
+     const planExplain=planned && socAtChargeStart!==null && socNoChargeEnd!==null &&
+       socWithPlanEnd!==null
+       ? '<div class="soc-explain"><div class="soc-head">Dlaczego taki cel SOC?</div>'+
+         '<div class="soc-line"><span>Teraz <b>'+esc(fmt(soc,0))+'%</b></span>'+
+         '<span>Przed ładowaniem <b>'+esc(fmt(socAtChargeStart,0))+'%</b></span>'+
+         '<span>Bez ładowania na koniec <b>'+esc(fmt(socNoChargeEnd,0))+'%</b></span>'+
+         '<span>Z planem na koniec <b>'+esc(fmt(socWithPlanEnd,0))+'%</b></span></div>'+
+         (forecastedDrop
+           ?'<div class="soc-hint">Cel jest niższy od obecnego SOC, bo prognozowane zużycie do końca okna obniży poziom baterii.</div>'
+           :'<div class="soc-hint">'+esc(planAttrs.wyjasnienie_decyzji||"To prognoza, a nie wykonanie ładowania.")+'</div>')+
+         '</div>'
+       : planned ? '<div class="soc-explain">Brakuje prognozowanych punktów SOC do uzasadnienia planu.</div>' : '';
      const hourlyPlan=this.entity("plan_timeline");
      const hourlyRows=hourlyPlan?.attributes?.godziny;
      const planIsComplete=hourlyPlan?.state==="gotowy";
@@ -152,8 +169,9 @@
      'svg{display:block;width:100%;height:94px}.empty{padding:24px 5px;text-align:center;font-size:11px;color:var(--muted)}',
      '.legend{display:flex;gap:13px;font-size:10px;color:var(--muted)}.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:#e4a43b}.legend .real{background:#248eab}',
      '.plan-mini{margin-top:9px}.plan-mini span,.plan-small{font-size:10px;color:var(--muted)}.plan-mini svg{height:58px;margin-top:3px}.plan-small{margin-top:9px}',
+     '.soc-explain{margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:11px}.soc-head{font-weight:750;margin-bottom:7px}.soc-line{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.soc-line span{font-size:10px;color:var(--muted)}.soc-line b{display:block;margin-top:3px;color:var(--text);font-size:13px}.soc-hint{font-size:10.5px;color:var(--muted);line-height:1.45;margin-top:7px}',
      '@media(max-width:900px){.cols,.lower{grid-template-columns:1fr}}',
-     '@media(max-width:500px){.shell{padding:4px;gap:8px}.card{padding:10px;border-radius:12px}.flow{grid-template-columns:minmax(0,1fr) 57px minmax(0,1fr);gap:4px}.node{gap:4px;padding:5px}.node strong{font-size:15px}.node ha-icon{--mdc-icon-size:16px}.node span,.node small{font-size:9px}.metric strong{font-size:16px}.chart-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}'
+     '@media(max-width:500px){.soc-line{grid-template-columns:repeat(2,minmax(0,1fr))}.shell{padding:4px;gap:8px}.card{padding:10px;border-radius:12px}.flow{grid-template-columns:minmax(0,1fr) 57px minmax(0,1fr);gap:4px}.node{gap:4px;padding:5px}.node strong{font-size:15px}.node ha-icon{--mdc-icon-size:16px}.node span,.node small{font-size:9px}.metric strong{font-size:16px}.chart-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}'
      ].join("");
      this.shadowRoot.innerHTML='<style>'+css+'</style><ha-card><main class="shell">'+
       '<header class="top"><div class="brand"><div class="logo">E</div><div><h1>Centrum energii</h1><div class="sub">ESTADI · Pomiary i plan ładowania</div></div></div>'+
@@ -182,6 +200,7 @@
       this.metric("Docelowy SOC",planned?fmt(this.n("smart_charge_target",0,100),0)+"%":"—","Obecnie "+(soc===null?"—":fmt(soc,0)+"%"))+
       '</div><div class="details"><span>Koniec <b>'+esc(planned?clock(finish):"—")+
       '</b></span><span>Tania strefa <b>'+esc(clock(this.state("next_cheap")))+'</b></span></div>'+
+      planExplain+
       this._chargePreview(hourlyRows,planIsComplete)+
       '<div class="foot">Plan wyłącznie doradczy. Brak danych nie jest zerem ani potwierdzeniem możliwości ładowania.</div>'+
       '</div></section><section class="lower">'+
