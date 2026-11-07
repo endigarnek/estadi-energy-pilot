@@ -108,6 +108,31 @@ test("TOU map shows six Disabled slots and global grid switch off",()=>{
  assert.match(text,/Grid\/Both/);
  assert.match(text,/Wysłane polecenia do Deye: NIE/);
 });
+test("TOU reads 24/24 but clearly blocks physical actuation and shows time mismatch",()=>{
+ const slots=Array.from({length:6},(_,i)=>({
+  slot:i+1,
+  time:{encja:"time.deye_program_"+(i+1)+"_time",
+        wartosc:["01:00","05:00","09:00","13:00","17:00","21:00"][i],status:"ok"},
+  soc:{encja:"number.deye_program_"+(i+1)+"_soc",wartosc:10,status:"ok"},
+  power:{encja:"number.deye_program_"+(i+1)+"_power",wartosc:"15.000 kW",status:"ok"},
+  charging:{encja:"select.deye_program_"+(i+1)+"_charging",wartosc:"Disabled",status:"ok"}
+ }));
+ const card=make({test:"tou",status:"blokada",read_fields:24,
+  readback_status:"ok",readback_complete:true,
+  operational_status:"blokada",tou_mode_raw:"Week",grid_charge_global:"off",
+  commissioning_snapshot_in_memory:true,commissioning_snapshot_persisted:false,
+  commissioning_write_actions:[],
+  plan_window_alignment:{plan_start_local:"01:30",plan_end_local:"04:45",
+   start_aligned:false,end_aligned:false,tou_boundaries_local:[
+     "01:00","05:00","09:00","13:00","17:00","21:00"]},
+  operational_blockers:["Grid Charge wyłączone"],slots});
+ const html=card.shadowRoot.innerHTML;
+ assert.match(html,/Odczyt TOU: 24\/24 poprawny\. Sterowanie: ZABLOKOWANE/);
+ assert.match(html,/01:30–04:45/);
+ assert.match(html,/Trwały backup i automatyczne przywracanie: <b>NIE/);
+ assert.match(card.copyPayload(),/Trwały backup: NIE; zapis: NIE/);
+ assert.doesNotMatch(card.copyPayload(),/Wysłane polecenia do Deye: TAK/);
+});
 test("TOU text from Home Assistant is HTML-escaped",()=>{
  const card=make({test:"tou",status:"blokada",read_fields:0,
   time_entities:[{entity:'time.evil<img src=x onerror="oops()">',value:"01:00:00"}],
