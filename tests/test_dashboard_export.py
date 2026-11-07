@@ -115,7 +115,7 @@ class DashboardExportTests(unittest.TestCase):
     def test_resource_export_creates_js_once_and_respects_edits(self):
         full = mod.render_dashboard(ENTITIES, SOURCES)
         mini = mod.render_mini_widget(ENTITIES, SOURCES)
-        javascript = ("customElements.define('estadi-energy-forecast-card', class extends HTMLElement {});" "customElements.define('estadi-energy-overview-card', class extends HTMLElement {});" "customElements.define('estadi-energy-control-card', class extends HTMLElement {});" "customElements.define('estadi-energy-details-card', class extends HTMLElement {});" "customElements.define('estadi-energy-plan-card', class extends HTMLElement {});")
+        javascript = ("customElements.define('estadi-energy-forecast-card', class extends HTMLElement {});" "customElements.define('estadi-energy-overview-card', class extends HTMLElement {});" "customElements.define('estadi-energy-control-card', class extends HTMLElement {});" "customElements.define('estadi-energy-details-card', class extends HTMLElement {});" "customElements.define('estadi-energy-plan-card', class extends HTMLElement {});" "customElements.define('estadi-energy-lab-card', class extends HTMLElement {});")
         with TemporaryDirectory() as folder:
             first = mod.export_files(folder, full, mini, javascript)
             self.assertEqual(first["forecast_resource_url"], mod.FORECAST_CARD_RESOURCE)
@@ -279,7 +279,8 @@ class DashboardExportTests(unittest.TestCase):
         self.assertIn("sensor.energy_hourly_history", full)
         self.assertIn("estadi-testy", full)
         self.assertIn("button.lab_meters", full)
-        self.assertIn("perform_action: button.press", full)
+        self.assertIn("custom:estadi-energy-lab-card", full)
+        self.assertIn("result_entity: \"sensor.energy_lab_last\"", full)
         self.assertNotIn("number.set_value", full)
 
     def test_full_hourly_plan_and_safe_preflight_are_exported(self):
@@ -289,6 +290,14 @@ class DashboardExportTests(unittest.TestCase):
         self.assertIn("button.energy_preflight", rendered)
         self.assertNotIn("number.set_value", rendered)
         self.assertNotIn("select.select_option", rendered)
+
+    def test_compact_lab_binds_real_button_entities_and_never_writes(self):
+        rendered=mod.render_dashboard(ENTITIES, SOURCES)
+        self.assertIn("custom:estadi-energy-lab-card", rendered)
+        self.assertIn("button.lab_meters", rendered)
+        self.assertIn("button.energy_preflight", rendered)
+        self.assertNotIn("number.set_value", rendered)
+        self.assertNotIn("switch.turn_on", rendered)
 
     def test_path_is_configuration_dir_not_www_or_integration_dir(self):
         with TemporaryDirectory() as folder:
