@@ -170,8 +170,13 @@ def recommend_charge(
         charged_steps = 0
         reached = None
         grid_limit_clips = 0
+        soc_at_start = None
         for i, slot in enumerate(steps):
             energy_before = energy
+            if start_index is not None and i == start_index:
+                # Read the modeled SOC immediately before the planned slot,
+                # not today's SOC. The battery may discharge before this.
+                soc_at_start = 100 * energy_before / energy_capacity
             net = slot["demand"] - slot["solar"]
             shortage = max(0.0, net)
             surplus = max(0.0, -net)
@@ -225,6 +230,7 @@ def recommend_charge(
             "charged_steps": charged_steps,
             "effective_charge_kw_avg": charge_grid / (charged_steps * 0.25) if charged_steps else 0.,
             "reached": reached,
+            "soc_at_start": soc_at_start,
         }
 
     baseline = evaluate(None, 0.0)
@@ -234,6 +240,9 @@ def recommend_charge(
             target_soc=round(target_soc, 1), end_soc=round(baseline["end_soc"], 1),
             grid_charge_kwh=0.0, start=None, power_kw=0.0,
             initial_soc=round(soc, 1), ev_assumed_kw=ev_now_kw,
+            baseline_end_soc=round(baseline["end_soc"], 1),
+            soc_at_charge_start=None,
+            explanation="Przewidywany SOC na końcu okna wystarcza bez zakupu energii",
             soft_limit_kw=soft_limit, tariff=tariff,
         )
 
@@ -285,12 +294,33 @@ def recommend_charge(
         if len(alternative) >= 4:
             break
 
+    # A target lower than today's SOC is not automatically a bad plan:
+    # forecast household consumption can drive SOC below the target before
+    # the tariff window ends. Explain this explicitly rather than displaying
+    # the apparently contradictory current/target pair without context.
+    future_drop = (
+        soc >= target_soc - 0.05
+        and baseline["end_soc"] < target_soc - 0.05
+    )
+    explanation = (
+        "Obecny SOC przekracza cel, ale prognozowane zużycie obniży "
+        "SOC bez doładowania poniżej celu na koniec okna."
+        if future_drop else
+        "Plan uwzględnia przewidywaną produkcję PV i zużycie do końca okna."
+    )
     return _result(
         "wstepny_plan",
         "Zalecenie warunkowe: brak potwierdzenia faz, BMS i przyszłych sesji EV",
         start=start, end_window=end, finish_estimated=chosen["reached"],
         power_kw=round(power, 2), target_soc=round(target_soc, 1),
         initial_soc=round(soc, 1), end_soc=round(chosen["end_soc"], 1),
+        baseline_end_soc=round(baseline["end_soc"], 1),
+        soc_at_charge_start=(
+            round(chosen["soc_at_start"], 1)
+            if chosen["soc_at_start"] is not None else None
+        ),
+        target_below_current_due_to_future_demand=future_drop,
+        explanation=explanation,
         grid_charge_kwh=round(chosen["charge_grid_kwh"], 2),
         extra_grid_kwh=round(chosen["import_kwh"] - baseline["import_kwh"], 2),
         grid_peak_kw=round(chosen["grid_peak_kw"], 2),
