@@ -127,6 +127,54 @@ class LabTests(unittest.TestCase):
         self.assertEqual(r["candidates"][0]["detected_by"],"same_deye_device")
         self.assertFalse(r["command_sent"])
 
+    def test_78_controls_are_available_on_two_pages_without_loss(self):
+        for idx in range(78):
+            eid = f"number.deye_program_{idx + 1}_power"
+            self.states.data[eid] = sample(eid, 1000+idx)
+        first = self.check("write_capability")
+        second = self.check("write_capability_more")
+        self.assertEqual(first["discovered"], 78)
+        self.assertEqual(first["page"], 1)
+        self.assertEqual(second["page"], 2)
+        self.assertEqual(first["shown"], 40)
+        self.assertEqual(second["shown"], 38)
+        names = [c["entity"] for c in first["candidates"] + second["candidates"]]
+        self.assertEqual(len(names), 78)
+        self.assertEqual(len(set(names)), 78)
+        self.assertFalse(first["command_sent"])
+        self.assertFalse(second["command_sent"])
+
+    def test_configurable_40_amp_is_not_a_hardware_cap(self):
+        for eid,val,unit in (
+            ("number.deye_battery_grid_charging_current",40,"A"),
+            ("number.deye_battery_max_charging_current",200,"A"),
+            ("number.deye_grid_max_import_power",31000,"W"),
+            ("number.deye_grid_peak_shaving",8000,"W"),
+            ("sensor.deye_battery_voltage",48,"V"),
+        ):
+            item=sample(eid,val,unit)
+            if eid.startswith("number."):
+                item.attributes.update(min=0,max=350,step=1)
+            self.states.data[eid]=item
+        out=self.check("charge_limits")
+        self.assertEqual(out["status"],"informacja")
+        self.assertEqual(out["settings"]["grid_charge_current"]["value"],40)
+        self.assertTrue(out["settings"]["grid_charge_current"]["configurable"])
+        self.assertFalse(out["settings"]["grid_charge_current"]["physical_hardware_limit"])
+        self.assertEqual(out["approximate_dc_charge_kw_at_current_setting"],1.92)
+        self.assertEqual(out["contracted_connection_kw"],15)
+        self.assertEqual(out["inverter_import_setting_kw"],31)
+        self.assertTrue(out["inverter_setting_above_connection_limit"])
+        self.assertFalse(out["current_change_allowed"])
+        self.assertFalse(out["command_sent"])
+
+    def test_settings_remain_readable_if_inverter_setpoint_last_changed_long_ago(self):
+        self.states.data["number.deye_battery_grid_charging_current"] = sample(
+            "number.deye_battery_grid_charging_current",40,"A",ago=200000)
+        out=self.check("charge_limits")
+        self.assertEqual(out["settings"]["grid_charge_current"]["value"],40)
+        self.assertIsNone(out["approximate_dc_charge_kw_at_current_setting"])
+
     def test_unavailable_source_is_not_silently_zero(self):
         self.states.data["sensor.deye_grid_power"]=sample("sensor.deye_grid_power",1500,ago=500)
         r=self.check("meters")
