@@ -34,6 +34,7 @@ from .deye_tou import inspect_tou, snapshot_config, changed_fields
 from .dry_run import DryRunJournal, evaluate_dry_run
 from .forecast_accuracy import AccuracyJournal
 from .scenario_economics import compare_scenarios
+from .plan_timeline import build_plan_timeline
 from .load_calibration import analyze_load_history, analyze_ev_history, pv_bias_guidance
 from .heat_pump_learning import train_heat_pump, preview_48h
 from .pump_excess import inspect_pump_excess
@@ -657,6 +658,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                 grid_buffer_kw=float(selected[CONF_GRID_BUFFER]),
                 ev_now_kw=self._kw_or_none(CONF_EV_POWER),
                 future_ev_stress=ev_risk if ev_risk.get("risk_ready") else None,
+                latitude=lat, longitude=lon,
             )
         except (ValueError, TypeError, KeyError, ZeroDivisionError) as err:
             _LOGGER.warning("48h scenario economy comparison unavailable: %s", err)
@@ -666,6 +668,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                 "realized_savings_pln": None, "savings_pln": None,
                 "plan_written_to_deye": False,
             }
+        v2_info["plan_timeline"] = build_plan_timeline(v2_info.get("scenario_economics"))
         v2_info["current_soc_pct"] = round(soc, 1)
         # Never advertise a charging decision while grid polarity is
         # unverified, when limits are unknown, or on whole-day cheap holidays.

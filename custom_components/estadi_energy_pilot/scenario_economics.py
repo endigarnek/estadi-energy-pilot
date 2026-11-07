@@ -18,6 +18,7 @@ from .battery_model import BatteryModel
 from .engine import PvSlot, TempSlot, pump_power_w
 from .simulation_48h import _slot_energy, _temperature, _base_kwh_per_hour
 from .tariffs import WARSAW, tariff_zone, is_day_off
+from .solar_geometry import required_forecast
 
 STEP_H = 0.25
 STEPS = 192
@@ -54,11 +55,16 @@ def _valid_prices(prices: dict[str, float] | None, tariff: str) -> bool:
             all((_float(prices.get(key)) or 0) > 0 for key in required))
 
 
-def _sunlight_may_be_missing(moment: datetime, coverage: float) -> bool:
+def _sunlight_may_be_missing(moment: datetime, coverage: float, *,
+                             latitude: float | None = None,
+                             longitude: float | None = None) -> bool:
     local = moment.astimezone(WARSAW)
     summer = 4 <= local.month <= 9
     start, end = (5, 21) if summer else (7, 17)
-    return coverage < .999 and start <= local.hour < end
+    return coverage < .999 and required_forecast(
+        moment if latitude is not None and longitude is not None else local,
+        latitude=latitude, longitude=longitude, legacy_hours=(start, end),
+    )
 
 
 def _evaluate(
@@ -69,6 +75,7 @@ def _evaluate(
     efficiency_pct: float, battery_max_kw: float, grid_limit_kw: float,
     buffer_kw: float, ev_kw: float | None, plan: dict | None,
     future_ev_stress: dict | None = None,
+    latitude: float | None = None, longitude: float | None = None,
 ) -> dict:
     """Calculate one strategy with 15-minute physical energy bookkeeping."""
     store_capacity = model.estimated_chemical_capacity_kwh
@@ -105,7 +112,7 @@ def _evaluate(
         next_at = at + timedelta(minutes=15)
         local = at.astimezone(WARSAW)
         raw_pv, pv_coverage = _slot_energy(at, next_at, pv_slots)
-        if _sunlight_may_be_missing(at, pv_coverage):
+        if _sunlight_may_be_missing(at, pv_coverage, latitude=latitude, longitude=longitude):
             stop = f"Brak danych PV w godzinie {local:%d.%m %H:%M}"
             break
         if pv_coverage < .999:
@@ -202,9 +209,10 @@ def _evaluate(
                 "soc_start": round(old_soc, 1), "soc_end": None,
                 "import_kwh": 0., "export_kwh": 0., "grid_battery_kwh": 0.,
                 "pv_kwh": 0., "home_kwh": 0.,
+                "pv_battery_kwh": 0., "battery_to_load_kwh": 0.,
             }
         for key in ("import_kwh", "export_kwh", "grid_battery_kwh",
-                    "pv_kwh", "home_kwh"):
+                    "pv_kwh", "home_kwh", "pv_battery_kwh", "battery_to_load_kwh"):
             partial_hour[key] += increments[key]
         partial_hour["soc_end"] = round(store * 100 / store_capacity, 1)
         if i % 4 == 3:
@@ -232,6 +240,7 @@ def _evaluate(
         "import_cost_pln": round(price_import, 2) if prices is not None and completed == STEPS else None,
         "export_credit_pln": round(price_export, 2) if export_value is not None and completed == STEPS else None,
         "timeline_4h": [rows[k] for k in range(3, len(rows), 4)],
+        "timeline_hours": rows,
     }
     result.update({key: round(value, 2) for key, value in totals.items()})
     if prices is not None and export_value is not None and completed == STEPS:
@@ -250,6 +259,7 @@ def compare_scenarios(
     efficiency_pct: float, battery_max_kw: float, grid_limit_kw: float,
     grid_buffer_kw: float, ev_now_kw: float | None,
     future_ev_stress: dict | None = None,
+    latitude: float | None = None, longitude: float | None = None,
 ) -> dict:
     """Return two directly comparable forecasts, or explicit missing inputs.
 
@@ -315,6 +325,7 @@ def compare_scenarios(
         pv_discount_pct=pv_discount_pct, efficiency_pct=efficiency_pct,
         battery_max_kw=battery_max_kw, grid_limit_kw=grid_limit_kw,
         buffer_kw=grid_buffer_kw, ev_kw=ev_now_kw,
+        latitude=latitude, longitude=longitude,
     )
     baseline = _evaluate(**common, plan=None)
     projected = _evaluate(**common, plan=with_plan) if with_plan else None

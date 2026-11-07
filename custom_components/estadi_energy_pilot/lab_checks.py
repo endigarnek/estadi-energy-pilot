@@ -23,6 +23,7 @@ DIAGNOSTIC_TESTS = {
     "forecast": "Sprawdź prognozę i plan",
     "tou": "Sprawdź harmonogram Deye TOU",
     "write_capability": "Sprawdź dostępność regulacji mocy (bez zapisu)",
+    "preflight": "Sprawdź kompletność warunków do sterowania (bez zapisu)",
 }
 
 def _result(kind: str, status: str, reason: str, **data) -> dict:
@@ -92,6 +93,42 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
             read_fields=observed.get("odczytane_pola"),missing_fields=observed.get("brakujace_pola"),
             slots=observed.get("programy"),readback_only=True,
             hardware_write_ready=False,blockers=observed.get("blokady",[]))
+    if kind == "preflight":
+        guard = build_grid_readout(states.get, selected, now)
+        solar = (coordinator_data.get("energy_2_0") or {}).get("pv_coverage") or {}
+        sim = (coordinator_data.get("energy_2_0") or {}).get("simulation_48h") or {}
+        plan = (coordinator_data.get("energy_2_0") or {}).get("optimized_schedule") or {}
+        problems = []
+        if guard.get("state") != "ok":
+            problems.append("Grid Guard: " + str(guard.get("reason") or guard.get("state")))
+        if not guard.get("import_sign_confirmed"):
+            problems.append("Znak importu sieci Deye niepotwierdzony")
+        if not guard.get("charge_sign_confirmed"):
+            problems.append("Znak ładowania baterii niepotwierdzony")
+        if not guard.get("phase_checked"):
+            problems.append("Niepotwierdzony pomiar i limity trzech faz")
+        if not (sim.get("status") == "gotowa" and sim.get("forecast_hours") == 48):
+            problems.append("Symulacja 48h niekompletna")
+        if plan.get("status") != "wstepny_plan":
+            problems.append("Brak wstępnego planu ładowania")
+        # These missing physical verifications cannot be inferred from HA
+        # states or from the mere existence of number/select controls.
+        problems.extend([
+            "Niepotwierdzony protokół zapisu i odczyt zwrotny Deye",
+            "Brak pomiarowego testu zmiany mocy ładowania",
+            "Brak zatwierdzonych ograniczeń BMS",
+            "Brak procedury rollback po awarii lub zaniku komunikacji",
+        ])
+        return _result(
+            kind, "blokada", "Sterowanie fizyczne pozostaje wyłączone",
+            blockers=problems, blocker_count=len(problems),
+            grid_guard=guard.get("state"),
+            phase_status=guard.get("phase_status"),
+            forecast_source=solar.get("source"),
+            forecast_hours=sim.get("forecast_hours"),
+            plan_status=plan.get("status"),
+            write_test_approved=False, remote_control_enabled=False,
+        )
     # Discover actual write-capable candidate entities, but NEVER execute them.
     candidates=[]
     for entity in states.async_all():
@@ -102,12 +139,25 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
             continue
         if not any(word in entity_id for word in ("charge","charging","power","program","time_of_use","tou")):
             continue
+        attrs = getattr(entity, "attributes", {}) or {}
         candidates.append({
-            "entity":entity_id,"state":str(getattr(entity,"state","unknown"))[:70],
-            "unit":(getattr(entity,"attributes",{}) or {}).get("unit_of_measurement"),
+            "entity":entity_id,
+            "label": str(attrs.get("friendly_name") or entity_id)[:100],
+            "domain": entity_id.split(".", 1)[0],
+            "state": str(getattr(entity, "state", "unknown"))[:70],
+            "unit": attrs.get("unit_of_measurement"),
+            "min": attrs.get("min"),
+            "max": attrs.get("max"),
+            "step": attrs.get("step"),
+            "options": attrs.get("options", [])[:20]
+                if isinstance(attrs.get("options"), list) else [],
+            "command_written": False,
+            "readback_verified": False,
+            "safe_limits_verified": False,
         })
     return _result(kind,"blokada",
         "Wykrycie encji number/select/switch nie potwierdza semantyki, zapisu, odczytu zwrotnego ani reakcji BMS",
         candidates=sorted(candidates,key=lambda x:x["entity"])[:40],
-        discovered=len(candidates),actual_write_test_available=False,
+        discovered=len(candidates),scanned_from="HA states (read only)",
+        actual_write_test_available=False,
         next_step="Prześlij dokładne encje sterujące Deye i ich jednostki; test zapisu wymaga dodatkowej zgody, limitów i rollbacku")

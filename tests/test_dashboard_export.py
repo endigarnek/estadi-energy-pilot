@@ -23,6 +23,8 @@ ENTITIES = {
     "grid_headroom": "sensor.energy_headroom",
     "grid_charge_cap": "sensor.energy_charge_cap",
     "sim_status": "sensor.energy_simulation",
+    "plan_timeline": "sensor.energy_plan_timeline",
+    "lab_preflight": "button.energy_preflight",
     "sim_hours": "sensor.energy_sim_hours",
     "sim_quality": "sensor.energy_sim_quality",
     "smart_charge_status": "sensor.energy_charging_status",
@@ -113,7 +115,7 @@ class DashboardExportTests(unittest.TestCase):
     def test_resource_export_creates_js_once_and_respects_edits(self):
         full = mod.render_dashboard(ENTITIES, SOURCES)
         mini = mod.render_mini_widget(ENTITIES, SOURCES)
-        javascript = ("customElements.define('estadi-energy-forecast-card', class extends HTMLElement {});" "customElements.define('estadi-energy-overview-card', class extends HTMLElement {});" "customElements.define('estadi-energy-control-card', class extends HTMLElement {});" "customElements.define('estadi-energy-details-card', class extends HTMLElement {});")
+        javascript = ("customElements.define('estadi-energy-forecast-card', class extends HTMLElement {});" "customElements.define('estadi-energy-overview-card', class extends HTMLElement {});" "customElements.define('estadi-energy-control-card', class extends HTMLElement {});" "customElements.define('estadi-energy-details-card', class extends HTMLElement {});" "customElements.define('estadi-energy-plan-card', class extends HTMLElement {});")
         with TemporaryDirectory() as folder:
             first = mod.export_files(folder, full, mini, javascript)
             self.assertEqual(first["forecast_resource_url"], mod.FORECAST_CARD_RESOURCE)
@@ -279,6 +281,14 @@ class DashboardExportTests(unittest.TestCase):
         self.assertIn("button.lab_meters", full)
         self.assertIn("perform_action: button.press", full)
         self.assertNotIn("number.set_value", full)
+
+    def test_full_hourly_plan_and_safe_preflight_are_exported(self):
+        rendered = mod.render_dashboard(ENTITIES, SOURCES)
+        self.assertIn("custom:estadi-energy-plan-card", rendered)
+        self.assertIn("sensor.energy_plan_timeline", rendered)
+        self.assertIn("button.energy_preflight", rendered)
+        self.assertNotIn("number.set_value", rendered)
+        self.assertNotIn("select.select_option", rendered)
 
     def test_path_is_configuration_dir_not_www_or_integration_dir(self):
         with TemporaryDirectory() as folder:

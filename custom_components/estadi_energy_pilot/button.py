@@ -22,7 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SENSOR_KEYS = (
     "mini_status", "history_status", "lab_status", "grid_status", "grid_import", "grid_raw_power", "grid_raw_status", "grid_limit", "grid_headroom",
-    "grid_charge_cap", "grid_phase_status", "grid_reason", "sim_status",
+    "grid_charge_cap", "grid_phase_status", "grid_reason", "sim_status", "plan_timeline",
     "sim_soc_end", "sim_soc_min", "sim_soc_min_cautious",
     "sim_pv_kwh", "sim_grid_kwh", "sim_grid_peak", "sim_hours", "sim_quality", "pv_coverage",
     "tariff", "tariff_zone", "tariff_price", "next_cheap",
@@ -185,7 +185,10 @@ class ExportDashboardButton(ButtonEntity):
         detail = await self.coordinator.hass.async_add_executor_job(
             Path(__file__).with_name("details_card.js").read_text, "utf-8",
         )
-        script = forecast + "\n" + overview + "\n" + cockpit + "\n" + detail
+        plan_card = await self.coordinator.hass.async_add_executor_job(
+            Path(__file__).with_name("plan_card.js").read_text, "utf-8",
+        )
+        script = forecast + "\n" + overview + "\n" + cockpit + "\n" + detail + "\n" + plan_card
         full = render_dashboard(ids, sources)
         mini = render_mini_widget(ids, sources)
         paths = await self.coordinator.hass.async_add_executor_job(

@@ -81,6 +81,37 @@ class LabTests(unittest.TestCase):
         self.assertEqual(r["discovered"],1)
         self.assertFalse(r["actual_write_test_available"])
         self.assertFalse(r["command_sent"])
+    def test_write_candidate_metadata_has_range_but_never_proves_write(self):
+        ent=self.states.data["number.deye_program_1_power"]
+        ent.attributes.update(
+            friendly_name="Deye TOU Program 1 Power",
+            min=0, max=5000, step=100,unit_of_measurement="W")
+        r=self.check("write_capability")
+        c=r["candidates"][0]
+        self.assertEqual(c["min"],0)
+        self.assertEqual(c["max"],5000)
+        self.assertEqual(c["step"],100)
+        self.assertEqual(c["label"],"Deye TOU Program 1 Power")
+        self.assertFalse(c["command_written"])
+        self.assertFalse(c["readback_verified"])
+        self.assertFalse(r["actual_write_test_available"])
+
+    def test_preflight_remains_locked_even_if_all_virtual_checks_pass(self):
+        # This is a reminder to verify BMS, rollback and physical readback.
+        result=lab.inspect_test(
+            "preflight", states=self.states,
+            selected=self.settings,
+            coordinator_data={"energy_2_0":{
+                "simulation_48h":{"status":"gotowa","forecast_hours":48},
+                "optimized_schedule":{"status":"wstepny_plan"},
+                "pv_coverage":{"source":"Forecast.Solar"}}},
+            now=NOW)
+        self.assertEqual(result["status"],"blokada")
+        self.assertFalse(result["command_sent"])
+        self.assertFalse(result["remote_control_enabled"])
+        self.assertFalse(result["write_test_approved"])
+        self.assertIn("BMS",str(result["blockers"]))
+
     def test_unavailable_source_is_not_silently_zero(self):
         self.states.data["sensor.deye_grid_power"]=sample("sensor.deye_grid_power",1500,ago=500)
         r=self.check("meters")
