@@ -18,6 +18,7 @@ jobs:
         run: |
           node tests/visual/preview.mjs
           node tests/visual/compact.mjs
+          node tests/visual/plan.mjs
       - name: Zachowaj podglądy ekranu
         uses: actions/upload-artifact@v4
         if: always()
