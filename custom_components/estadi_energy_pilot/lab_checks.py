@@ -22,7 +22,8 @@ DIAGNOSTIC_TESTS = {
     "limits": "Sprawdź Grid Guard i fazy",
     "forecast": "Sprawdź prognozę i plan",
     "tou": "Sprawdź harmonogram Deye TOU",
-    "write_capability": "Sprawdź dostępność regulacji mocy (bez zapisu)",
+    "write_capability": "Regulatory Deye — pierwsza strona (bez zapisu)",
+    "write_capability_more": "Regulatory Deye — druga strona (bez zapisu)",
     "preflight": "Sprawdź kompletność warunków do sterowania (bez zapisu)",
 }
 
@@ -173,19 +174,48 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
             "readback_verified": False,
             "safe_limits_verified": False,
         })
-    # The HA entity attributes may be large; cap the state payload and keep
-    # the count explicit so users know when an inventory was truncated.
-    candidates.sort(key=lambda item: (item["detected_by"] != "same_deye_device",
-                                      item["entity"]))
+    # Physical risk before naming: charging toggles/TOU and current limits
+    # must not be buried behind battery voltage, chemistry or grid-code setup.
+    # Stable across both pages, max 40 candidates/HA sensor state to avoid
+    # oversized Home Assistant Recorder state attributes.
+    def priority(item: dict) -> tuple[int, int, str]:
+        name = item["entity"].lower()
+        if any(word in name for word in (
+            "grid_charging", "grid_charge", "time_of_use", "use_timer",
+            "program_grid", "program_charge", "tou_grid", "tou_charge",
+        )):
+            level = 0
+        elif any(word in name for word in (
+            "battery_max_charging_current", "grid_max_import_power",
+            "grid_peak_shaving", "battery_max_discharging_current",
+        )):
+            level = 1
+        elif "program_" in name or "_tou_" in name:
+            level = 2
+        elif "work_mode" in name or "battery_capacity" in name:
+            level = 3
+        else:
+            level = 4
+        return (level, item["detected_by"] != "same_deye_device", name)
+
+    candidates.sort(key=priority)
+    page = 1 if kind == "write_capability" else 2
+    per_page = 40
+    pages = (checked + per_page - 1) // per_page
+    start_at = (page - 1) * per_page
+    selected_candidates = candidates[start_at:start_at + per_page]
     return _result(
         kind, "blokada",
-        "To wykaz kandydatów, nie potwierdzenie możliwości sterowania.",
-        candidates=candidates[:40], discovered=checked,
-        truncated=checked > 40,
+        "Wykryto regulatory, ale nie potwierdzono fizycznego zapisu ani reakcji Deye.",
+        candidates=selected_candidates, discovered=checked,
+        page=page, pages=pages, first_index=start_at + 1,
+        shown=len(selected_candidates),
+        remaining=max(0, checked-start_at-len(selected_candidates)),
+        truncated=checked > page*per_page,
         same_deye_device_count=sum(x["detected_by"] == "same_deye_device"
                                    for x in candidates),
         scanned_from="Rejestr urządzeń HA + Stany (tylko odczyt)",
         actual_write_test_available=False,
-        next_step="Skopiuj wykaz kandydatów z panelu Testy. Potwierdzimy "
-                  "przeznaczenie encji, limity, BMS, odczyt zwrotny i rollback.",
+        next_step="Wyślij wykaz z obu stron, zwłaszcza przełączniki i "
+                  "programy TOU. Bez zatwierdzenia parametrów nie uruchamiamy zapisu.",
     )
