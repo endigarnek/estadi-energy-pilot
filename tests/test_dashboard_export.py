@@ -15,6 +15,9 @@ spec.loader.exec_module(mod)
 
 ENTITIES = {
     "mini_status": "sensor.energy_status_renamed_by_owner",
+    "history_status": "sensor.energy_hourly_history",
+    "lab_status": "sensor.energy_lab_last",
+    "lab_meters": "button.lab_meters",
     "grid_status": "sensor.energy_grid_status_x",
     "grid_import": "sensor.energy_grid_import_12",
     "grid_headroom": "sensor.energy_headroom",
@@ -35,6 +38,8 @@ ENTITIES = {
 }
 SOURCES = {
     "source_soc": "sensor.deye_soc_by_owner",
+    "source_battery": "sensor.deye_battery_power",
+    "source_losses": "sensor.deye_power_losses",
     "source_pv": "sensor.deye_pv_power",
     "source_home": "sensor.deye_load_power",
     "source_ev": "sensor.moc_ladowarki_poprawna",
@@ -108,7 +113,7 @@ class DashboardExportTests(unittest.TestCase):
     def test_resource_export_creates_js_once_and_respects_edits(self):
         full = mod.render_dashboard(ENTITIES, SOURCES)
         mini = mod.render_mini_widget(ENTITIES, SOURCES)
-        javascript = ("customElements.define('estadi-energy-forecast-card', class extends HTMLElement {});" "customElements.define('estadi-energy-overview-card', class extends HTMLElement {});")
+        javascript = ("customElements.define('estadi-energy-forecast-card', class extends HTMLElement {});" "customElements.define('estadi-energy-overview-card', class extends HTMLElement {});" "customElements.define('estadi-energy-control-card', class extends HTMLElement {});")
         with TemporaryDirectory() as folder:
             first = mod.export_files(folder, full, mini, javascript)
             self.assertEqual(first["forecast_resource_url"], mod.FORECAST_CARD_RESOURCE)
@@ -257,12 +262,23 @@ class DashboardExportTests(unittest.TestCase):
 
     def test_modern_overview_is_live_and_separates_diagnostics(self):
         full = mod.render_dashboard(ENTITIES, SOURCES)
-        self.assertIn("custom:estadi-energy-overview-card", full)
+        self.assertIn("custom:estadi-energy-control-card", full)
         self.assertIn("entity_soc: \"sensor.deye_soc_by_owner\"", full)
         self.assertIn("entity_home: \"sensor.deye_load_power\"", full)
         self.assertIn("path: estadi-diagnostyka", full)
         self.assertIn("path: estadi-prognoza", full)
         self.assertNotIn("sensor.nonexistent", full)
+
+    def test_compact_cockpit_uses_actual_source_ids_and_lab(self):
+        full = mod.render_dashboard(ENTITIES, SOURCES)
+        self.assertIn("custom:estadi-energy-control-card", full)
+        self.assertIn("sensor.deye_power_losses", full)
+        self.assertIn("sensor.deye_battery_power", full)
+        self.assertIn("sensor.energy_hourly_history", full)
+        self.assertIn("estadi-testy", full)
+        self.assertIn("button.lab_meters", full)
+        self.assertIn("perform_action: button.press", full)
+        self.assertNotIn("number.set_value", full)
 
     def test_path_is_configuration_dir_not_www_or_integration_dir(self):
         with TemporaryDirectory() as folder:
@@ -288,13 +304,14 @@ class DashboardExportTests(unittest.TestCase):
         mini = yaml.safe_load(mod.render_mini_widget(ENTITIES, SOURCES))
         self.assertEqual(dashboard["views"][0]["path"], "estadi-energia")
         self.assertEqual(mini["views"][0]["path"], "estadi-mini")
-        self.assertEqual(len(dashboard["views"]), 5)
+        self.assertEqual(len(dashboard["views"]), 6)
         self.assertEqual(dashboard["views"][0]["type"], "panel")
         self.assertEqual(dashboard["views"][0]["cards"][0]["type"],
-                         "custom:estadi-energy-overview-card")
+                         "custom:estadi-energy-control-card")
         self.assertEqual(dashboard["views"][1]["type"], "sections")
         self.assertEqual(dashboard["views"][2]["type"], "sections")
-        self.assertGreater(len(dashboard["views"][4]["sections"]), 4)
+        self.assertEqual(dashboard["views"][4]["path"], "estadi-testy")
+        self.assertGreater(len(dashboard["views"][5]["sections"]), 4)
         self.assertTrue(all(section["cards"][0]["type"] == "heading"
                             for view in dashboard["views"][1:]
                             for section in view["sections"]))
