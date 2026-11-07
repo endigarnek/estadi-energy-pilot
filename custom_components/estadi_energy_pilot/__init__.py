@@ -88,3 +88,12 @@ async def _async_sync_existing_dashboard(hass: HomeAssistant, entry: ConfigEntry
         )
     else:
         _LOGGER.info("Odświeżono zarządzany pulpit ESTADI po restarcie: %s", paths)
+        # Existing managed dashboard is explicit opt-in. Refresh only this
+        # module's resource URL; never mutate unrelated Lovelace resources.
+        from .lovelace_resource import async_ensure_estadi_resource
+        try:
+            resource = await async_ensure_estadi_resource(hass)
+        except Exception:
+            _LOGGER.exception("Nie zaktualizowano zasobu JavaScript ESTADI")
+        else:
+            _LOGGER.info("Zasób JS ESTADI: %s", resource)

@@ -1,6 +1,16 @@
-# ESTADI Energy Pilot — wersja 0.5.1 (beta)
+# ESTADI Energy Pilot — wersja 0.5.2 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
+
+## 0.5.2 — naprawa czerwonego „Błąd konfiguracji” w pulpicie
+
+- Przez kilka wydań aktualizowaliśmy plik JavaScript pod niezmienionym URL `/local/estadi-energy-pilot-ui-v046.js`. Przeglądarka mogła pamiętać stary kod niezawierający nowych kart `estadi-energy-control-card` i `estadi-energy-lab-card`.
+- Od teraz zasób otrzymuje adres `/local/estadi-energy-pilot-ui-v046.js?v=0.5.2`, aby wymusić pobranie aktualnego skryptu.
+- Po wygenerowaniu pulpitu lub restarcie HA **tylko dla wcześniej utworzonych pulpitów zarządzanych** integracja sprawdza zasób w Home Assistant. Używa bezpiecznego wczytania rejestru, zanim zmieni jedyny pasujący wpis. Nie dotyka innych zasobów i nie nadpisuje użytkownikowi konfiguracji.
+- Jeśli nie ma zasobu ESTADI, zostaje dodany jako moduł JavaScript. Jeśli są duplikaty, żaden wpis nie jest zmieniany — konieczne jest ręczne usunięcie duplikatów.
+- Przy konfiguracji `lovelace.resource_mode: yaml` wpisy w `configuration.yaml` muszą być zaktualizowane ręcznie, ponieważ Home Assistant nie udostępnia edycji tych zasobów.
+- Po aktualizacji i restarcie sprawdź **Ustawienia → Pulpity → Zasoby**. Powinien znajdować się jeden wpis ESTADI kończący się na `?v=0.5.2`. W przeglądarce wykonaj `Ctrl+Shift+R`.
+- Nie wysyłamy poleceń do Deye ani nie zmieniamy istniejących pulpitów użytkownika.
 
 ## 0.5.1 — Laboratorium Deye bez zaglądania do atrybutów
 
