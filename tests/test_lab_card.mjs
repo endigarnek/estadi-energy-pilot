@@ -20,6 +20,7 @@ function make(testResult){
  const card=new Lab();
  card.setConfig({result_entity:"sensor.lab",tests:[
   {key:"meters",entity_id:"button.lab_meters"},
+  {key:"tou",entity_id:"button.lab_tou"},
   {key:"write_capability",entity_id:"button.lab_write_capability"},
   {key:"write_capability_more",entity_id:"button.lab_write_capability_more"},
   {key:"charge_limits",entity_id:"button.lab_charge_limits"},
@@ -77,6 +78,42 @@ test("editable current must not be described as a physical BMS limit",()=>{
  assert.match(html,/1.92 kW/);
  assert.match(html,/nie są fizycznymi limitami BMS/);
  assert.match(card.copyPayload(),/grid_charge_current/);
+});
+test("TOU map shows six Disabled slots and global grid switch off",()=>{
+ const slots=Array.from({length:6},(_,i)=>({
+  slot:i+1,
+  time:{encja:null,wartosc:null,status:"brak"},
+  soc:{encja:"number.deye_program_"+(i+1)+"_soc",wartosc:10,status:"ok"},
+  power:{encja:"number.deye_program_"+(i+1)+"_power",wartosc:"15.000 kW",status:"ok"},
+  charging:{encja:"select.deye_program_"+(i+1)+"_charging",wartosc:"Disabled",status:"ok"}
+ }));
+ const card=make({test:"tou",status:"blokada",read_fields:18,
+  tou_mode_raw:"Week",grid_charge_global:"off",
+  grid_charging_programs:[],disabled_charging_programs:[1,2,3,4,5,6],
+  operational_blockers:["Globalne zezwolenie ładowania z sieci jest wyłączone",
+    "Żaden z sześciu programów TOU nie ma trybu Grid/Both"],
+  time_entities:[{entity:"time.deye_program_1_time",value:"01:00:00"}],
+  time_entities_count:1,bms_protocol_raw:"PYLON",slots});
+ const html=card.shadowRoot.innerHTML;
+ for(const match of ["Mapowanie harmonogramu Deye","Week","Wyłączone",
+     "Disabled","18 / 24","time.deye_program_1_time","PYLON",
+     "Kopiuj mapę TOU"]){
+   assert.ok(html.includes(match),match);
+ }
+ assert.equal((html.match(/Disabled/g)||[]).length,6);
+ const text=card.copyPayload();
+ assert.match(text,/TOU 1/);
+ assert.match(text,/time.deye_program_1_time/);
+ assert.match(text,/Grid Charge: off/);
+ assert.match(text,/Grid\/Both/);
+ assert.match(text,/Wysłane polecenia do Deye: NIE/);
+});
+test("TOU text from Home Assistant is HTML-escaped",()=>{
+ const card=make({test:"tou",status:"blokada",read_fields:0,
+  time_entities:[{entity:'time.evil<img src=x onerror="oops()">',value:"01:00:00"}],
+  time_entities_count:1,slots:[],operational_blockers:[]});
+ assert.doesNotMatch(card.shadowRoot.innerHTML,/<img/);
+ assert.match(card.shadowRoot.innerHTML,/&lt;img/);
 });
 test("only configured diagnostic button can be pressed",async()=>{
  const card=make({test:"meters",status:"ok",reason:"Odczyt gotowy"});
