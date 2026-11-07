@@ -1,6 +1,15 @@
-# ESTADI Energy Pilot — wersja 0.5.2 (beta)
+# ESTADI Energy Pilot — wersja 0.5.3 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
+
+## 0.5.3 — konfigurowalne parametry Deye i kompletna lista regulatorów
+
+- Wynik pierwszego testu pokazał **78** regulatorów, ale 0.5.2 kopiowało tylko pierwsze 40. 0.5.3 udostępnia dwie oddzielne strony (1–40 i 41–80), z zachowaniem limitu rozmiaru stanu HA. Regulatory Grid Charge i TOU są sortowane na początku; nie gubimy ostatnich przełączników.
+- Laboratorium ma dodatkowy przycisk **„Nastawy ładowania”**, który pokazuje aktualne wartości i zakresy liczbowych nastaw Deye, szacowaną moc DC tylko gdy jest świeży pomiar napięcia baterii oraz **osobno limit przyłącza z ESTADI**.
+- **40 A i 31 000 W nie są stałymi limitami fizycznymi.** To aktualne konfigurowalne nastawy falownika. Potencjalny regulator może je zmieniać dopiero po identyfikacji funkcji, pomiarowej walidacji, kontroli BMS i faz oraz przygotowaniu przywracania ustawień.
+- **Przyłącze 15 kW** jest oddzielnym ograniczeniem systemu i nie wolno zastępować go większą nastawą importu Deye. Zakres min/max Home Assistant nie zastępuje limitów sprzętowych.
+- **Nie wykonujemy zapisu**: testy są tylko do odczytu, fizyczne sterowanie pozostaje wyłączone. Nie podnosimy automatycznie limitu amperów.
+- Wersjonujemy URL zasobu JavaScript do `?v=0.5.3`, aby panel Testy odświeżył się po aktualizacji.
 
 ## 0.5.2 — naprawa czerwonego „Błąd konfiguracji” w pulpicie
 
