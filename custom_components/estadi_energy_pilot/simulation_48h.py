@@ -13,6 +13,7 @@ from math import isfinite, sqrt
 from .battery_model import BatteryModel
 from .engine import PvSlot, TempSlot, pump_power_w
 from .tariffs import tariff_zone, is_day_off, WARSAW
+from .solar_geometry import required_forecast
 
 STEP_MINUTES = 15
 STEPS_48H = 48 * 60 // STEP_MINUTES
@@ -76,6 +77,7 @@ def _calculate(
     pv_discount_pct: float, efficiency_pct: float, battery_max_kw: float,
     grid_limit_kw: float, ev_now_kw: float | None, prices: dict | None,
     variant: str,
+    latitude: float | None = None, longitude: float | None = None,
 ) -> dict:
     energy_capacity = model.estimated_chemical_capacity_kwh
     store = energy_capacity * start_soc / 100
@@ -98,6 +100,7 @@ def _calculate(
     hour_row = None
     stop_reason = None
     completed_steps = 0
+    lowlight_assumed_steps = 0
     current_soc = start_soc
     for i in range(STEPS_48H):
         at = utc_start + timedelta(minutes=i * STEP_MINUTES)
@@ -107,9 +110,17 @@ def _calculate(
         solar_raw, coverage = _slot_energy(at, following, pv_slots)
         # Do not silently invent zero PV for daylight when the provider lacks a
         # forecast. At night a missing PV slot is conservatively treated as zero.
-        if coverage < 0.999 and 4 <= local.hour < 22:
+        daylight = required_forecast(
+            at if latitude is not None and longitude is not None else local,
+            latitude=latitude, longitude=longitude,
+            legacy_hours=(4, 22),
+        )
+        if coverage < 0.999 and daylight:
             stop_reason = f"Brak godzinowej prognozy PV od {local:%d.%m %H:%M}"
             break
+        if coverage < 0.999:
+            # Negligible low-angle sun is an explicitly reported assumption.
+            lowlight_assumed_steps += 1
         solar = solar_raw * (1 - pv_discount_pct / 100)
         temp, from_weather = _temperature(at, temps, current_temp)
         temp_steps += int(from_weather)
@@ -201,6 +212,7 @@ def _calculate(
         "reason": "Symulacja 48h bez planowanego ładowania z sieci" if complete else stop_reason,
         "scenario": "bez_dodatkowego_ladowania_z_sieci",
         "forecast_hours": forecast_hours,
+        "lowlight_assumed_zero_steps": lowlight_assumed_steps,
         "quality": quality,
         "training_slots": model_steps,
         "weather_slots": temp_steps,
@@ -228,6 +240,7 @@ def simulate_48h(
     efficiency_pct: float = 90, battery_max_kw: float = 10,
     grid_limit_kw: float = 15, ev_now_kw: float | None = None,
     prices: dict | None = None,
+    latitude: float | None = None, longitude: float | None = None,
 ) -> dict:
     """Produce 15-minute sequential simulations for typical and cautious use.
 
@@ -257,6 +270,7 @@ def simulate_48h(
         pv_discount_pct=pv_discount_pct, efficiency_pct=efficiency_pct,
         battery_max_kw=battery_max_kw, grid_limit_kw=grid_limit_kw,
         ev_now_kw=ev_now_kw, prices=prices, variant="typowy",
+        latitude=latitude, longitude=longitude,
     )
     cautious = _calculate(
         now, pv_slots, temps, learning, model, start_soc, current_temp,
@@ -264,6 +278,7 @@ def simulate_48h(
         pv_discount_pct=pv_discount_pct, efficiency_pct=efficiency_pct,
         battery_max_kw=battery_max_kw, grid_limit_kw=grid_limit_kw,
         ev_now_kw=ev_now_kw, prices=prices, variant="ostrozny",
+        latitude=latitude, longitude=longitude,
     )
     typical["cautious"] = {
         key: value for key, value in cautious.items()
@@ -273,7 +288,9 @@ def simulate_48h(
         "Symulacja, nie pomiar. Deye Load = dom + EV + pompa. "
         "Profil bazowy wyklucza EV i pompę; prognoza pompy jest dodawana raz. "
         "Nie znam przyszłych sesji EV. Ładowanie magazynu z sieci nie jest "
-        "planowane ani wykonywane. 15kW to limit ostrzegawczy, a nie "
+        "planowane ani wykonywane. Brak punktów o bardzo niskim kącie " 
+        "Słońca jest szacowany jako zero i oddzielnie raportowany. " 
+        "15kW to limit ostrzegawczy, a nie "
         "gwarantowana ochrona faz."
     )
     return typical
