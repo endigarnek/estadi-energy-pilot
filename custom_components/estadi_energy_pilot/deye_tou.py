@@ -27,7 +27,9 @@ SLOT_RE = re.compile(
 )
 GLOBALS = (
     "select.deye_time_of_use", "switch.deye_time_of_use",
-    "switch.deye_grid_charging", "select.deye_work_mode",
+    "switch.deye_grid_charging", "switch.deye_battery_grid_charging",
+    "switch.deye_grid_peak_shaving", "select.deye_charging_signal",
+    "select.deye_battery_bms_type", "select.deye_work_mode",
     "sensor.deye_inverter_model", "sensor.deye_model",
 )
 
@@ -148,6 +150,39 @@ def inspect_tou(states: Iterable[Any], now: datetime) -> dict:
         and entity_id not in identified_ids and entity_id not in GLOBALS
     ])[:30]
 
+    # time.* controls were intentionally excluded from number/select/switch
+    # discovery; report them explicitly without guessing missing registers.
+    time_entities = sorted([
+        {"entity": entity_id,
+         "value": str(getattr(item, "state", "unknown"))[:40]}
+        for entity_id, item in index.items()
+        if entity_id.startswith("time.") and (
+            "deye" in entity_id or "program" in entity_id or "tou" in entity_id
+        )
+    ], key=lambda row: row["entity"])[:30]
+    grid_switch = globals_found.get("switch.deye_battery_grid_charging")
+    tou_mode = globals_found.get("select.deye_time_of_use")
+    charge_modes = {
+        row["slot"]: row["charging"].get("wartosc") for row in slots
+    }
+    grid_slots = sorted(slot for slot, mode in charge_modes.items()
+                        if mode in ("Grid", "Both"))
+    disabled_slots = sorted(slot for slot, mode in charge_modes.items()
+                            if mode == "Disabled")
+    operation_blockers = []
+    if grid_switch == "off":
+        operation_blockers.append("Globalne zezwolenie ładowania z sieci jest wyłączone")
+    elif grid_switch != "on":
+        operation_blockers.append("Stan globalnego Grid Charge jest niepotwierdzony")
+    if not grid_slots:
+        operation_blockers.append("Żaden z sześciu programów TOU nie ma trybu Grid/Both")
+    if tou_mode in (None, "Disabled", "unknown", "unavailable"):
+        operation_blockers.append("Niepotwierdzony lub wyłączony wybór dni TOU")
+    if any(row["time"]["status"] != "ok" for row in slots):
+        operation_blockers.append("Brak poprawnych godzin startu wszystkich sześciu programów")
+    # 'Week' may have different semantics by integration/firmware.
+    # It must not be interpreted as a verified day schedule.
+
     complete = present_count == SLOT_COUNT * len(SLOT_FIELDS)
     if not found:
         status = "nie_wykryto"
@@ -179,6 +214,16 @@ def inspect_tou(states: Iterable[Any], now: datetime) -> dict:
         "brakujace_pola": missing_count,
         "niejednoznaczne_pola": ambiguous_count,
         "stan_globalny": globals_found,
+        "global_grid_charge": grid_switch,
+        "tou_mode_raw": tou_mode,
+        "grid_charging_programs": grid_slots,
+        "disabled_charging_programs": disabled_slots,
+        "charging_modes_by_program": charge_modes,
+        "time_entity_candidates": time_entities,
+        "time_entity_candidates_count": len(time_entities),
+        "operational_blockers": operation_blockers,
+        "tou_control_ready": False,
+        "tou_days_confirmed": False,
         "inne_mozliwe_encje": possible_unmapped,
         "programy": slots,
         "blokady": blockers,

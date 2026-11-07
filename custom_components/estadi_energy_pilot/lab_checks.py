@@ -37,7 +37,8 @@ def _result(kind: str, status: str, reason: str, **data) -> dict:
 
 def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
                  now: datetime, same_deye_device_entities: set[str] | None = None,
-                 deye_device_model: str | None = None) -> dict:
+                 deye_device_model: str | None = None,
+                 same_deye_device_time_entities: set[str] | None = None) -> dict:
     """Return a structured and auditable result from actual HA states only."""
     if kind not in DIAGNOSTIC_TESTS:
         raise ValueError("Nieznany test ESTADI")
@@ -92,12 +93,44 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
             start=smart.get("start"),power_kw=smart.get("power_kw"),
             battery_grid_charge_kwh=smart.get("grid_charge_kwh"))
     if kind == "tou":
-        observed=inspect_tou(states.async_all(),now)
-        return _result(kind,"ok" if observed.get("odczytane_pola")==24 else "blokada",
+        observed = inspect_tou(states.async_all(), now)
+        related = same_deye_device_time_entities or set()
+        known = {
+            row["entity"] for row in observed.get("time_entity_candidates", [])
+        }
+        time_candidates = list(observed.get("time_entity_candidates", []))
+        for entity in states.async_all():
+            entity_id = getattr(entity, "entity_id", "")
+            if (entity_id in related and entity_id not in known
+                    and entity_id.startswith("time.")):
+                time_candidates.append({
+                    "entity": entity_id,
+                    "value": str(getattr(entity, "state", "unknown"))[:40],
+                    "origin": "same_deye_device",
+                })
+        time_candidates.sort(key=lambda row: row["entity"])
+        reasons = observed.get("operational_blockers", [])
+        return _result(
+            kind, "ok" if observed.get("odczytane_pola") == 24 else "blokada",
             observed.get("przyczyna") or "Brak odczytu",
-            read_fields=observed.get("odczytane_pola"),missing_fields=observed.get("brakujace_pola"),
-            slots=observed.get("programy"),readback_only=True,
-            hardware_write_ready=False,blockers=observed.get("blokady",[]))
+            read_fields=observed.get("odczytane_pola"),
+            missing_fields=observed.get("brakujace_pola"),
+            slots=observed.get("programy"), readback_only=True,
+            hardware_write_ready=False,
+            blockers=(reasons + observed.get("blokady", [])),
+            operational_blockers=reasons,
+            grid_charge_global=observed.get("global_grid_charge"),
+            tou_mode_raw=observed.get("tou_mode_raw"),
+            grid_charging_programs=observed.get("grid_charging_programs"),
+            disabled_charging_programs=observed.get("disabled_charging_programs"),
+            time_entities=time_candidates[:30],
+            time_entities_count=len(time_candidates),
+            bms_protocol_raw=observed.get("stan_globalny", {}).get(
+                "select.deye_battery_bms_type"
+            ),
+            energy_control_ready=False,
+            tou_days_confirmed=False,
+        )
     if kind == "charge_limits":
         # These are editable SETPOINTS. The HA min/max describe an accepted
         # UI/register range, NOT a BMS/inverter/installation safety allowance.
@@ -183,6 +216,29 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
         sim = (coordinator_data.get("energy_2_0") or {}).get("simulation_48h") or {}
         plan = (coordinator_data.get("energy_2_0") or {}).get("optimized_schedule") or {}
         problems = []
+        observed_tou = inspect_tou(states.async_all(), now)
+        for blocker in observed_tou.get("operational_blockers", []):
+            problems.append("TOU: " + blocker)
+        shaving = states.get("switch.deye_grid_peak_shaving")
+        if shaving is None or getattr(shaving, "state", None) != "on":
+            problems.append(
+                "Funkcja peak shaving Deye nie jest potwierdzona jako aktywna; "
+                "nie wolno traktować nastawy 8 kW jako zabezpieczenia przyłącza"
+            )
+        current_import_limit = states.get("number.deye_grid_max_import_power")
+        try:
+            configured_inverter_w = float(getattr(current_import_limit, "state", None))
+            contracted_kw = float(selected.get(CONF_GRID_LIMIT))
+        except (TypeError, ValueError):
+            configured_inverter_w, contracted_kw = None, None
+        if (configured_inverter_w is not None and contracted_kw is not None
+                and isfinite(configured_inverter_w)
+                and isfinite(contracted_kw)
+                and configured_inverter_w > contracted_kw * 1000):
+            problems.append(
+                "Nastawa importu Deye przekracza limit przyłącza ESTADI; "
+                "15 kW i pomiary 3 faz muszą pozostać nadrzędne"
+            )
         if guard.get("state") != "ok":
             problems.append("Grid Guard: " + str(guard.get("reason") or guard.get("state")))
         if not guard.get("import_sign_confirmed"):

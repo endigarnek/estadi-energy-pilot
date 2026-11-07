@@ -1,6 +1,19 @@
-# ESTADI Energy Pilot — wersja 0.5.4 (beta)
+# ESTADI Energy Pilot — wersja 0.5.5 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
+
+## 0.5.5 — rzeczywista mapa TOU Deye i brakujące godziny
+
+Po odczycie wszystkich **78 regulatorów** znaleziono globalne `switch.deye_battery_grid_charging=off`, `select.deye_time_of_use=Week` oraz sześć `select.deye_program_{1-6}_charging=Disabled`. Oznacza to brak obecnie aktywnego ładowania z sieci w 6 programach TOU — nie wolno włączyć automatyzacji na podstawie samych liczbowych nastaw 40 A i 10% SOC.
+
+- Naprawiono odczyt rzeczywistego globalnego przełącznika `switch.deye_battery_grid_charging` (wcześniej szukaliśmy `switch.deye_grid_charging`).
+- **Testy → Programy Deye TOU:** nowa pełna tabela 6 programów, SOC, maks. mocy rozładowania (nie zadania ładowania), trybu ładowania, czasu rozpoczęcia i listy blokad.
+- Skopiowanie raportu **„Kopiuj mapę TOU”** podaje również wszystkie encje `time.*` wykryte z rejestru urządzeń HA, pomijane przez poprzedni wykaz 78 regulatorów. Jeśli godzin nie ma, moduł wyjaśnia brak zamiast dopisywać wartości.
+- Oddzielnie pokazujemy surowy tryb `Week` (dokładne dni wymagają potwierdzenia dla tego firmware), typ BMS `PYLON` (nie jest potwierdzeniem parametrów BMS), a także globalny Grid Charge OFF i sześć Disabled.
+- Test gotowości uwzględnia również nieaktywny peak shaving i fakt, że ustawiony w Deye limit importu może być większy niż fizyczny limit przyłącza ESTADI (15 kW). Deye nie zastępuje zabezpieczeń elektrycznych.
+- Zmiany tylko odczytowe — zero komend i zero modyfikacji Deye.
+
+Dokładne obserwacje oraz instrukcja: [Mapa TOU 0.5.5](docs/DEYE_TOU_MAP_055.md).
 
 ## 0.5.4 — wyjaśnienie SOC i wiarygodności planu
 

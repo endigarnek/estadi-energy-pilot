@@ -171,8 +171,41 @@
           esc(Array.isArray(val)?val.join(" / "):plain(val))+'</b></div>').join("")+'</div>';
       }
       if (result.test === "tou") {
-        return '<p class="note">Odczytano: '+esc(plain(result.read_fields))+
-          ' z 24 pól TOU. Gotowość zapisu: NIE, tylko odczyt.</p>';
+        const slots=Array.isArray(result.slots)?result.slots.slice(0,6):[];
+        const value=(f)=>f?.status==="ok"?plain(f.wartosc):
+          f?.status==="brak"?"Brak encji":plain(f?.status);
+        const table=slots.map(row=>'<tr><td>'+esc(row.slot)+'</td>'+
+          '<td>'+esc(value(row.time))+'</td>'+
+          '<td>'+esc(value(row.soc))+'%</td>'+
+          '<td>'+esc(value(row.power))+'</td>'+
+          '<td>'+esc(value(row.charging))+'</td></tr>').join("");
+        const lines=(result.operational_blockers||[]).map(v=>
+          '<li>'+esc(v)+'</li>').join("");
+        const times=(result.time_entities||[]).map(v=>
+          '<li><code>'+esc(v.entity)+'</code> · '+esc(plain(v.value))+'</li>').join("");
+        return '<div class="result-head"><h3>Mapowanie harmonogramu Deye</h3>'+
+          '<span>'+esc(plain(result.read_fields))+' / 24 pól</span></div>'+
+          '<div class="values">'+
+          '<div><span>Time of Use</span><b>'+esc(plain(result.tou_mode_raw))+'</b></div>'+
+          '<div><span>Grid Charge globalnie</span><b>'+
+          esc(result.grid_charge_global==="off"?"Wyłączone":
+              result.grid_charge_global==="on"?"Włączone":"Brak potwierdzenia")+'</b></div>'+
+          '<div><span>Programy z Grid/Both</span><b>'+
+          esc((result.grid_charging_programs||[]).join(", ")||"Brak")+'</b></div></div>'+
+          (lines?'<ul class="blockers">'+lines+'</ul>':'')+
+          '<div class="tablewrap"><table><thead><tr><th>Nr</th><th>Start</th>'+
+          '<th>SOC</th><th>Power</th><th>Ładowanie</th></tr></thead><tbody>'+
+          table+'</tbody></table></div>'+
+          '<p class="note">Encje time.* wykryte dla Deye: '+
+          esc(result.time_entities_count??0)+'. Odczyt nie dowodzi możliwości zapisu.</p>'+
+          (times?'<ul class="blockers">'+times+'</ul>':
+             '<p class="warning">Nie wykryto encji time.* na urządzeniu Deye. '+
+             'Zegar może pochodzić z innej domeny lub integracja nie wystawia go jako osobnej encji.</p>')+
+          '<p class="note">Protokół BMS z rejestru: <b>'+
+          esc(plain(result.bms_protocol_raw))+
+          '</b>. To nie oznacza potwierdzenia limitów prądowych baterii.</p>'+
+          '<button class="copy" type="button" data-copy="1">'+
+          '<ha-icon icon="mdi:content-copy"></ha-icon> Kopiuj mapę TOU</button>';
       }
       return '<p class="empty">'+esc(result.reason || "Brak szczegółów")+'</p>';
     }
@@ -198,6 +231,28 @@
             "opcje="+(c.options||[]).join("|"),
             "źródło="+plain(c.detected_by)].join(" ; "));
         }
+      } else if(result.test==="tou") {
+        lines.push("Tryb harmonogramu: "+plain(result.tou_mode_raw));
+        lines.push("Globalny Grid Charge: "+plain(result.grid_charge_global));
+        lines.push("Programy Grid/Both: "+
+          (result.grid_charging_programs||[]).join(", "));
+        lines.push("Odczytane pola TOU: "+plain(result.read_fields)+" / 24");
+        for(const row of result.slots||[]){
+          const field=name=>{
+            const cell=row[name]||{};
+            return plain(cell.wartosc)+" ["+plain(cell.encja)+"; "+plain(cell.status)+"]";
+          };
+          lines.push("TOU "+row.slot+" ; start="+field("time")+
+            " ; soc="+field("soc")+" ; power="+field("power")+
+            " ; charging="+field("charging"));
+        }
+        lines.push("Encje czasu: "+plain(result.time_entities_count));
+        for(const row of result.time_entities||[])
+          lines.push(plain(row.entity)+" = "+plain(row.value));
+        for(const problem of result.operational_blockers||[])
+          lines.push("BLOKADA: "+plain(problem));
+        lines.push("BMS: "+plain(result.bms_protocol_raw)+
+          " (brak potwierdzenia parametrów BMS)");
       } else if(result.test==="charge_limits") {
         lines.push("Model według rejestru HA: "+
           plain(result.model_reference?.device_model_from_ha_registry));

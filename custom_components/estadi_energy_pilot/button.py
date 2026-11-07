@@ -286,7 +286,25 @@ class LabTestButton(ButtonEntity):
             # more reliable discovery than searching for "deye" in entity IDs.
             # This only reads Entity Registry; never sends a control service.
             related_entities = set()
+            related_time_entities = set()
             reported_model = None
+            if self.test == "tou":
+                # Complete the read-only mapping: previously only number,
+                # select and switch entities were exported by Lab.
+                registry = er.async_get(self.coordinator.hass)
+                monitored = {
+                    settings.get(CONF_GRID_POWER),
+                    settings.get(CONF_BATTERY_POWER),
+                }
+                devices = {
+                    item.device_id for item in registry.entities.values()
+                    if item.entity_id in monitored and item.device_id
+                }
+                related_time_entities = {
+                    item.entity_id for item in registry.entities.values()
+                    if item.device_id in devices and
+                    item.entity_id.startswith("time.")
+                }
             if self.test in ("write_capability", "write_capability_more"):
                 registry = er.async_get(self.coordinator.hass)
                 monitored = {
@@ -327,6 +345,7 @@ class LabTestButton(ButtonEntity):
                 now=datetime.now(timezone.utc),
                 same_deye_device_entities=related_entities,
                 deye_device_model=reported_model,
+                same_deye_device_time_entities=related_time_entities,
             )
         except Exception as exc:
             _LOGGER.exception("Błąd diagnostyki %s", self.test)

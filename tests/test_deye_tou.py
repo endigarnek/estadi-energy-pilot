@@ -43,6 +43,43 @@ class TouTests(unittest.TestCase):
         self.assertFalse(result["automatyzacja_gotowa"])
         self.assertTrue(result["odczyt_bez_zapisu"])
 
+    def test_real_2026_tou_off_and_all_six_slots_disabled(self):
+        items=[
+            state("select.deye_time_of_use", "Week"),
+            state("switch.deye_battery_grid_charging", "off"),
+            state("switch.deye_grid_peak_shaving", "off"),
+            state("select.deye_battery_bms_type", "PYLON"),
+        ]
+        for i in range(1,7):
+            items.extend([
+                state(f"number.deye_program_{i}_soc", 10, "%"),
+                state(f"number.deye_program_{i}_power", 15000, "W"),
+                state(f"select.deye_program_{i}_charging", "Disabled"),
+            ])
+        result=module.inspect_tou(items,NOW)
+        self.assertEqual(result["status"],"niekompletne")
+        self.assertEqual(result["odczytane_pola"],18)
+        self.assertEqual(result["brakujace_pola"],6)
+        self.assertEqual(result["global_grid_charge"],"off")
+        self.assertEqual(result["tou_mode_raw"],"Week")
+        self.assertEqual(result["grid_charging_programs"],[])
+        self.assertEqual(result["disabled_charging_programs"],[1,2,3,4,5,6])
+        self.assertEqual(result["time_entity_candidates_count"],0)
+        self.assertFalse(result["tou_control_ready"])
+        self.assertFalse(result["tou_days_confirmed"])
+        self.assertIn("globalne",str(result["operational_blockers"]).lower())
+        self.assertIn("Grid/Both",str(result["operational_blockers"]))
+
+    def test_time_entities_found_even_when_not_in_number_select_switch_export(self):
+        items=six_slots()
+        items.append(state("switch.deye_battery_grid_charging","off"))
+        result=module.inspect_tou(items,NOW)
+        self.assertEqual(result["odczytane_pola"],24)
+        self.assertEqual(result["time_entity_candidates_count"],6)
+        self.assertIn("time.deye_program_1_time",
+                      [x["entity"] for x in result["time_entity_candidates"]])
+        self.assertFalse(result["tou_control_ready"])
+
     def test_missing_one_field_is_partial_no_snapshot(self):
         items = [x for x in six_slots() if x.entity_id != "time.deye_program_3_time"]
         result = module.inspect_tou(items, NOW)
