@@ -640,6 +640,7 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
                 "pierwsza_luka_sloneczna": report.get("first_missing_daylight_at"),
                 "liczba_slonecznych_przedzialow": report.get("required_daylight_steps"),
                 "otrzymane_sloneczne_przedzialy": report.get("available_daylight_steps"),
+                "ciagle_pokryte_sloneczne_przedzialy": report.get("continuous_daylight_steps"),
                 "brakujace_sloneczne_przedzialy": report.get("missing_daylight_steps"),
                 "brak_punktow_przy_niskim_sloncu": report.get("lowlight_assumed_zero_steps"),
                 "ostatni_koniec_prognozy": report.get("last_forecast_end_at"),
