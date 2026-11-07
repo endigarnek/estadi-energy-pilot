@@ -279,6 +279,7 @@ ENERGY_V2_SENSORS = (
     ("plan_power", "Plan ładowania — moc zalecana", "kW"),
     ("plan_target", "Plan ładowania — docelowy SOC", "%"),
     ("sim_status", "Symulacja 48h — stan", None),
+    ("plan_timeline", "Plan 48h — harmonogram godzinowy", None),
     ("sim_quality", "Symulacja 48h — wiarygodność", None),
     ("sim_hours", "Symulacja 48h — dostępne godziny", "h"),
     ("pv_coverage", "Prognoza PV — pokrycie słonecznych godzin 48h", "%"),
@@ -454,6 +455,7 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
             "smart_charge_energy": smart.get("grid_charge_kwh"),
             "smart_charge_peak": smart.get("grid_peak_kw"),
             "sim_status": sim.get("status", "brak_danych"),
+            "plan_timeline": (d.get("plan_timeline") or {}).get("status", "brak_danych"),
             "sim_quality": sim.get("quality"),
             "sim_hours": sim.get("forecast_hours"),
             "pv_coverage": pv_coverage.get("covered_daylight_pct"),
@@ -494,6 +496,20 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
+        if self._key == "plan_timeline":
+            result = d.get("plan_timeline") or {}
+            return {
+                "godziny": result.get("timeline", []),
+                "liczba_godzin": result.get("hours"),
+                "planowane_godziny": result.get("planned_hours"),
+                "przyczyna": result.get("reason"),
+                "energia_ladowania_z_sieci_kwh": result.get("charge_from_grid_kwh"),
+                "energia_rozladowania_do_domu_kwh": result.get("battery_to_home_kwh"),
+                "import_przy_planie_kwh": result.get("planned_grid_import_kwh"),
+                "import_bez_dodatkowego_ladowania_kwh": result.get("baseline_grid_import_kwh"),
+                "prognoza_nie_jest_wykonaniem": True,
+                "polecenia_wyslane_do_deye": 0,
+            }
         if self._key == "lab_status":
             recent = getattr(self.coordinator, "lab_last_result", {}) or {}
             return {
