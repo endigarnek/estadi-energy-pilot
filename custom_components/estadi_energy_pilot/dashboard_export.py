@@ -398,9 +398,9 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                 result += indent(card.rstrip(), "          ") + "\n"
         return result
 
-    overview = _modern_overview_card(entities, sources)
+    overview = _control_cockpit_card(entities, sources)
     return (
-        "# ESTADI Energy Pilot — zarządzany pulpit, v0.4.7\n"
+        "# ESTADI Energy Pilot — zarządzany pulpit, v0.4.8\n"
         "title: \"ESTADI Energy Pilot\"\n"
         "views:\n"
         + view("Pulpit", "estadi-energia", "mdi:view-dashboard",
@@ -444,6 +444,40 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
              cards[21:]),
         ])
     )
+
+
+def _control_cockpit_card(entities: Mapping[str, str], sources: Mapping[str, str]) -> str:
+    """Compact home screen: current power flow, plan, reliable 48h and actuals."""
+    mapping = {
+        "soc": sources.get("source_soc"),
+        "pv": sources.get("source_pv"),
+        "home": sources.get("source_home"),
+        "ev": sources.get("source_ev"),
+        "pump": sources.get("source_pump"),
+        "battery_power": sources.get("source_battery"),
+        "losses": sources.get("source_losses"),
+        "grid_import": entities.get("grid_import"),
+        "grid_raw": entities.get("grid_raw_power"),
+        "grid_limit": entities.get("grid_limit"),
+        "grid_headroom": entities.get("grid_headroom"),
+        "grid_status": entities.get("grid_status"),
+        "smart_charge_status": entities.get("smart_charge_status"),
+        "smart_charge_power": entities.get("smart_charge_power"),
+        "smart_charge_start": entities.get("smart_charge_start"),
+        "smart_charge_finish": entities.get("smart_charge_finish"),
+        "smart_charge_target": entities.get("smart_charge_target"),
+        "smart_charge_energy": entities.get("smart_charge_energy"),
+        "sim_status": entities.get("sim_status"),
+        "sim_hours": entities.get("sim_hours"),
+        "sim_pv_kwh": entities.get("sim_pv_kwh"),
+        "sim_grid_kwh": entities.get("sim_grid_kwh"),
+        "sim_soc_end": entities.get("sim_soc_end"),
+        "next_cheap": entities.get("next_cheap"),
+        "history_status": entities.get("history_status"),
+    }
+    return ("- type: custom:estadi-energy-control-card\n" +
+            "".join("  entity_" + key + ": " + _quote(eid) + "\n"
+                    for key, eid in mapping.items() if eid))
 
 
 def _modern_overview_card(entities: Mapping[str, str], sources: Mapping[str, str]) -> str:
@@ -539,7 +573,8 @@ def export_files(directory: str | Path, full: str, mini: str,
     if javascript is not None and (
         not javascript.strip() or
         "estadi-energy-forecast-card" not in javascript or
-        "estadi-energy-overview-card" not in javascript
+        "estadi-energy-overview-card" not in javascript or
+        "estadi-energy-control-card" not in javascript
     ):
         raise ValueError("Nieprawidłowy kod kart ESTADI")
 
