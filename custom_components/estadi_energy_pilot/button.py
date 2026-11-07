@@ -10,17 +10,18 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 
 from .const import (
-    DOMAIN, CONF_BATTERY_SOC, CONF_PV_POWER, CONF_HOME_POWER,
+    DOMAIN, CONF_BATTERY_SOC, CONF_BATTERY_POWER, CONF_PV_POWER, CONF_HOME_POWER,
     CONF_EV_POWER, CONF_HEAT_PUMP_POWER,
 )
 from .dashboard_export import (
     render_dashboard, render_mini_widget, export_files, FORECAST_CARD_RESOURCE,
 )
+from .lab_checks import DIAGNOSTIC_TESTS, inspect_test
 
 _LOGGER = logging.getLogger(__name__)
 
 SENSOR_KEYS = (
-    "mini_status", "grid_status", "grid_import", "grid_raw_power", "grid_raw_status", "grid_limit", "grid_headroom",
+    "mini_status", "history_status", "lab_status", "grid_status", "grid_import", "grid_raw_power", "grid_raw_status", "grid_limit", "grid_headroom",
     "grid_charge_cap", "grid_phase_status", "grid_reason", "sim_status",
     "sim_soc_end", "sim_soc_min", "sim_soc_min_cautious",
     "sim_pv_kwh", "sim_grid_kwh", "sim_grid_peak", "sim_hours", "sim_quality",
@@ -52,6 +53,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([
         RefreshNowButton(coordinator, entry),
         ExportDashboardButton(coordinator, entry),
+        *[LabTestButton(coordinator, entry, test) for test in DIAGNOSTIC_TESTS],
     ])
 
 
@@ -109,6 +111,10 @@ class ExportDashboardButton(ButtonEntity):
             f"{self.entry.entry_id}_integration_version": "version",
             f"{self.entry.entry_id}_refresh_now": "refresh",
         })
+        wanted.update({
+            f"{self.entry.entry_id}_lab_{test}": f"lab_{test}"
+            for test in DIAGNOSTIC_TESTS
+        })
         ids = {}
         for item in registry.entities.values():
             if (item.platform == DOMAIN and
@@ -123,6 +129,7 @@ class ExportDashboardButton(ButtonEntity):
         }
         mapping = {
             "source_soc": CONF_BATTERY_SOC,
+            "source_battery": CONF_BATTERY_POWER,
             "source_pv": CONF_PV_POWER,
             "source_home": CONF_HOME_POWER,
             "source_ev": CONF_EV_POWER,
@@ -134,6 +141,33 @@ class ExportDashboardButton(ButtonEntity):
             # Only display configured sensor IDs, never manufactured names.
             if isinstance(entity_id, str) and entity_id.startswith("sensor."):
                 sources[key] = entity_id
+        # Optional losses meter: use a real HA entity, not a guessed number.
+        losses_candidates = []
+        for item in self.coordinator.hass.states.async_all():
+            entity_id = getattr(item, "entity_id", "")
+            title = str((getattr(item, "attributes", {}) or {}).get("friendly_name", "")).lower()
+            unit = (getattr(item, "attributes", {}) or {}).get("unit_of_measurement")
+            if not entity_id.startswith("sensor.") or unit not in ("W", "kW"):
+                continue
+            if entity_id == "sensor.deye_power_losses" or (
+                    "deye" in entity_id and "loss" in entity_id and "power" in entity_id
+                    or "deye" in title and "power losses" in title):
+                losses_candidates.append(entity_id)
+        if len(set(losses_candidates)) == 1:
+            sources["source_losses"] = losses_candidates[0]
+        battery_states = []
+        for item in self.coordinator.hass.states.async_all():
+            eid = getattr(item, "entity_id", "")
+            title = str((getattr(item, "attributes", {}) or {}).get("friendly_name", "")).lower()
+            if not eid.startswith("sensor."):
+                continue
+            if eid == "sensor.deye_battery_state" or (
+                "deye" in eid and eid.endswith("battery_state") or
+                "deye" in title and title.endswith("battery state")
+            ):
+                battery_states.append(eid)
+        if len(set(battery_states)) == 1:
+            sources["source_battery_state"] = battery_states[0]
         return ids, sources
 
     async def async_generate_managed_files(self):
@@ -145,7 +179,13 @@ class ExportDashboardButton(ButtonEntity):
         overview = await self.coordinator.hass.async_add_executor_job(
             Path(__file__).with_name("overview_card.js").read_text, "utf-8",
         )
-        script = forecast + "\n" + overview
+        cockpit = await self.coordinator.hass.async_add_executor_job(
+            Path(__file__).with_name("control_card.js").read_text, "utf-8",
+        )
+        detail = await self.coordinator.hass.async_add_executor_job(
+            Path(__file__).with_name("details_card.js").read_text, "utf-8",
+        )
+        script = forecast + "\n" + overview + "\n" + cockpit + "\n" + detail
         full = render_dashboard(ids, sources)
         mini = render_mini_widget(ids, sources)
         paths = await self.coordinator.hass.async_add_executor_job(
@@ -189,3 +229,53 @@ class ExportDashboardButton(ButtonEntity):
         }
         _LOGGER.info("ESTADI Lovelace export saved: %s", paths)
         self.async_write_ha_state()
+
+
+
+class LabTestButton(ButtonEntity):
+    """Manual, live diagnostic button. Cannot send any command to Deye."""
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:flask-outline"
+
+    def __init__(self, coordinator, entry, test: str):
+        self.coordinator = coordinator
+        self.entry = entry
+        self.test = test
+        self._attr_name = DIAGNOSTIC_TESTS[test]
+        self._attr_unique_id = f"{entry.entry_id}_lab_{test}"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "ESTADI Energy Pilot",
+            "manufacturer": "ESTADI",
+        }
+        self._attr_extra_state_attributes = {
+            "status": "nie_uruchomiono",
+            "bez_zapisu_do_deye": True,
+        }
+
+    async def async_press(self) -> None:
+        from datetime import datetime, timezone
+        data = self.coordinator.data or {}
+        settings = self.coordinator._selected_settings or {
+            **self.entry.data, **self.entry.options,
+        }
+        try:
+            result = inspect_test(
+                self.test,
+                states=self.coordinator.hass.states,
+                selected=settings,
+                coordinator_data=data,
+                now=datetime.now(timezone.utc),
+            )
+        except Exception as exc:
+            _LOGGER.exception("Błąd diagnostyki %s", self.test)
+            result = {
+                "test": self.test, "status": "blad",
+                "reason": f"Test przerwany: {type(exc).__name__}",
+                "command_sent": False,
+            }
+        result["checked_at"] = datetime.now(timezone.utc).isoformat()
+        self.coordinator.lab_last_result = result
+        self._attr_extra_state_attributes = result
+        self.async_write_ha_state()
+        self.coordinator.async_update_listeners()

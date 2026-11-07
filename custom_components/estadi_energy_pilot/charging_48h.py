@@ -99,8 +99,9 @@ def recommend_charge(
     current = now.astimezone(timezone.utc)
     if end_utc <= current or end_utc <= start_utc:
         return _result("poza_oknem", "Tanie okno już się skończyło")
-    if (end_utc - current).total_seconds() > 48 * 3600:
-        return _result("poza_horyzontem", "Okno kończy się poza prognozą 48 godzin")
+    # Weekend G12w may have a cheap window longer than 48h.
+    # Use the forecast-covered portion, not an artificial no-plan result.
+    end_utc = min(end_utc, current + timedelta(hours=48))
     steps = []
     energy_capacity = model.estimated_chemical_capacity_kwh
     minimum = energy_capacity * model.minimum_soc / 100
