@@ -16,7 +16,9 @@ from textwrap import indent
 from typing import Mapping
 
 FORECAST_CARD_JS = "estadi-energy-pilot-ui-v046.js"
-FORECAST_CARD_RESOURCE = "/local/" + FORECAST_CARD_JS
+# Increment together with manifest version. HA caches /local/ assets for weeks.
+# A new resource URL forces every client to load newly introduced custom cards.
+FORECAST_CARD_RESOURCE = "/local/" + FORECAST_CARD_JS + "?v=0.5.2"
 
 
 def _quote(value: str) -> str:
