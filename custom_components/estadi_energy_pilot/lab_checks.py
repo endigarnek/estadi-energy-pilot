@@ -219,6 +219,26 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
         observed_tou = inspect_tou(states.async_all(), now)
         for blocker in observed_tou.get("operational_blockers", []):
             problems.append("TOU: " + blocker)
+        shaving = states.get("switch.deye_grid_peak_shaving")
+        if shaving is None or getattr(shaving, "state", None) != "on":
+            problems.append(
+                "Funkcja peak shaving Deye nie jest potwierdzona jako aktywna; "
+                "nie wolno traktować nastawy 8 kW jako zabezpieczenia przyłącza"
+            )
+        current_import_limit = states.get("number.deye_grid_max_import_power")
+        try:
+            configured_inverter_w = float(getattr(current_import_limit, "state", None))
+            contracted_kw = float(selected.get(CONF_GRID_LIMIT))
+        except (TypeError, ValueError):
+            configured_inverter_w, contracted_kw = None, None
+        if (configured_inverter_w is not None and contracted_kw is not None
+                and isfinite(configured_inverter_w)
+                and isfinite(contracted_kw)
+                and configured_inverter_w > contracted_kw * 1000):
+            problems.append(
+                "Nastawa importu Deye przekracza limit przyłącza ESTADI; "
+                "15 kW i pomiary 3 faz muszą pozostać nadrzędne"
+            )
         if guard.get("state") != "ok":
             problems.append("Grid Guard: " + str(guard.get("reason") or guard.get("state")))
         if not guard.get("import_sign_confirmed"):
