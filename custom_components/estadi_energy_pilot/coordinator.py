@@ -552,7 +552,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             }
         # Old energy windows use a simple daily model. Weekend planning and
         # household learning will be implemented by the 48h simulation engine.
-        if tariff_window and not is_day_off(tariff_window[0].date()):
+        if tariff_window:
             target_plan = (
                 plan["afternoon"] if tariff_window[0].hour == 13
                 else plan["night"]
@@ -596,7 +596,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                 )
         else:
             v2_info["schedule_note"] = (
-                "Dzień wolny lub brak danych dla celów SOC — wymagana pełna symulacja"
+                "Brak okna taryfowego lub kompletnych danych celu SOC"
             )
             v2_info["optimized_schedule"] = {
                 "status": "brak_celu",
@@ -639,7 +639,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         plan["recommended"] = bool(
             plan.get("recommended") and guard.get("allowed_charge_kw") is not None
             and guard["allowed_charge_kw"] >= 3
-            and tariff_band == "cheap" and not is_day_off(now.date())
+            and tariff_band == "cheap"
         )
         plan.update(history)
         plan["available"] = True
