@@ -175,6 +175,49 @@ class LabTests(unittest.TestCase):
         self.assertEqual(out["settings"]["grid_charge_current"]["value"],40)
         self.assertIsNone(out["approximate_dc_charge_kw_at_current_setting"])
 
+    def test_tou_reports_real_global_switch_and_all_disabled_modes(self):
+        self.states.data["select.deye_time_of_use"]=sample(
+            "select.deye_time_of_use","Week",unit=None)
+        self.states.data["switch.deye_battery_grid_charging"]=sample(
+            "switch.deye_battery_grid_charging","off",unit=None)
+        for i in range(1,7):
+            self.states.data[f"number.deye_program_{i}_soc"]=sample(
+                f"number.deye_program_{i}_soc",10,"%")
+            self.states.data[f"number.deye_program_{i}_power"]=sample(
+                f"number.deye_program_{i}_power",15000,"W")
+            self.states.data[f"select.deye_program_{i}_charging"]=sample(
+                f"select.deye_program_{i}_charging","Disabled",unit=None)
+        # A time entity may have a non-Deye slug but belong to the same
+        # device. It must be returned to the user, not silently ignored.
+        eid="time.program_1_start"
+        self.states.data[eid]=sample(eid,"01:00:00",unit=None)
+        result=lab.inspect_test(
+            "tou",states=self.states,selected=self.settings,
+            coordinator_data={},now=NOW,
+            same_deye_device_time_entities={eid},
+        )
+        self.assertEqual(result["grid_charge_global"],"off")
+        self.assertEqual(result["tou_mode_raw"],"Week")
+        self.assertEqual(result["disabled_charging_programs"],[1,2,3,4,5,6])
+        self.assertEqual(result["read_fields"],18)
+        self.assertIn(eid,[x["entity"] for x in result["time_entities"]])
+        self.assertFalse(result["hardware_write_ready"])
+        self.assertFalse(result["command_sent"])
+
+    def test_preflight_explicitly_blocks_disabled_grid_charging_and_tou(self):
+        self.states.data["switch.deye_battery_grid_charging"]=sample(
+            "switch.deye_battery_grid_charging","off",unit=None)
+        self.states.data["select.deye_time_of_use"]=sample(
+            "select.deye_time_of_use","Week",unit=None)
+        for i in range(1,7):
+            self.states.data[f"select.deye_program_{i}_charging"]=sample(
+                f"select.deye_program_{i}_charging","Disabled",unit=None)
+        result=self.check("preflight")
+        self.assertEqual(result["status"],"blokada")
+        self.assertIn("TOU",str(result["blockers"]))
+        self.assertIn("Grid/Both",str(result["blockers"]))
+        self.assertFalse(result["command_sent"])
+
     def test_unavailable_source_is_not_silently_zero(self):
         self.states.data["sensor.deye_grid_power"]=sample("sensor.deye_grid_power",1500,ago=500)
         r=self.check("meters")
