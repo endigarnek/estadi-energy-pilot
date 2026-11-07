@@ -437,6 +437,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
         test_button("forecast", "Sprawdź prognozę 48h"),
         test_button("tou", "Sprawdź Deye TOU"),
         test_button("write_capability", "Sprawdź możliwość regulacji"),
+        test_button("preflight", "Sprawdź gotowość sterowania"),
     ]
     lab_buttons = [card for card in lab_buttons if card]
     lab_result = entities.get("lab_status")
@@ -460,7 +461,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
 
     overview = _control_cockpit_card(entities, sources)
     return (
-        "# ESTADI Energy Pilot — zarządzany pulpit, v0.4.8\n"
+        "# ESTADI Energy Pilot — zarządzany pulpit, v0.5.0\n"
         "title: \"ESTADI Energy Pilot\"\n"
         "views:\n"
         + view("Pulpit", "estadi-energia", "mdi:view-dashboard",
