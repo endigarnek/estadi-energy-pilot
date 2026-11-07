@@ -112,6 +112,21 @@ class LabTests(unittest.TestCase):
         self.assertFalse(result["write_test_approved"])
         self.assertIn("BMS",str(result["blockers"]))
 
+    def test_same_device_inventory_discovers_controls_without_deye_in_slug(self):
+        self.states.data["number.program_01_battery_power"] = sample(
+            "number.program_01_battery_power", 2500)
+        self.states.data["number.unrelated_power"] = sample(
+            "number.unrelated_power", 2000)
+        r=lab.inspect_test(
+            "write_capability", states=self.states, selected=self.settings,
+            coordinator_data={"energy_2_0":{}}, now=NOW,
+            same_deye_device_entities={"number.program_01_battery_power"})
+        names=[entry["entity"] for entry in r["candidates"]]
+        self.assertIn("number.program_01_battery_power", names)
+        self.assertNotIn("number.unrelated_power", names)
+        self.assertEqual(r["candidates"][0]["detected_by"],"same_deye_device")
+        self.assertFalse(r["command_sent"])
+
     def test_unavailable_source_is_not_silently_zero(self):
         self.states.data["sensor.deye_grid_power"]=sample("sensor.deye_grid_power",1500,ago=500)
         r=self.check("meters")
