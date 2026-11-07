@@ -1,6 +1,13 @@
-# ESTADI Energy Pilot — wersja 0.5.3 (beta)
+# ESTADI Energy Pilot — wersja 0.5.4 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
+
+## 0.5.4 — wyjaśnienie SOC i wiarygodności planu
+
+- Przygotowany plan pokazuje prognozę **SOC teraz / SOC przed planowanym ładowaniem / SOC na koniec bez doładowania / SOC na koniec z doładowaniem**. Dotychczasowe „47% teraz → cel 43%” wyglądało na błąd, choć przewidywane zużycie może obniżyć SOC przed końcem przyszłego okna taryfowego.
+- Planer zwraca `baseline_end_soc`, `soc_at_charge_start` i jawne uzasadnienie, bez domyślania się liczb po stronie przeglądarki. Gdy bez doładowania SOC na końcu wystarczy do celu, plan nadal nie zamawia energii z sieci.
+- Jeśli prognoza 48h jest niekompletna, a plan tylko dla krótszego okna taryfowego jest możliwy, pulpit mówi **„Wstępny plan okna taryfowego”**, a nie pełny plan 48h. Wykres 48h i jego sumy pozostają oznaczone jako niekompletne.
+- Nie ma żadnych poleceń do Deye. Odczyt możliwości programowania falownika, BMS i fizyczne testy pozostają oddzielnym etapem.
 
 ## 0.5.3 — konfigurowalne parametry Deye i kompletna lista regulatorów
 

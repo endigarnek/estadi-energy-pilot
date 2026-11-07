@@ -643,6 +643,13 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
             return {
                 "przyczyna": smart.get("reason"),
                 "prognozowany_soc_na_koniec": smart.get("end_soc"),
+                "soc_na_poczatku_prognozy": smart.get("initial_soc"),
+                "soc_przed_planowanym_ladowaniem": smart.get("soc_at_charge_start"),
+                "soc_na_koniec_bez_ladowania": smart.get("baseline_end_soc"),
+                "cel_nizszy_od_obecnego_przez_przyszle_zuzycie":
+                    smart.get("target_below_current_due_to_future_demand"),
+                "wyjasnienie_decyzji": smart.get("explanation"),
+                "koniec_okna_taryfowego": smart.get("end_window"),
                 "przydzielona_moc_kw": smart.get("power_kw"),
                 "pobor_szacowany_kw": smart.get("grid_peak_kw"),
                 "limit_roboczy_kw": smart.get("soft_limit_kw"),

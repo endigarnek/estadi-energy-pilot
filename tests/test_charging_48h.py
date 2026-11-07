@@ -95,6 +95,27 @@ class AdvisorTests(unittest.TestCase):
         self.assertEqual(result["status"], "bez_ladowania")
         self.assertEqual(result["grid_charge_kwh"], 0)
 
+    def test_current_soc_above_future_target_can_still_require_charging(self):
+        # The observed case: now 47%, target for a FUTURE horizon 43%.
+        # Household demand before/end of the window can push SOC below 43%.
+        r = self.plan(soc=47, target=43, base=500)
+        self.assertEqual(r["status"], "wstepny_plan", r)
+        self.assertEqual(r["initial_soc"], 47)
+        self.assertEqual(r["target_soc"], 43)
+        self.assertTrue(r["target_below_current_due_to_future_demand"])
+        self.assertLess(r["baseline_end_soc"], 43)
+        self.assertLess(r["soc_at_charge_start"], 47)
+        self.assertGreaterEqual(r["end_soc"], 42.95)
+        self.assertGreater(r["grid_charge_kwh"], 0)
+        self.assertFalse(r["hardware_control"])
+
+    def test_higher_soc_sufficient_to_target_needs_no_grid_charge(self):
+        r = self.plan(soc=60, target=43, base=500)
+        self.assertEqual(r["status"], "bez_ladowania", r)
+        self.assertEqual(r["grid_charge_kwh"], 0)
+        self.assertGreaterEqual(r["baseline_end_soc"], 42.95)
+        self.assertIsNone(r["soc_at_charge_start"])
+
     def test_target_above_allowed_soc_returns_error(self):
         result = self.plan(target=101)
         self.assertEqual(result["status"], "bledne_parametry")
