@@ -33,6 +33,10 @@ jobs:
         run: node --check custom_components/estadi_energy_pilot/forecast_card.js
       - name: Sprawdź składnię nowego centrum energii JS
         run: node --check custom_components/estadi_energy_pilot/overview_card.js
+      - name: Sprawdź składnię operacyjnej karty JS
+        run: node --check custom_components/estadi_energy_pilot/control_card.js
+      - name: Testy kompaktowego centrum energii
+        run: node --test tests/test_control_card.mjs
       - name: Testy pulpitu live i obsługi nieznanych odczytów
         run: node --test tests/test_overview_card.mjs
       - name: Testy interaktywnego wykresu, DST i bezpieczeństwa
