@@ -281,6 +281,7 @@ ENERGY_V2_SENSORS = (
     ("sim_status", "Symulacja 48h — stan", None),
     ("sim_quality", "Symulacja 48h — wiarygodność", None),
     ("sim_hours", "Symulacja 48h — dostępne godziny", "h"),
+    ("pv_coverage", "Prognoza PV — pokrycie słonecznych godzin 48h", "%"),
     ("sim_soc_end", "Symulacja 48h — SOC końcowy", "%"),
     ("sim_soc_min", "Symulacja 48h — minimalny SOC", "%"),
     ("sim_soc_min_cautious", "Symulacja 48h — minimalny SOC ostrożny", "%"),
@@ -364,6 +365,7 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
             f"Auto {ev} kW" if ev is not None else "Auto: brak danych",
         ))
         sim = d.get("simulation_48h") or {}
+        pv_coverage = d.get("pv_coverage") or {}
         economy = d.get("scenario_economics") or {}
         economic_base = economy.get("baseline") or {}
         economic_plan = economy.get("plan") or {}
@@ -454,6 +456,7 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
             "sim_status": sim.get("status", "brak_danych"),
             "sim_quality": sim.get("quality"),
             "sim_hours": sim.get("forecast_hours"),
+            "pv_coverage": pv_coverage.get("covered_daylight_pct"),
             "sim_soc_end": sim.get("soc_end_pct"),
             "sim_soc_min": sim.get("soc_min_pct"),
             "sim_soc_min_cautious": cautious.get("soc_min_pct"),
@@ -630,6 +633,23 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
                 "czy_wykonano_sterowanie": False,
                 "wykres_48h": "Symulacja 48h — stan",
             }
+        if self._key == "pv_coverage":
+            report = d.get("pv_coverage") or {}
+            return {
+                "zrodlo": report.get("source"),
+                "pierwsza_luka_sloneczna": report.get("first_missing_daylight_at"),
+                "liczba_slonecznych_przedzialow": report.get("required_daylight_steps"),
+                "otrzymane_sloneczne_przedzialy": report.get("available_daylight_steps"),
+                "ciagle_pokryte_sloneczne_przedzialy": report.get("continuous_daylight_steps"),
+                "brakujace_sloneczne_przedzialy": report.get("missing_daylight_steps"),
+                "brak_punktow_przy_niskim_sloncu": report.get("lowlight_assumed_zero_steps"),
+                "ostatni_koniec_prognozy": report.get("last_forecast_end_at"),
+                "liczba_punktow": report.get("time_steps"),
+                "warianty_zrodel": report.get("candidate_sources"),
+                "konieczne_polozenie_instalacji": True,
+                "wspolrzedne_z_Home_Assistant": report.get("location_confirmed"),
+                "nie_dopisano_prognozy_na_dzien": True,
+            }
         if self._key == "sim_status":
             sim = d.get("simulation_48h") or {}
             return {
@@ -638,6 +658,7 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
                 "wariant_ostrozny": sim.get("cautious"),
                 "jakosc": sim.get("quality"),
                 "przedzial_minut": 15,
+                "nocne_przedzialy_uznane_za_zero": sim.get("lowlight_assumed_zero_steps"),
                 "wariant": sim.get("scenario"),
                 "przyszle_ladowanie_EV_nieznane": sim.get("future_ev_sessions_unknown"),
                 "prognoza_nie_jest_pomiarem": True,

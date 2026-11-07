@@ -474,6 +474,11 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
              [cards[8]]),
             ("Scenariusz 48 godzin", "mdi:calendar-clock",
              [cards[7], cards[9]]),
+            ("Jakość źródła prognozy PV", "mdi:weather-sunny-alert",
+             [_metric_card("Pokrycie prognozy PV", _existing(
+                 entities, [("Pokrycie słonecznych godzin", "pv_coverage"),
+                            ("Dostępne godziny symulacji", "sim_hours"),
+                            ("Status symulacji", "sim_status")]))]),
             ("Kolejne tanie okno", "mdi:clock-outline",
              [cards[3]]),
         ])

@@ -24,7 +24,7 @@ SENSOR_KEYS = (
     "mini_status", "history_status", "lab_status", "grid_status", "grid_import", "grid_raw_power", "grid_raw_status", "grid_limit", "grid_headroom",
     "grid_charge_cap", "grid_phase_status", "grid_reason", "sim_status",
     "sim_soc_end", "sim_soc_min", "sim_soc_min_cautious",
-    "sim_pv_kwh", "sim_grid_kwh", "sim_grid_peak", "sim_hours", "sim_quality",
+    "sim_pv_kwh", "sim_grid_kwh", "sim_grid_peak", "sim_hours", "sim_quality", "pv_coverage",
     "tariff", "tariff_zone", "tariff_price", "next_cheap",
     "smart_charge_status", "smart_charge_start", "smart_charge_finish", "smart_charge_power",
     "smart_charge_energy", "smart_charge_target", "dry_run_status",

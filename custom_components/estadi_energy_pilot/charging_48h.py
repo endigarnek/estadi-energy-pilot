@@ -13,6 +13,7 @@ from .battery_model import BatteryModel
 from .engine import PvSlot, TempSlot, pump_power_w
 from .simulation_48h import _slot_energy, _temperature, _base_kwh_per_hour
 from .tariffs import tariff_zone, WARSAW
+from .solar_geometry import required_forecast
 
 STEP = timedelta(minutes=15)
 MIN_RECOMMENDED_KW = 3.0
@@ -31,7 +32,9 @@ def _result(status: str, reason: str, **values) -> dict:
     }
 
 
-def _solar_complete(at: datetime, coverage: float) -> bool:
+def _solar_complete(at: datetime, coverage: float, *,
+                    latitude: float | None = None,
+                    longitude: float | None = None) -> bool:
     """Fail closed on missing forecast during plausibly sunlit hours.
 
     Unlike a zero nighttime forecast, missing daytime forecast cannot be
@@ -40,7 +43,11 @@ def _solar_complete(at: datetime, coverage: float) -> bool:
     local = at.astimezone(WARSAW)
     summer = 4 <= local.month <= 9
     first, last = (5, 21) if summer else (7, 17)
-    return coverage >= 0.999 or not first <= local.hour < last
+    return coverage >= .999 or not required_forecast(
+        at if latitude is not None and longitude is not None else local,
+        latitude=latitude, longitude=longitude,
+        legacy_hours=(first, last),
+    )
 
 
 def recommend_charge(
@@ -66,6 +73,7 @@ def recommend_charge(
     preferred_kw: float,
     ev_now_kw: float | None,
     prices: dict[str, float] | None = None,
+    latitude: float | None = None, longitude: float | None = None,
 ) -> dict:
     """Choose feasible start and power; conservatively keep active EV on.
 
@@ -122,7 +130,7 @@ def recommend_charge(
         if until > end_utc:
             break
         solar, coverage = _slot_energy(at, until, pv_slots)
-        if not _solar_complete(at, coverage):
+        if not _solar_complete(at, coverage, latitude=latitude, longitude=longitude):
             return _result("brak_prognozy_pv",
                            "Niepełna prognoza PV w czasie planowanego ładowania",
                            brakujaca_godzina=at.astimezone(WARSAW).isoformat())

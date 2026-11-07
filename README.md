@@ -1,7 +1,16 @@
-# ESTADI Energy Pilot — wersja 0.4.8 (beta)
+# ESTADI Energy Pilot — wersja 0.4.9 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
+## 0.4.9 — koniec błędów prognozy przerywanej przed świtem
+
+**Problem:** symulator poprzednio wymagał osobnego punktu PV już o 04:00 przez cały rok. Forecast.Solar zwraca okresy produkcji (godziny słoneczne), więc zimą program mógł zatrzymywać prognozę po 2–3 godzinach pomimo dostępnych danych na dzień.
+
+**Poprawka:** do rozpoznawania dnia i nocy używamy współrzędnych lokalizacji Home Assistant i położenia Słońca. Brak osobnego wiersza podczas nocy albo bardzo niskiego Słońca (<2°) jest oznaczony jako szacowane 0 PV, a nie jako brak danych. Brak prognozy w prawdziwie słonecznym czasie nadal zatrzymuje prognozę. Wartość 2° to przybliżenie modelu, nie pomiar; liczbę pominiętych przedziałów raportujemy.
+
+**Diagnostyka:** nowy sensor „Prognoza PV — pokrycie słonecznych godzin 48h” pokazuje źródło, pokrycie %, datę pierwszej luki i osobne statystyki Solcast / Forecast.Solar. Podczas wyboru źródła program nie zamieni lepszego pokrycia Solcast na krótszą prognozę Forecast.Solar.
+
+**Ważne:** to nie przedłuża danych Forecast.Solar poza datę, na którą faktycznie ma prognozę; nie wymyśla produkcji trzeciego dnia. Brak rzeczywistej prognozy PV, kalibracji Deye i ceny pozostaje widoczną blokadą. Sterowanie Deye nadal jest wyłączone.
 ## Wersja beta 0.4.8 — kompaktowy pulpit operacyjny i laboratorium
 
 - Pulpit główny ma zwartą mapę przepływów mocy: PV, Deye Grid, Deye Load, magazyn, moc baterii, straty falownika, EV i pompa ciepła. Wyświetla odczyty, nie zgaduje kierunków gdy znak nie jest skalibrowany.
