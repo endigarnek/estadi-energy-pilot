@@ -11,23 +11,24 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import hashlib, zipfile
+          import hashlib, json, zipfile
 
           root = Path('.')
           component = Path('custom_components/estadi_energy_pilot')
           assert (component / 'manifest.json').is_file(), 'Brak manifestu integracji'
           assert (component / 'dashboard_export.py').is_file(), 'Brak generatora pulpitu'
           assert (component / 'overview_card.js').is_file(), 'Brak nowego UI'
-          out = Path('ESTADI-Energy-Pilot-0.4.6-beta.zip')
+          version = json.loads((component / 'manifest.json').read_text(encoding='utf-8'))['version']
+          out = Path(f'ESTADI-Energy-Pilot-{version}-beta.zip')
           instructions = (
-              'ESTADI Energy Pilot 0.4.6 — wersja testowa\n'
+              f'ESTADI Energy Pilot {version} — wersja testowa\n'
               '1. Wykonaj kopię zapasową Home Assistant.\n'
               '2. Rozpakuj archiwum do /config (zachowaj strukturę custom_components).\n'
               '3. Uruchom ponownie Home Assistant.\n'
               '4. W integracji ESTADI użyj przycisku generowania pulpitu raz.\n'
               '5. W pliku docs/DASHBOARD_046.md przeczytaj instrukcję podłączenia karty.\n'
               'UWAGA: integracja nie steruje Deye; tryb doradczy.\n'
-              'Wersja testowa z Draft PR #33, nie jest wydaniem z main.\n'
+              'Wersja testowa — sprawdź datę aktualizacji i status na GitHubie.\n'
           )
           files = sorted([p for p in component.rglob('*') if p.is_file()
                           and '__pycache__' not in p.parts and not p.name.endswith('.pyc')])
@@ -48,6 +49,6 @@ jobs:
       - name: Udostępnij paczkę ZIP do pobrania
         uses: actions/upload-artifact@v4
         with:
-          name: ESTADI-Energy-Pilot-0.4.6-beta
-          path: ESTADI-Energy-Pilot-0.4.6-beta.zip
+          name: ESTADI-Energy-Pilot-beta
+          path: ESTADI-Energy-Pilot-*-beta.zip
           if-no-files-found: error
