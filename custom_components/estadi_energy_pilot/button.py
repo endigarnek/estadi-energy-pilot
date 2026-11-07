@@ -188,7 +188,13 @@ class ExportDashboardButton(ButtonEntity):
         plan_card = await self.coordinator.hass.async_add_executor_job(
             Path(__file__).with_name("plan_card.js").read_text, "utf-8",
         )
-        script = forecast + "\n" + overview + "\n" + cockpit + "\n" + detail + "\n" + plan_card
+        lab_card = await self.coordinator.hass.async_add_executor_job(
+            Path(__file__).with_name("lab_card.js").read_text, "utf-8",
+        )
+        script = (
+            forecast + "\n" + overview + "\n" + cockpit + "\n" +
+            detail + "\n" + plan_card + "\n" + lab_card
+        )
         full = render_dashboard(ids, sources)
         mini = render_mini_widget(ids, sources)
         paths = await self.coordinator.hass.async_add_executor_job(
