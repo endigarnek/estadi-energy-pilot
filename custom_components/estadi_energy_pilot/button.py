@@ -155,6 +155,19 @@ class ExportDashboardButton(ButtonEntity):
                 losses_candidates.append(entity_id)
         if len(set(losses_candidates)) == 1:
             sources["source_losses"] = losses_candidates[0]
+        battery_states = []
+        for item in self.coordinator.hass.states.async_all():
+            eid = getattr(item, "entity_id", "")
+            title = str((getattr(item, "attributes", {}) or {}).get("friendly_name", "")).lower()
+            if not eid.startswith("sensor."):
+                continue
+            if eid == "sensor.deye_battery_state" or (
+                "deye" in eid and eid.endswith("battery_state") or
+                "deye" in title and title.endswith("battery state")
+            ):
+                battery_states.append(eid)
+        if len(set(battery_states)) == 1:
+            sources["source_battery_state"] = battery_states[0]
         return ids, sources
 
     async def async_generate_managed_files(self):
