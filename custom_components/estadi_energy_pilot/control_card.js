@@ -128,7 +128,9 @@
      const chargeKW=this.n("smart_charge_power",0),chargeKWH=this.n("smart_charge_energy",0);
      const target=this.n("smart_charge_target",0,100),endSOC=this.n("sim_soc_end",0,100);
      const pvKwh=this.n("sim_pv_kwh",0),gridKwh=this.n("sim_grid_kwh",0);
-     const planTitle=planned?"Plan doradczy gotowy":ready?"Symulacja gotowa, plan niedostępny":"Brak pełnego planu ładowania";
+     const planTitle=planned
+       ?(ready?"Plan doradczy gotowy":"Wstępny plan okna taryfowego")
+       :ready?"Symulacja gotowa, plan niedostępny":"Brak pełnego planu ładowania";
      const css=[
      ':host{--surface:var(--ha-card-background,var(--card-background-color,#fff));--text:var(--primary-text-color,#142330);--muted:var(--secondary-text-color,#62707c);--line:var(--divider-color,#e3e9ef);--soft:var(--secondary-background-color,#f4f6f8);color:var(--text);display:block;font:inherit}',
      '*{box-sizing:border-box}ha-card{background:transparent;border:0;box-shadow:none}',
@@ -192,7 +194,10 @@
       '<div class="foot">* Jeżeli kierunek sieci nie jest potwierdzony, pokazuję surową moc ze znakiem, a nie import. Moc baterii także zachowuje znak do kalibracji. EV i pompa są już w Deye Load.</div>'+
       '</div><div class="card"><h2>Plan magazynu · dziś i noc</h2>'+
       '<div class="alert"><b>'+esc(planTitle)+'</b>'+
-      esc(planned?"To propozycja, nie wykonane sterowanie.":planReason||simReason||"Brakuje kompletnej prognozy lub danych bezpieczeństwa.")+
+      esc(planned
+        ?(ready?"To propozycja, nie wykonane sterowanie.":
+          "Prognoza 48h niepełna; propozycja dotyczy okna taryfowego. Nie wykonano sterowania.")
+        :planReason||simReason||"Brakuje kompletnej prognozy lub danych bezpieczeństwa.")+
       '</div><div class="metrics">'+
       this.metric("Start",planned?clock(start):"—","Okno taryfy")+
       this.metric("Moc ładowania",planned?fmt(this.n("smart_charge_power",0),2)+" kW":"—","Nie wykonana")+
