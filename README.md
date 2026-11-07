@@ -1,7 +1,16 @@
-# ESTADI Energy Pilot — wersja 0.4.7 (beta)
+# ESTADI Energy Pilot — wersja 0.4.8 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
 
+## Wersja beta 0.4.8 — kompaktowy pulpit operacyjny i laboratorium
+
+- Pulpit główny ma zwartą mapę przepływów mocy: PV, Deye Grid, Deye Load, magazyn, moc baterii, straty falownika, EV i pompa ciepła. Wyświetla odczyty, nie zgaduje kierunków gdy znak nie jest skalibrowany.
+- W tym samym widoku: proponowany start i moc ładowania, docelowy SOC, energia do zakupu oraz status kompletności prognozy 48h. **Niepełnych prognoz nie wyświetlamy jako pełnych sum 48h**.
+- Wykresy prognozowanego SOC i historycznego porównania PV (prognoza zarejestrowana wcześniej kontra rzeczywiste pomiary).
+- Osobna zakładka **Testy**: sześć przycisków wyłącznie do odczytu. Diagnoza czujników, znaków, Grid Guard, faz, prognozy, TOU i kandydatów regulacji. Wynik zostaje na sensorze z opisem, bez pisania do Deye.
+- Naprawa: weekend G12w nie blokuje tworzenia planu doradczego; długość taniego okna ograniczona do pierwszych 48 godzin.
+- **Brak wykonawczego ON/OFF sterowania baterią:** potwierdzona mapa poleceń Deye, BMS, limitów na fazy, odczyt zwrotny i rollback są warunkiem odblokowania. Brak aktualnie jakichkolwiek wywołań do zapisu Deye.
+- Zachowano ścieżkę zasobu JavaScript `/local/estadi-energy-pilot-ui-v046.js` dla już zainstalowanych pulpitów. Zaktualizowany plik jest generowany przy starcie po aktualizacji; w razie starego wyglądu odśwież pamięć przeglądarki.
 ## Wersja 0.4.7 — diagnostyka pomiaru sieci Deye
 
 Nowe czujniki **„Deye — moc sieci surowa, ze znakiem”** oraz **„Deye — jakość pomiaru mocy sieci”** pokazują, czy prawidłowy i aktualny odczyt dociera do systemu, nawet gdy Grid Guard ma blokadę niepotwierdzonej polaryzacji. Jest to odczyt diagnostyczny **niepozwalający wywnioskować importu lub eksportu przed kalibracją znaku**. Moduł nadal nie wylicza zapasu, bezpiecznej mocy ładowania ani nie wydaje poleceń w przypadku braku potwierdzenia.
