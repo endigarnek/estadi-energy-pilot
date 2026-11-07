@@ -14,12 +14,14 @@
   const TEST_LABELS = {
     meters: "Odczyty Deye", polarity: "Kierunki mocy", limits: "Przyłącze i fazy",
     forecast: "Prognoza i plan", tou: "Programy Deye TOU",
-    write_capability: "Dostępne regulatory", preflight: "Gotowość sterowania"
+    write_capability: "Regulatory 1/2",
+    write_capability_more: "Regulatory 2/2", preflight: "Gotowość sterowania"
   };
   const TEST_ICON = {
     meters: "gauge", polarity: "swap-horizontal", limits: "shield-check",
     forecast: "chart-timeline-variant", tou: "clock-outline",
-    write_capability: "tune", preflight: "clipboard-check-outline"
+    write_capability: "tune", write_capability_more: "format-list-numbered",
+    preflight: "clipboard-check-outline"
   };
   class Lab extends HTMLElement {
     constructor() {
@@ -76,13 +78,15 @@
     }
     _details(result) {
       if (!result.test) return '<p class="empty">Naciśnij test powyżej. Wynik pojawi się tutaj, bez przechodzenia do narzędzi deweloperskich.</p>';
-      if (result.test === "write_capability") {
+      if (["write_capability", "write_capability_more"].includes(result.test)) {
         const count = result.discovered ?? 0;
-        return '<div class="result-head"><h3>' + esc(count) + ' potencjalnych regulatorów</h3>'+
+        return '<div class="result-head"><h3>Regulatory: strona '+
+          esc(result.page ?? 1)+' / '+esc(result.pages ?? 1)+' · '+esc(count)+' wszystkich</h3>'+
           '<span>Wspólne urządzenie Deye: '+esc(result.same_deye_device_count ?? 0)+'</span></div>'+
           '<p class="note">To kandydaci z Home Assistant. Odczyt zakresów nie dowodzi, że falownik przyjmie zmianę. Nie wysłano żadnych poleceń.</p>'+
           this._table(result.candidates || []) +
-          (result.truncated ? '<p class="warning">Lista została skrócona do 40 pozycji.</p>' : '') +
+          (result.remaining > 0 ? '<p class="warning">Pozostało '+esc(result.remaining)+
+             ' regulatorów. Uruchom „Regulatory 2/2”, aby je zobaczyć i skopiować.</p>' : '') +
           '<button class="copy" type="button" data-copy="1"><ha-icon icon="mdi:content-copy"></ha-icon> Kopiuj wykaz encji</button>';
       }
       if (result.test === "preflight") {
@@ -141,8 +145,10 @@
         "Przyczyna: " + plain(result.reason),
         "Wysłane polecenia do Deye: NIE",
       ];
-      if(result.test==="write_capability"){
+      if(["write_capability","write_capability_more"].includes(result.test)){
         lines.push("Wykrytych kandydatów: " + plain(result.discovered));
+        lines.push("Strona: " + plain(result.page || 1) +
+          " / " + plain(result.pages || 1));
         for(const c of result.candidates || []){
           lines.push([c.entity,c.label,"obecnie="+plain(c.state),
             "typ="+plain(c.domain),"jednostka="+plain(c.unit),
