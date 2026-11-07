@@ -113,7 +113,7 @@ class DashboardExportTests(unittest.TestCase):
     def test_resource_export_creates_js_once_and_respects_edits(self):
         full = mod.render_dashboard(ENTITIES, SOURCES)
         mini = mod.render_mini_widget(ENTITIES, SOURCES)
-        javascript = ("customElements.define('estadi-energy-forecast-card', class extends HTMLElement {});" "customElements.define('estadi-energy-overview-card', class extends HTMLElement {});" "customElements.define('estadi-energy-control-card', class extends HTMLElement {});")
+        javascript = ("customElements.define('estadi-energy-forecast-card', class extends HTMLElement {});" "customElements.define('estadi-energy-overview-card', class extends HTMLElement {});" "customElements.define('estadi-energy-control-card', class extends HTMLElement {});" "customElements.define('estadi-energy-details-card', class extends HTMLElement {});")
         with TemporaryDirectory() as folder:
             first = mod.export_files(folder, full, mini, javascript)
             self.assertEqual(first["forecast_resource_url"], mod.FORECAST_CARD_RESOURCE)
