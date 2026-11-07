@@ -17,6 +17,7 @@ from .dashboard_export import (
     render_dashboard, render_mini_widget, export_files, FORECAST_CARD_RESOURCE,
 )
 from .lab_checks import DIAGNOSTIC_TESTS, inspect_test
+from .lovelace_resource import async_ensure_estadi_resource
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -217,7 +218,18 @@ class ExportDashboardButton(ButtonEntity):
                 "Nie udało się wygenerować pulpitu ESTADI: " + str(exc)
             ) from exc
 
+        # Register the resource after all files were generated successfully.
+        # An API failure should be visible in entity attributes but must not
+        # prevent using the read-only dashboard or energy measurements.
+        try:
+            res = await async_ensure_estadi_resource(self.coordinator.hass)
+        except Exception:
+            _LOGGER.exception("Nie odświeżono zasobu Lovelace ESTADI")
+            res = {"status": "resource_registration_error",
+                   "url": FORECAST_CARD_RESOURCE}
         self._attr_extra_state_attributes = {
+            "stan_zasobu_js": res["status"],
+            "adres_js_z_wersja": res["url"],
             "status": "Wygenerowano",
             "pulpit_yaml": paths["dashboard"],
             "miniwidzet_yaml": paths["mini"],
