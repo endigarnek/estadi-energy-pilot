@@ -285,7 +285,7 @@ class LabTestButton(ButtonEntity):
             # more reliable discovery than searching for "deye" in entity IDs.
             # This only reads Entity Registry; never sends a control service.
             related_entities = set()
-            if self.test == "write_capability":
+            if self.test in ("write_capability", "write_capability_more"):
                 registry = er.async_get(self.coordinator.hass)
                 monitored = {
                     settings.get(CONF_GRID_POWER),
