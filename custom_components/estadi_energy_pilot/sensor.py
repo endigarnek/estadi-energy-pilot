@@ -235,6 +235,7 @@ class HealthSensor(CoordinatorEntity, SensorEntity):
 ENERGY_V2_SENSORS = (
     ("mini_status", "Szybki status energii", None),
     ("history_status", "Prognoza kontra pomiar PV — wczoraj", None),
+    ("lab_status", "Laboratorium — wynik testu", None),
     ("grid_import", "Pobór z przyłącza", "kW"),
     ("grid_raw_power", "Deye — moc sieci surowa, ze znakiem", "kW"),
     ("grid_raw_status", "Deye — jakość pomiaru mocy sieci", None),
@@ -462,7 +463,8 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
             "sim_grid_peak": sim.get("grid_peak_kw"),
             "sim_cost": sim.get("cost_import_pln"),
             "mini_status": mini,
-            "history_status": ("Zapisano " + str(len((self.coordinator.data or {}).get("history_hours") or [])) + " godzin"),
+            "history_status": ("Zapisano " + str(sum(1 for row in ((self.coordinator.data or {}).get("history_hours") or []) if row.get("forecast_kwh") is not None or row.get("actual_kwh") is not None)) + " godzin"),
+            "lab_status": (getattr(self.coordinator, "lab_last_result", {}) or {}).get("status", "nie_uruchomiono"),
             "grid_import": g.get("import_kw"),
             "grid_raw_power": g.get("raw_grid_kw"),
             "grid_raw_status": g.get("raw_grid_status"),
@@ -489,6 +491,15 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
+        if self._key == "lab_status":
+            recent = getattr(self.coordinator, "lab_last_result", {}) or {}
+            return {
+                "test": recent.get("test"),
+                "przyczyna": recent.get("reason"),
+                "szczegoly": recent,
+                "ostatni_test": recent.get("checked_at"),
+                "bez_zapisu_deye": True,
+            }
         if self._key == "history_status":
             snapshot = self.coordinator.data or {}
             return {
