@@ -378,9 +378,12 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                         # provider priority. First priority is actual daylight
                         # coverage across the next 48h; no source blending.
                         current_coverage = provider_reports.get(forecast_source, {})
+                        fs_report = provider_reports["Forecast.Solar"]
                         if (not pv_slots or
-                            provider_reports["Forecast.Solar"]["available_daylight_steps"]
-                            >= current_coverage.get("available_daylight_steps", 0)):
+                            (fs_report["continuous_daylight_steps"],
+                             fs_report["available_daylight_steps"]) >=
+                            (current_coverage.get("continuous_daylight_steps", 0),
+                             current_coverage.get("available_daylight_steps", 0))):
                             pv_slots = forecast_slots
                             forecast_source = "Forecast.Solar"
                     else:
