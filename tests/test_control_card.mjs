@@ -68,6 +68,8 @@ test("47% current and 43% target show why model may still plan a charge",()=>{
     assert.ok(html.includes(phrase),phrase);
  }
  assert.match(html,/Sterowanie Deye: WYŁĄCZONE/);
+ assert.match(html,/Wstępny plan okna taryfowego/);
+ assert.match(html,/Prognoza 48h niepełna/);
 });
 test("a provisional plan without SOC model points must not invent a justification",()=>{
  const item=build({
