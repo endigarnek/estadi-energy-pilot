@@ -572,8 +572,12 @@ class EnergyV2Sensor(CoordinatorEntity, SensorEntity):
             }
         if self._key == "economic_status":
             ec = d.get("scenario_economics") or {}
-            base = ec.get("baseline") or {}
-            planned = ec.get("plan") or {}
+            # Avoid duplicating two full 48-row arrays in Recorder.
+            # The dedicated plan_timeline sensor carries the concise 48h rows.
+            base = dict(ec.get("baseline") or {})
+            planned = dict(ec.get("plan") or {})
+            base.pop("timeline_hours", None)
+            planned.pop("timeline_hours", None)
             return {
                 "przyczyna": ec.get("reason"),
                 "taryfa": ec.get("tariff"),
