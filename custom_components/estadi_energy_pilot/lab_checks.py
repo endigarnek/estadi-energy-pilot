@@ -5,12 +5,13 @@ require a separate, explicitly approved adapter with safety and rollback tests.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
+from math import isfinite
 from typing import Any
 
 from .const import (
     CONF_GRID_POWER, CONF_BATTERY_POWER, CONF_GRID_IMPORT_SIGN,
-    CONF_BATTERY_CHARGE_SIGN, CONF_PHASE_LIMIT_L1,
+    CONF_BATTERY_CHARGE_SIGN, CONF_GRID_LIMIT, CONF_PHASE_LIMIT_L1,
     CONF_PHASE_LIMIT_L2, CONF_PHASE_LIMIT_L3,
 )
 from .grid_monitor import build_grid_readout, read_source
@@ -24,6 +25,7 @@ DIAGNOSTIC_TESTS = {
     "tou": "Sprawdź harmonogram Deye TOU",
     "write_capability": "Regulatory Deye — pierwsza strona (bez zapisu)",
     "write_capability_more": "Regulatory Deye — druga strona (bez zapisu)",
+    "charge_limits": "Sprawdź konfigurowalne limity Deye (bez zapisu)",
     "preflight": "Sprawdź kompletność warunków do sterowania (bez zapisu)",
 }
 
@@ -94,6 +96,84 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
             read_fields=observed.get("odczytane_pola"),missing_fields=observed.get("brakujace_pola"),
             slots=observed.get("programy"),readback_only=True,
             hardware_write_ready=False,blockers=observed.get("blokady",[]))
+    if kind == "charge_limits":
+        # These are editable SETPOINTS. The HA min/max describe an accepted
+        # UI/register range, NOT a BMS/inverter/installation safety allowance.
+        def setpoint(entity_id: str, expected_unit: str) -> dict:
+            item = states.get(entity_id)
+            attrs = (getattr(item, "attributes", {}) or {}) if item else {}
+            state = getattr(item, "state", None) if item else None
+            try:
+                value = float(state) if state is not None else None
+                if value is not None and not isfinite(value):
+                    value = None
+            except (TypeError, ValueError):
+                value = None
+            unit = attrs.get("unit_of_measurement")
+            if unit != expected_unit:
+                value = None
+            return {
+                "entity": entity_id,
+                "value": value,
+                "unit": unit,
+                "min_ui": attrs.get("min"),
+                "max_ui": attrs.get("max"),
+                "step_ui": attrs.get("step"),
+                "configurable": entity_id.startswith("number."),
+                "physical_hardware_limit": False,
+                "confirmed_writable": False,
+            }
+        settings = {
+            "grid_charge_current": setpoint(
+                "number.deye_battery_grid_charging_current", "A"),
+            "max_charge_current": setpoint(
+                "number.deye_battery_max_charging_current", "A"),
+            "max_grid_import": setpoint(
+                "number.deye_grid_max_import_power", "W"),
+            "peak_shaving": setpoint(
+                "number.deye_grid_peak_shaving", "W"),
+        }
+        battery = states.get("sensor.deye_battery_voltage")
+        battery_voltage = None
+        if battery and (getattr(battery, "attributes", {}) or {}).get("unit_of_measurement") == "V":
+            try:
+                raw = float(getattr(battery, "state", None))
+                last = getattr(battery, "last_updated", None)
+                age = (now.astimezone(timezone.utc) -
+                       last.astimezone(timezone.utc)).total_seconds() if last and last.tzinfo else None
+                if isfinite(raw) and 30 <= raw <= 65 and age is not None and -5 <= age <= 120:
+                    battery_voltage = raw
+            except (TypeError, ValueError, OverflowError):
+                pass
+        amps = settings["grid_charge_current"]["value"]
+        approx_dc_kw = (round(amps * battery_voltage / 1000, 2)
+                        if amps is not None and battery_voltage is not None else None)
+        try:
+            contracted_grid_kw = float(selected.get(CONF_GRID_LIMIT))
+        except (ValueError, TypeError):
+            contracted_grid_kw = None
+        if contracted_grid_kw is not None and not isfinite(contracted_grid_kw):
+            contracted_grid_kw = None
+        grid_setting = settings["max_grid_import"]["value"]
+        mismatch = (grid_setting is not None and contracted_grid_kw is not None
+                    and grid_setting / 1000 > contracted_grid_kw)
+        return _result(
+            kind, "informacja",
+            "To konfigurowalne nastawy Deye, a nie stałe limity fizyczne.",
+            settings=settings, battery_voltage_v=battery_voltage,
+            approximate_dc_charge_kw_at_current_setting=approx_dc_kw,
+            contracted_connection_kw=contracted_grid_kw,
+            inverter_import_setting_kw=(
+                round(grid_setting / 1000, 2) if grid_setting is not None else None),
+            inverter_setting_above_connection_limit=mismatch,
+            active_peak_shaving_unverified=True,
+            bms_limit_unverified=True,
+            current_change_allowed=False,
+            hardware_write_performed=False,
+            safe_control_policy="Nie podnoś nastaw na podstawie zakresu UI. "
+                "Regulator musi uwzględniać zweryfikowane BMS, 3 fazy, "
+                "limit przyłącza, odczyt zwrotny i możliwość rollbacku.",
+        )
     if kind == "preflight":
         guard = build_grid_readout(states.get, selected, now)
         solar = (coordinator_data.get("energy_2_0") or {}).get("pv_coverage") or {}
