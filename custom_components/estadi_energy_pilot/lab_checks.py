@@ -16,6 +16,7 @@ from .const import (
 )
 from .grid_monitor import build_grid_readout, read_source
 from .deye_tou import inspect_tou
+from .tou_commissioning import audit_tou_map
 from .inverter_specs import comparison_for_laboratory
 
 DIAGNOSTIC_TESTS = {
@@ -94,6 +95,8 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
             battery_grid_charge_kwh=smart.get("grid_charge_kwh"))
     if kind == "tou":
         observed = inspect_tou(states.async_all(), now)
+        plan = (coordinator_data.get("energy_2_0") or {}).get("optimized_schedule") or {}
+        commissioning = audit_tou_map(observed, plan=plan, get_state=states.get)
         related = same_deye_device_time_entities or set()
         known = {
             row["entity"] for row in observed.get("time_entity_candidates", [])
@@ -110,15 +113,29 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
                 })
         time_candidates.sort(key=lambda row: row["entity"])
         reasons = observed.get("operational_blockers", [])
+        readback_complete = commissioning["readback_status"] == "ok"
         return _result(
-            kind, "ok" if observed.get("odczytane_pola") == 24 else "blokada",
-            observed.get("przyczyna") or "Brak odczytu",
+            kind, "blokada",
+            ("Odczyt 24/24 pól poprawny; sterowanie pozostaje zablokowane"
+             if readback_complete else
+             "Niepełny odczyt TOU; sterowanie pozostaje zablokowane"),
             read_fields=observed.get("odczytane_pola"),
             missing_fields=observed.get("brakujace_pola"),
             slots=observed.get("programy"), readback_only=True,
             hardware_write_ready=False,
             blockers=(reasons + observed.get("blokady", [])),
             operational_blockers=reasons,
+            readback_status=commissioning["readback_status"],
+            readback_complete=readback_complete,
+            operational_status=commissioning["operational_status"],
+            commissioning_blockers=commissioning["blockers"],
+            commissioning_snapshot_in_memory=commissioning["snapshot_in_memory"],
+            commissioning_snapshot_persisted=commissioning["snapshot_persisted"],
+            commissioning_write_actions=commissioning["write_actions"],
+            commissioning_can_write=commissioning["can_write"],
+            plan_window_alignment=commissioning["window_alignment"],
+            tou_time_order_valid=commissioning["time_order_valid"],
+            global_setpoints=commissioning["protected_setpoints"],
             grid_charge_global=observed.get("global_grid_charge"),
             tou_mode_raw=observed.get("tou_mode_raw"),
             grid_charging_programs=observed.get("grid_charging_programs"),
@@ -217,7 +234,8 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
         plan = (coordinator_data.get("energy_2_0") or {}).get("optimized_schedule") or {}
         problems = []
         observed_tou = inspect_tou(states.async_all(), now)
-        for blocker in observed_tou.get("operational_blockers", []):
+        tou_audit = audit_tou_map(observed_tou, plan=plan, get_state=states.get)
+        for blocker in tou_audit["blockers"]:
             problems.append("TOU: " + blocker)
         shaving = states.get("switch.deye_grid_peak_shaving")
         if shaving is None or getattr(shaving, "state", None) != "on":
