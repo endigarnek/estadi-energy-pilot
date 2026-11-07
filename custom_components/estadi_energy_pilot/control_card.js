@@ -60,6 +60,26 @@
        '<span>'+esc(name)+'</span><strong>'+esc(val)+'</strong><small>'+esc(detail)+
        '</small></div></div>';
    }
+   _chargePreview(rows,ready){
+     if(!ready||!Array.isArray(rows)||rows.length<2)
+       return'<div class="plan-small">Godziny ładowania pojawią się po przygotowaniu pełnego planu 48h.</div>';
+     const max=Math.max(1,...rows.map(r=>num(r.moc_ladowania_siec_kw_sr)||0));
+     const width=480, gap=2, step=width/48;
+     const bars=rows.slice(0,48).map((r,i)=>{
+       const kw=num(r.moc_ladowania_siec_kw_sr);
+       if(kw===null||kw<=.01)return"";
+       const h=Math.min(38,kw/max*38);
+       return'<rect x="'+(i*step+gap).toFixed(1)+'" y="'+(45-h).toFixed(1)+
+         '" width="'+(step-gap-1).toFixed(1)+'" height="'+h.toFixed(1)+
+         '" fill="#e3a342" rx="1"/>';
+     }).join("");
+     return'<div class="plan-mini"><span>Prognoza mocy ładowania z sieci · 48h</span>'+
+       '<svg viewBox="0 0 480 58" preserveAspectRatio="none" role="img" aria-label="Godziny planowanego ładowania magazynu">'+
+       '<path d="M0 45H480" stroke="var(--line)"/>'+bars+
+       '<text x="1" y="57" fill="var(--muted)" font-size="9">Teraz</text>'+
+       '<text x="460" y="57" text-anchor="end" fill="var(--muted)" font-size="9">48h</text>'+
+       '</svg></div>';
+   }
    render(){
      if(!this.shadowRoot)return;
      const pv=this.n("pv",0),load=this.n("home",0),soc=this.n("soc",0,100);
@@ -82,6 +102,9 @@
      const ready=simStatus==="gotowa"&&simHours!==null&&simHours>=47.75;
      const simReason=this.entity("sim_status")?.attributes?.przyczyna||"";
      const planReason=this.entity("smart_charge_status")?.attributes?.przyczyna||"";
+     const hourlyPlan=this.entity("plan_timeline");
+     const hourlyRows=hourlyPlan?.attributes?.godziny;
+     const planIsComplete=hourlyPlan?.state==="gotowy";
      const rows=this.entity("sim_status")?.attributes?.harmonogram_48h;
      const history=this.entity("history_status")?.attributes?.godziny;
      const coverage=simHours===null?0:Math.max(0,Math.min(100,simHours/48*100));
@@ -128,6 +151,7 @@
      '.meter{height:6px;border-radius:6px;background:var(--soft);margin:11px 0;overflow:hidden}.meter i{display:block;height:100%;background:#269f7a}',
      'svg{display:block;width:100%;height:94px}.empty{padding:24px 5px;text-align:center;font-size:11px;color:var(--muted)}',
      '.legend{display:flex;gap:13px;font-size:10px;color:var(--muted)}.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:#e4a43b}.legend .real{background:#248eab}',
+     '.plan-mini{margin-top:9px}.plan-mini span,.plan-small{font-size:10px;color:var(--muted)}.plan-mini svg{height:58px;margin-top:3px}.plan-small{margin-top:9px}',
      '@media(max-width:900px){.cols,.lower{grid-template-columns:1fr}}',
      '@media(max-width:500px){.shell{padding:4px;gap:8px}.card{padding:10px;border-radius:12px}.flow{grid-template-columns:minmax(0,1fr) 57px minmax(0,1fr);gap:4px}.node{gap:4px;padding:5px}.node strong{font-size:15px}.node ha-icon{--mdc-icon-size:16px}.node span,.node small{font-size:9px}.metric strong{font-size:16px}.chart-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}'
      ].join("");
@@ -158,6 +182,7 @@
       this.metric("Docelowy SOC",planned?fmt(this.n("smart_charge_target",0,100),0)+"%":"—","Obecnie "+(soc===null?"—":fmt(soc,0)+"%"))+
       '</div><div class="details"><span>Koniec <b>'+esc(planned?clock(finish):"—")+
       '</b></span><span>Tania strefa <b>'+esc(clock(this.state("next_cheap")))+'</b></span></div>'+
+      this._chargePreview(hourlyRows,planIsComplete)+
       '<div class="foot">Plan wyłącznie doradczy. Brak danych nie jest zerem ani potwierdzeniem możliwości ładowania.</div>'+
       '</div></section><section class="lower">'+
       '<div class="card"><h2>Prognoza 48h · SOC i energia</h2>'+
