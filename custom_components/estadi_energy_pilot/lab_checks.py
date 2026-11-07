@@ -32,7 +32,7 @@ def _result(kind: str, status: str, reason: str, **data) -> dict:
 
 
 def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
-                 now: datetime) -> dict:
+                 now: datetime, same_deye_device_entities: set[str] | None = None) -> dict:
     """Return a structured and auditable result from actual HA states only."""
     if kind not in DIAGNOSTIC_TESTS:
         raise ValueError("Nieznany test ESTADI")
@@ -129,35 +129,63 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
             plan_status=plan.get("status"),
             write_test_approved=False, remote_control_enabled=False,
         )
-    # Discover actual write-capable candidate entities, but NEVER execute them.
-    candidates=[]
+    # Discover candidate controls on the SAME HA device as the configured
+    # Deye meter. Some legitimate devices expose generic entity IDs without
+    # "deye" in their slug. This is inventory only: no write capability proof.
+    related = same_deye_device_entities or set()
+    candidates = []
+    checked = 0
     for entity in states.async_all():
-        entity_id=getattr(entity,"entity_id","")
-        if entity_id.split(".",1)[0] not in ("number","select","switch"):
-            continue
-        if not ("deye" in entity_id or "time_of_use" in entity_id or "tou_" in entity_id):
-            continue
-        if not any(word in entity_id for word in ("charge","charging","power","program","time_of_use","tou")):
+        entity_id = getattr(entity, "entity_id", "")
+        domain = entity_id.partition(".")[0]
+        if domain not in ("number", "select", "switch"):
             continue
         attrs = getattr(entity, "attributes", {}) or {}
+        name = str(attrs.get("friendly_name") or entity_id)
+        text = (entity_id + " " + name).lower()
+        from_device = entity_id in related
+        if not from_device and not any(token in text for token in (
+            "deye", "time_of_use", "time of use", "tou_",
+        )):
+            continue
+        if not any(token in text for token in (
+            "charge", "charging", "battery", "power", "program",
+            "time_of_use", "time of use", "tou", "soc", "export",
+            "grid", "work mode",
+        )):
+            continue
+        checked += 1
+        options = attrs.get("options")
+        if not isinstance(options, (list, tuple)):
+            options = []
         candidates.append({
-            "entity":entity_id,
-            "label": str(attrs.get("friendly_name") or entity_id)[:100],
-            "domain": entity_id.split(".", 1)[0],
+            "entity": entity_id,
+            "label": name[:100],
+            "domain": domain,
             "state": str(getattr(entity, "state", "unknown"))[:70],
             "unit": attrs.get("unit_of_measurement"),
             "min": attrs.get("min"),
             "max": attrs.get("max"),
             "step": attrs.get("step"),
-            "options": attrs.get("options", [])[:20]
-                if isinstance(attrs.get("options"), list) else [],
+            "options": [str(v)[:60] for v in options[:20]],
+            "detected_by": "same_deye_device" if from_device else "name_match",
             "command_written": False,
             "readback_verified": False,
             "safe_limits_verified": False,
         })
-    return _result(kind,"blokada",
-        "Wykrycie encji number/select/switch nie potwierdza semantyki, zapisu, odczytu zwrotnego ani reakcji BMS",
-        candidates=sorted(candidates,key=lambda x:x["entity"])[:40],
-        discovered=len(candidates),scanned_from="HA states (read only)",
+    # The HA entity attributes may be large; cap the state payload and keep
+    # the count explicit so users know when an inventory was truncated.
+    candidates.sort(key=lambda item: (item["detected_by"] != "same_deye_device",
+                                      item["entity"]))
+    return _result(
+        kind, "blokada",
+        "To wykaz kandydatów, nie potwierdzenie możliwości sterowania.",
+        candidates=candidates[:40], discovered=checked,
+        truncated=checked > 40,
+        same_deye_device_count=sum(x["detected_by"] == "same_deye_device"
+                                   for x in candidates),
+        scanned_from="Rejestr urządzeń HA + Stany (tylko odczyt)",
         actual_write_test_available=False,
-        next_step="Prześlij dokładne encje sterujące Deye i ich jednostki; test zapisu wymaga dodatkowej zgody, limitów i rollbacku")
+        next_step="Skopiuj wykaz kandydatów z panelu Testy. Potwierdzimy "
+                  "przeznaczenie encji, limity, BMS, odczyt zwrotny i rollback.",
+    )

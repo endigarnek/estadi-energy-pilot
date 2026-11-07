@@ -1,6 +1,16 @@
-# ESTADI Energy Pilot — wersja 0.5.0 (beta)
+# ESTADI Energy Pilot — wersja 0.5.1 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
+
+## 0.5.1 — Laboratorium Deye bez zaglądania do atrybutów
+
+- **Nowa zakładka Testy:** jeden kompaktowy panel z siedmioma testami, wynikiem od razu pod przyciskami i czytelnymi blokadami. Brak wielkich natywnych kafelków i przechodzenia między zakładkami.
+- **Wykrywanie sterowania po urządzeniu:** poza nazwą encji program sprawdza encje `number`, `select`, `switch` powiązane w Rejestrze Urządzeń Home Assistant z skonfigurowanym falownikiem Deye (czujniki sieci i baterii). Dzięki temu wykrywa też sterowanie bez „deye” w nazwie. Nie dodaje urządzeń z innych części instalacji.
+- **Lista dostępnych regulatorów:** nazwa encji, typ, aktualny odczyt, jednostka, zakres, krok, opcje, sposób wykrycia. Jeden przycisk **„Kopiuj wykaz encji”** przygotowuje tekst do przekazania do analizy.
+- **Tryb doradczy nadal obowiązuje:** każda akcja w Laboratorium uruchamia wyłącznie `button.press` dla testu odczytowego. Zero `number.set_value`, `select.select_option` czy `switch.turn_on`. Dostępność regulatora NIE jest testem fizycznego zapisu.
+- **Wygląd:** responsywny, ciemny i jasny motyw; poziome przewijanie ograniczone do tabeli parametrów (nie całej strony).
+
+Po aktualizacji do 0.5.1 i restarcie HA wejdź w **Testy → Dostępne regulatory → Kopiuj wykaz encji**. Wklej wynik do rozmowy. Dopiero potem można przygotować kontrolowany test zapisu mocy dla konkretnego urządzenia i wersji firmware.
 
 ## 0.5.0 — godzinowy plan pracy magazynu i audyt gotowości Deye
 

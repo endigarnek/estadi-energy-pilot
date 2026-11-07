@@ -31,6 +31,10 @@ jobs:
           node-version: "22"
       - name: Sprawdź składnię karty prognozy JS
         run: node --check custom_components/estadi_energy_pilot/forecast_card.js
+      - name: Testy laboratorium Deye i kopiowania encji
+        run: |
+          node --check custom_components/estadi_energy_pilot/lab_card.js
+          node --test tests/test_lab_card.mjs
       - name: Sprawdź godzinowy wykres ładowania i rozładowania
         run: |
           node --check custom_components/estadi_energy_pilot/plan_card.js
