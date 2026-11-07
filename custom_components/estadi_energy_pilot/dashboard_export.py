@@ -453,6 +453,23 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                         "  title: \"Wynik ostatniego testu — dotknij po szczegóły\"\n"
                         "  entities:\n"
                         "    - entity: " + _quote(lab_result) + "\n")
+    lab_card = ""
+    if lab_result:
+        lab_card = (
+            "- type: custom:estadi-energy-lab-card\n"
+            "  result_entity: " + _quote(lab_result) + "\n"
+            "  tests:\n"
+            + "".join(
+                "    - key: " + _quote(key) + "\n"
+                "      entity_id: " + _quote(entities["lab_" + key]) + "\n"
+                for key in (
+                    "meters", "polarity", "limits", "forecast",
+                    "tou", "write_capability", "preflight"
+                ) if entities.get("lab_" + key)
+            )
+        )
+    lab_display = [lab_card] if lab_card else lab_info + lab_buttons
+
     full_plan = (
         "- type: custom:estadi-energy-plan-card\n"
         "  entity: " + _quote(entities["plan_timeline"]) + "\n"
@@ -461,7 +478,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
 
     overview = _control_cockpit_card(entities, sources)
     return (
-        "# ESTADI Energy Pilot — zarządzany pulpit, v0.5.0\n"
+        "# ESTADI Energy Pilot — zarządzany pulpit, v0.5.1\n"
         "title: \"ESTADI Energy Pilot\"\n"
         "views:\n"
         + view("Pulpit", "estadi-energia", "mdi:view-dashboard",
@@ -498,10 +515,8 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
              [cards[18]]),
         ])
         + view("Testy", "estadi-testy", "mdi:flask-outline", [
-            ("Diagnostyka bez sterowania", "mdi:shield-check",
-             lab_info),
-            ("Uruchom test", "mdi:flask-outline",
-             lab_buttons),
+            ("Laboratorium Deye · bez zapisu", "mdi:flask-outline",
+             lab_display),
         ])
         + view("Diagnostyka", "estadi-diagnostyka", "mdi:stethoscope", [
             ("Stan bezpieczeństwa", "mdi:shield-check-outline",
@@ -652,7 +667,8 @@ def export_files(directory: str | Path, full: str, mini: str,
         "estadi-energy-overview-card" not in javascript or
         "estadi-energy-control-card" not in javascript or
         "estadi-energy-details-card" not in javascript or
-        "estadi-energy-plan-card" not in javascript
+        "estadi-energy-plan-card" not in javascript or
+        "estadi-energy-lab-card" not in javascript
     ):
         raise ValueError("Nieprawidłowy kod kart ESTADI")
 
