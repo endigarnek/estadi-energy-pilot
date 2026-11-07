@@ -466,7 +466,8 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                 "      entity_id: " + _quote(entities["lab_" + key]) + "\n"
                 for key in (
                     "meters", "polarity", "limits", "forecast",
-                    "tou", "write_capability", "preflight"
+                    "tou", "write_capability", "write_capability_more",
+                    "preflight"
                 ) if entities.get("lab_" + key)
             )
         )
@@ -480,7 +481,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
 
     overview = _control_cockpit_card(entities, sources)
     return (
-        "# ESTADI Energy Pilot — zarządzany pulpit, v0.5.1\n"
+        "# ESTADI Energy Pilot — zarządzany pulpit, v0.5.3\n"
         "title: \"ESTADI Energy Pilot\"\n"
         "views:\n"
         + view("Pulpit", "estadi-energia", "mdi:view-dashboard",
