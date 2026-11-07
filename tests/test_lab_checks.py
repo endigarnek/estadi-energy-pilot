@@ -204,6 +204,31 @@ class LabTests(unittest.TestCase):
         self.assertFalse(result["hardware_write_ready"])
         self.assertFalse(result["command_sent"])
 
+    def test_readback_24_of_24_must_not_report_operational_ok(self):
+        self.states.data["select.deye_time_of_use"]=sample(
+            "select.deye_time_of_use","Week",unit=None)
+        self.states.data["switch.deye_battery_grid_charging"]=sample(
+            "switch.deye_battery_grid_charging","off",unit=None)
+        for n,h in enumerate(("01","05","09","13","17","21"),1):
+            self.states.data[f"time.deye_program_{n}_time"]=sample(
+                f"time.deye_program_{n}_time",h+":00:00",unit=None)
+            self.states.data[f"number.deye_program_{n}_soc"]=sample(
+                f"number.deye_program_{n}_soc",10,"%")
+            self.states.data[f"number.deye_program_{n}_power"]=sample(
+                f"number.deye_program_{n}_power",15000,"W")
+            self.states.data[f"select.deye_program_{n}_charging"]=sample(
+                f"select.deye_program_{n}_charging","Disabled",unit=None)
+        result=self.check("tou")
+        self.assertEqual(result["read_fields"],24)
+        self.assertTrue(result["readback_complete"])
+        self.assertEqual(result["readback_status"],"ok")
+        self.assertEqual(result["status"],"blokada")
+        self.assertEqual(result["operational_status"],"blokada")
+        self.assertFalse(result["commissioning_can_write"])
+        self.assertEqual(result["commissioning_write_actions"],[])
+        self.assertFalse(result["commissioning_snapshot_persisted"])
+        self.assertFalse(result["command_sent"])
+
     def test_preflight_explicitly_blocks_disabled_grid_charging_and_tou(self):
         self.states.data["switch.deye_battery_grid_charging"]=sample(
             "switch.deye_battery_grid_charging","off",unit=None)
