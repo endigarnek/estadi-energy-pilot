@@ -64,6 +64,11 @@
      if(!this.shadowRoot)return;
      const pv=this.n("pv",0),load=this.n("home",0),soc=this.n("soc",0,100);
      const battery=this.n("battery_power"),losses=this.n("losses",0);
+     const batteryState=String(this.state("battery_state")||"").toLowerCase();
+     const batteryName=batteryState.includes("discharg")?"Rozładowanie":
+       batteryState.includes("charg")?"Ładowanie":
+       batteryState==="idle"||batteryState.includes("standby")?"Spoczynek":
+       "Stan baterii nieznany";
      const ev=this.n("ev",0),pump=this.n("pump",0),importKw=this.n("grid_import",0);
      const rawKw=this.n("grid_raw"),gridLimit=this.n("grid_limit",0);
      const headroom=this.n("grid_headroom"),gridStatus=label(this.state("grid_status"));
@@ -138,7 +143,7 @@
       this.node("Cały dom",power(load),"Deye Load","home-lightning-bolt-outline","home")+
       this.node("Straty",power(losses),"Falownik","heat-wave","losses")+
       '<div class="connector pathbat">↕ BAT</div>'+
-      this.node("Magazyn",soc===null?"—":fmt(soc,0)+"%","Moc: "+power(battery),"battery-medium","battery")+
+      this.node("Magazyn",soc===null?"—":fmt(soc,0)+"%",batteryName+" · "+power(battery),"battery-medium","battery")+
       '</div><div class="details"><span>EV <b>'+esc(power(ev))+'</b></span><span>Pompa <b>'+esc(power(pump))+
       '</b></span><span>Limit <b>'+esc(gridLimit===null?"—":fmt(gridLimit,1)+" kW")+
       '</b></span><span>Zapas <b>'+esc(headroom===null?"—":fmt(headroom,2)+" kW")+'</b></span></div>'+
