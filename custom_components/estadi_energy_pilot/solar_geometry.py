@@ -91,7 +91,7 @@ def summarize_forecast(now: datetime, pv_slots: list[PvSlot], *,
                        horizon_hours: int = 48) -> dict:
     """Explain covered/missing daylight and explicitly inferred low-light."""
     at = now.astimezone(timezone.utc).replace(second=0, microsecond=0)
-    required = available = lowlight_assumed = 0
+    required = available = continuous = lowlight_assumed = 0
     missing_at = None
     for _ in range(horizon_hours * 4):
         coverage = slot_coverage(at, at + STEP, pv_slots)
@@ -102,8 +102,10 @@ def summarize_forecast(now: datetime, pv_slots: list[PvSlot], *,
             required += 1
             if coverage >= .999:
                 available += 1
+                if missing_at is None:
+                    continuous += 1
             elif missing_at is None:
-                missing_at = at.isoformat()
+                missing_at = at.astimezone(now.tzinfo).isoformat()
         elif coverage < .999:
             lowlight_assumed += 1
         at += STEP
@@ -111,6 +113,7 @@ def summarize_forecast(now: datetime, pv_slots: list[PvSlot], *,
               default=None)
     return {
         "available_daylight_steps": available,
+        "continuous_daylight_steps": continuous,
         "required_daylight_steps": required,
         "missing_daylight_steps": required - available,
         "first_missing_daylight_at": missing_at,
