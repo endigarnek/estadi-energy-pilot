@@ -18,6 +18,7 @@ from .engine import get_all_plans, parse_pv_slots, parse_weather_slots
 from .history import HistoryBook
 from .forecast_source import parse_forecast_solar_response
 from .forecast_entry import preferred_entry
+from .solar_geometry import summarize_forecast
 from .discovery import detect_entities
 from .weather_temperature import weather_temperature_c
 from .source_diagnostics import read_numeric, select_nonempty_sources
@@ -341,6 +342,19 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
         pv_slots = parse_pv_slots(*attrs)
         forecast_source = "Solcast" if pv_slots else "Brak prognozy"
         forecast_error = None
+        # The site coordinates configured in HA are used only to determine
+        # whether a gap is at night/low solar elevation. No guessed forecasts.
+        lat = getattr(self.hass.config, "latitude", None)
+        lon = getattr(self.hass.config, "longitude", None)
+        if (not isinstance(lat, (int, float)) or
+                not isinstance(lon, (int, float)) or
+                not isfinite(float(lat)) or not isfinite(float(lon)) or
+                not -90 <= lat <= 90 or not -180 <= lon <= 180):
+            lat = lon = None
+        provider_reports = {}
+        if pv_slots:
+            provider_reports["Solcast"] = summarize_forecast(
+                now, pv_slots, latitude=lat, longitude=lon)
 
         # Prefer the user's existing Forecast.Solar integration. Its service
         # returns cached hourly data; no API key and no additional provider.
@@ -357,8 +371,18 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                     )
                     forecast_slots = parse_forecast_solar_response(response)
                     if forecast_slots:
-                        pv_slots = forecast_slots
-                        forecast_source = "Forecast.Solar"
+                        provider_reports["Forecast.Solar"] = summarize_forecast(
+                            now, forecast_slots, latitude=lat, longitude=lon)
+                        # Never replace a longer Solcast forecast with a
+                        # shorter Forecast.Solar response merely due to
+                        # provider priority. First priority is actual daylight
+                        # coverage across the next 48h; no source blending.
+                        current_coverage = provider_reports.get(forecast_source, {})
+                        if (not pv_slots or
+                            provider_reports["Forecast.Solar"]["available_daylight_steps"]
+                            >= current_coverage.get("available_daylight_steps", 0)):
+                            pv_slots = forecast_slots
+                            forecast_source = "Forecast.Solar"
                     else:
                         forecast_error = "Forecast.Solar nie zwrócił danych godzinowych"
                 except Exception as err:
@@ -367,6 +391,11 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             else:
                 forecast_error = "Zaktualizuj Home Assistant: brak akcji Forecast.Solar get_forecast"
 
+        selected_forecast_report = summarize_forecast(
+            now, pv_slots, latitude=lat, longitude=lon)
+        selected_forecast_report["source"] = forecast_source
+        selected_forecast_report["candidate_sources"] = provider_reports
+        v2_info["pv_coverage"] = selected_forecast_report
         # A genuine outdoor temperature sensor is required for training.
         # Weather fallback remains available to forecast, but is NOT silently
         # mixed into the historical observed-temperature calibration.
@@ -458,6 +487,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
             "zrodlo_temperatury": temperature_source if outdoor_temp is not None else None,
             "prognoza_zrodlo": forecast_source,
             "prognoza_blad": forecast_error,
+            "prognoza_pokrycie_48h": selected_forecast_report,
         }
         history["diagnostics"] = diagnostics
         if soc is None or outdoor_temp is None:
@@ -539,7 +569,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                 battery_max_kw=float(selected[CONF_CHARGE_LIMIT]),
                 grid_limit_kw=float(selected[CONF_GRID_LIMIT]),
                 ev_now_kw=self._kw_or_none(CONF_EV_POWER),
-                prices=prices,
+                prices=prices, latitude=lat, longitude=lon,
             )
             v2_info["simulation_48h"] = simulation
         except (ValueError, TypeError, KeyError, ZeroDivisionError) as err:
@@ -592,7 +622,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                     grid_buffer_kw=float(selected[CONF_GRID_BUFFER]),
                     preferred_kw=float(selected[CONF_PREFERRED_CHARGE]),
                     ev_now_kw=self._kw_or_none(CONF_EV_POWER),
-                    prices=prices,
+                    prices=prices, latitude=lat, longitude=lon,
                 )
         else:
             v2_info["schedule_note"] = (
