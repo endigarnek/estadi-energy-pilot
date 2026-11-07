@@ -75,6 +75,21 @@ def _existing(mapping: Mapping[str, str], labels: list[tuple[str, str]]) -> list
     return [(title, mapping[key]) for title, key in labels if mapping.get(key)]
 
 
+def _metric_card(title: str, items: list[tuple[str, str]],
+                 columns: int = 3) -> str:
+    """One readable responsive ESTADI panel instead of many tiny HA tiles."""
+    if not items:
+        return _markdown(title, "Brak danych do wyświetlenia.")
+    return (
+        "- type: custom:estadi-energy-details-card\n"
+        "  title: " + _quote(title) + "\n"
+        "  items:\n"
+        + "".join("    - label: " + _quote(label) + "\n"
+                  "      entity: " + _quote(entity_id) + "\n"
+                  for label, entity_id in items)
+    )
+
+
 def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) -> str:
     """Generate one complete native Lovelace dashboard, without guessed IDs."""
     # Charging status is optional: it is informative, not needed to render Lovelace.
@@ -272,7 +287,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
     ) if excess_id else "Brak sensora oceny nadwyżek pompy."
     cards = [
         _markdown("Centrum sterowania — podgląd", header),
-        _tiles("Stan instalacji", _existing(
+        _metric_card("Stan instalacji", _existing(
             {**entities, **sources}, [
                 ("SOC magazynu", "source_soc"), ("Produkcja PV", "source_pv"),
                 ("Cały dom — Deye Load", "source_home"),
@@ -280,7 +295,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                 ("Pompa ciepła", "source_pump"), ("Import sieci — zweryfikowany", "grid_import"),
                 ("Deye — odczyt mocy ze znakiem (nie import!)", "grid_raw_power"),
             ]), 3),
-        _tiles("Planowanie i bezpieczeństwo", _existing(
+        _metric_card("Planowanie i bezpieczeństwo", _existing(
             entities, [("Stan systemu", "health_status"),
                        ("Grid Guard", "grid_status"),
                        ("Odczyt czujnika Deye", "grid_raw_status"),
@@ -306,7 +321,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
         _graph("Import i zapas przyłącza — ostatnie 48h",
                [eid(k) for k in ("grid_import", "grid_raw_power", "grid_headroom", "grid_charge_cap")
                 if eid(k)], hours=48),
-        _tiles("Symulacja magazynu 48h", _existing(
+        _metric_card("Symulacja magazynu 48h", _existing(
             entities, [("SOC na koniec", "sim_soc_end"),
                        ("Minimalny SOC", "sim_soc_min"),
                        ("Wariant ostrożny", "sim_soc_min_cautious"),
@@ -315,7 +330,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                        ("Szczyt poboru", "sim_grid_peak")]), 3),
         _interactive_forecast_card(sim),
         _markdown("Prognoza — następne 48 godzin (zapasowa tabela 4h)", forecasts),
-        _tiles("Ekonomia pracy magazynu — porównanie 48h", _existing(
+        _metric_card("Ekonomia pracy magazynu — porównanie 48h", _existing(
             entities, [("Stan porównania", "economic_status"),
                        ("Import bez ładowania (PLN)", "economic_base_cost"),
                        ("Import z planem (PLN)", "economic_plan_cost"),
@@ -323,7 +338,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                        ("Końcowy SOC bez planu", "economic_base_soc"),
                        ("Końcowy SOC z planem", "economic_plan_soc")]), 3),
         _markdown("Rachunek dwóch scenariuszy 48h", economics_markdown),
-        _tiles("Kalibracja prognoz i niepewność EV", _existing(
+        _metric_card("Kalibracja prognoz i niepewność EV", _existing(
             entities, [("Stan profilu domu", "calibration_status"),
                        ("Błąd profilu", "calibration_load_mae"),
                        ("WAPE domu", "calibration_load_wape"),
@@ -331,7 +346,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                        ("Historyczne ryzyko EV", "calibration_ev_status"),
                        ("Kompletne dni EV", "calibration_ev_days")]), 3),
         _markdown("Jak uczymy się z rzeczywistych pomiarów", calibration_text),
-        _tiles("Pompa ciepła — uczenie z temperatury", _existing(
+        _metric_card("Pompa ciepła — uczenie z temperatury", _existing(
             entities, [("Stan uczenia", "pump_learn_status"),
                        ("Dni pomiarów", "pump_learn_days"),
                        ("Godziny sparowane", "pump_learn_hours"),
@@ -339,7 +354,7 @@ def render_dashboard(entities: Mapping[str, str], sources: Mapping[str, str]) ->
                        ("Nowa prognoza pompy (kWh)", "pump_preview_learned"),
                        ("Dotychczasowa prognoza (kWh)", "pump_preview_legacy")]), 3),
         _markdown("Temperatura a zużycie pompy — model empiryczny", pump_text),
-        _tiles("Pompa — kontrola podwyższonego poboru", _existing(
+        _metric_card("Pompa — kontrola podwyższonego poboru", _existing(
             entities, [("Stan analizy", "pump_excess_status"),
                        ("Porównane godziny", "pump_excess_hours"),
                        ("Podejrzane okresy", "pump_excess_events"),
@@ -620,7 +635,8 @@ def export_files(directory: str | Path, full: str, mini: str,
         not javascript.strip() or
         "estadi-energy-forecast-card" not in javascript or
         "estadi-energy-overview-card" not in javascript or
-        "estadi-energy-control-card" not in javascript
+        "estadi-energy-control-card" not in javascript or
+        "estadi-energy-details-card" not in javascript
     ):
         raise ValueError("Nieprawidłowy kod kart ESTADI")
 
