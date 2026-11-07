@@ -101,7 +101,7 @@ def audit_tou_map(inventory: dict, *, plan: dict | None = None,
         "Brak zatwierdzonej procedury wycofania zmian po awarii komunikacji",
     ])
     if unknown:
-        blockers.append("Niepełne odczyty nastaw globalnych lub brak jednoznacznych encji")
+        blockers.extend(unknown[:8])
 
     model_start = _time_label((plan or {}).get("start"))
     model_end = _time_label((plan or {}).get("end_window"))
