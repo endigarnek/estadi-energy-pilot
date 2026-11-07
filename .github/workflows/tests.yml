@@ -31,6 +31,10 @@ jobs:
           node-version: "22"
       - name: Sprawdź składnię karty prognozy JS
         run: node --check custom_components/estadi_energy_pilot/forecast_card.js
+      - name: Sprawdź nowe karty szczegółowe
+        run: |
+          node --check custom_components/estadi_energy_pilot/details_card.js
+          node --test tests/test_details_card.mjs
       - name: Sprawdź składnię nowego centrum energii JS
         run: node --check custom_components/estadi_energy_pilot/overview_card.js
       - name: Sprawdź składnię operacyjnej karty JS
