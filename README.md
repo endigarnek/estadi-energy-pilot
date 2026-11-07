@@ -1,6 +1,17 @@
-# ESTADI Energy Pilot — wersja 0.4.9 (beta)
+# ESTADI Energy Pilot — wersja 0.5.0 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
+
+## 0.5.0 — godzinowy plan pracy magazynu i audyt gotowości Deye
+
+- **Prognoza 48h → Godzinowy harmonogram magazynu:** nowy wykres i tabela pokazują średnią godzinową moc ładowania z sieci, ładowanie z PV, rozładowanie do domu, import i SOC. Można przełączyć pierwszy/drugi dzień. Suma kWh jest wyświetlana tylko przy pełnym, spójnym scenariuszu.
+- **Pulpit → Plan magazynu:** miniwykres zaplanowanych godzin ładowania z sieci bez zwiększania wysokości całej strony.
+- **Dwie porównywalne symulacje:** bazowa (bez dodatkowego ładowania z sieci) oraz z planem w taniej strefie. Przebieg planu pochodzi z rzeczywistego modelu kwartalnego, a nie z dowolnie narysowanego wykresu.
+- **Testy → Sprawdź gotowość sterowania:** kontrola Grid Guard, kalibracji znaków, trzech faz, prognozy i planera oraz jasna lista brakujących testów zapisu/odczytu i ograniczeń BMS. Dostępne encje `number`, `select`, `switch` są teraz opisywane także jednostką, zakresem min–max, krokiem i opcjami.
+- **Koszty 48h:** ten silnik również korzysta z geometrii Słońca, więc nie przerywa obliczeń jesienią o 04:00.
+- **Bezpieczeństwo:** to nadal wyłącznie prognoza i diagnostyka. Nie ma wysyłania `number.set_value` ani programowania Deye. Pełne sterowanie wymaga zweryfikowanych encji zapisujących, fizycznych ograniczeń trzech faz, BMS, odczytu zwrotnego i sposobu wycofania zmian.
+
+Pełne zasady: [Godzinowy plan i gotowość sterowania](docs/PLAN_050.md).
 
 ## 0.4.9 — koniec błędów prognozy przerywanej przed świtem
 
