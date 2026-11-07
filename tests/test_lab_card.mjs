@@ -21,6 +21,8 @@ function make(testResult){
  card.setConfig({result_entity:"sensor.lab",tests:[
   {key:"meters",entity_id:"button.lab_meters"},
   {key:"write_capability",entity_id:"button.lab_write_capability"},
+  {key:"write_capability_more",entity_id:"button.lab_write_capability_more"},
+  {key:"charge_limits",entity_id:"button.lab_charge_limits"},
   {key:"preflight",entity_id:"button.lab_preflight"}
  ]});
  card.hass={states:{"sensor.lab":{
@@ -40,7 +42,7 @@ test("Deye candidates display readable metadata and copy complete inventory",()=
     state:"off",detected_by:"name_match",options:[]}
   ]});
  const html=card.shadowRoot.innerHTML;
- for(const text of ["Laboratorium Deye","2 potencjalnych regulatorów",
+ for(const text of ["Laboratorium Deye","2 wszystkich",
   "number.program_1_power","Deye TOU power","5000","0–10000 co 100",
   "To samo urządzenie","Kopiuj wykaz encji","Tylko odczyt"]){
   assert.ok(html.includes(text),text);
@@ -49,6 +51,32 @@ test("Deye candidates display readable metadata and copy complete inventory",()=
  assert.match(copy,/number.program_1_power/);
  assert.match(copy,/Wysłane polecenia do Deye: NIE/);
  assert.match(copy,/min=0/);
+});
+test("second regulator page is copyable and clearly numbered",()=>{
+ const card=make({test:"write_capability_more",status:"blokada",
+  page:2,pages:2,discovered:78,shown:38,remaining:0,candidates:[
+    {entity:"switch.deye_grid_charge",label:"Deye Grid Charge",
+     domain:"switch",state:"off",detected_by:"same_deye_device"}
+  ]});
+ assert.match(card.shadowRoot.innerHTML,/strona 2 \/ 2/);
+ assert.match(card.copyPayload(),/Strona: 2 \/ 2/);
+ assert.match(card.copyPayload(),/switch.deye_grid_charge/);
+});
+test("editable current must not be described as a physical BMS limit",()=>{
+ const card=make({test:"charge_limits",status:"informacja",
+  settings:{grid_charge_current:{value:40,unit:"A",min_ui:0,max_ui:350,step_ui:1},
+   max_charge_current:{value:200,unit:"A"},
+   max_grid_import:{value:31000,unit:"W"},
+   peak_shaving:{value:8000,unit:"W"}},
+  approximate_dc_charge_kw_at_current_setting:1.92,
+  contracted_connection_kw:15,inverter_setting_above_connection_limit:true});
+ const html=card.shadowRoot.innerHTML;
+ assert.match(html,/40 A/);
+ assert.match(html,/Konfigurowalne/);
+ assert.match(html,/15 kW/);
+ assert.match(html,/1.92 kW/);
+ assert.match(html,/nie są fizycznymi limitami BMS/);
+ assert.match(card.copyPayload(),/grid_charge_current/);
 });
 test("only configured diagnostic button can be pressed",async()=>{
  const card=make({test:"meters",status:"ok",reason:"Odczyt gotowy"});
