@@ -500,6 +500,7 @@ def _control_cockpit_card(entities: Mapping[str, str], sources: Mapping[str, str
         "ev": sources.get("source_ev"),
         "pump": sources.get("source_pump"),
         "battery_power": sources.get("source_battery"),
+        "battery_state": sources.get("source_battery_state"),
         "losses": sources.get("source_losses"),
         "grid_import": entities.get("grid_import"),
         "grid_raw": entities.get("grid_raw_power"),
