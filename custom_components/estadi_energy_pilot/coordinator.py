@@ -657,6 +657,7 @@ class EnergyPilotCoordinator(DataUpdateCoordinator):
                 grid_buffer_kw=float(selected[CONF_GRID_BUFFER]),
                 ev_now_kw=self._kw_or_none(CONF_EV_POWER),
                 future_ev_stress=ev_risk if ev_risk.get("risk_ready") else None,
+                latitude=lat, longitude=lon,
             )
         except (ValueError, TypeError, KeyError, ZeroDivisionError) as err:
             _LOGGER.warning("48h scenario economy comparison unavailable: %s", err)
