@@ -70,12 +70,18 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
     if kind == "forecast":
         energy=coordinator_data.get("energy_2_0") or {}
         sim=energy.get("simulation_48h") or {}
+        coverage=energy.get("pv_coverage") or {}
         smart=energy.get("optimized_schedule") or {}
         complete=sim.get("status")=="gotowa" and float(sim.get("forecast_hours") or 0)>=47.75
         return _result(kind,"ok" if complete else "blokada",
             "Prognoza kompletna — plan doradczy nie jest wykonanym poleceniem" if complete
             else sim.get("reason") or "Niepełna godzinowa prognoza PV",
             hours=sim.get("forecast_hours"),simulation_status=sim.get("status"),
+            source=coverage.get("source"),
+            daylight_covered_pct=coverage.get("covered_daylight_pct"),
+            missing_daylight_steps=coverage.get("missing_daylight_steps"),
+            first_missing_daylight_at=coverage.get("first_missing_daylight_at"),
+            source_candidates=coverage.get("candidate_sources"),
             plan_status=smart.get("status"),plan_reason=smart.get("reason"),
             start=smart.get("start"),power_kw=smart.get("power_kw"),
             battery_grid_charge_kwh=smart.get("grid_charge_kwh"))
