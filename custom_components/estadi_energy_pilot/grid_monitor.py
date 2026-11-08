@@ -126,6 +126,11 @@ def build_grid_readout(get_state: Callable, selected: dict,
     decision["raw_grid_kw"] = (
         round(grid_w / 1000, 3) if grid_w is not None else None
     )
+    decision["raw_battery_kw"] = (
+        round(battery_w / 1000, 3) if battery_w is not None else None
+    )
+    decision["raw_battery_status"] = measurements[CONF_BATTERY_POWER]["status"]
+    decision["raw_battery_entity_id"] = measurements[CONF_BATTERY_POWER]["entity_id"]
     decision["raw_grid_status"] = measurements[CONF_GRID_POWER]["status"]
     decision["raw_grid_entity_id"] = measurements[CONF_GRID_POWER]["entity_id"]
     decision["raw_grid_is_import"] = None

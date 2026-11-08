@@ -160,6 +160,49 @@ test("preflight displays real blockers, not false-ready state",()=>{
  assert.match(html,/Brak BMS/);
  assert.match(html,/Nieznany odczyt zwrotny/);
 });
+test("actual Deye preflight is split into five meaningful sections",()=>{
+ const card=make({test:"preflight",status:"blokada",reason:"Sterowanie wyłączone",
+   battery_signed_kw_raw:-1.4,
+   steps:[
+    {key:"meters",title:"1. Odczyty i kierunki",status:"wymaga",
+      items:["Nie wybrano kierunku ładowania baterii."],
+      evidence:{battery_kw_raw:-1.4}},
+    {key:"phases",title:"2. Fazy i przyłącze",status:"wymaga",
+      items:["Brak pełnej weryfikacji trzech faz i limitów prądowych."],
+      evidence:{connection_limit_kw:15,phase_status:"brak_aktualnych_pomiarow_faz"}},
+    {key:"tou",title:"3. Programy Deye TOU",status:"odczyt_ok",
+      items:["Odczyt 24/24 pól TOU jest poprawny.",
+             "Grid Charge jest wyłączony (obecna konfiguracja, nie awaria)."]},
+    {key:"forecast",title:"4. Prognoza i plan",status:"wymaga",
+      items:["Prognoza 48h nie jest kompletna."]},
+    {key:"hardware",title:"5. Bezpieczne uruchomienie",status:"blokada",
+      items:["Niepotwierdzone limity BMS.","Brak trwałego rollbacku."]}
+   ],
+   notes:["Nastawa maksymalnego importu Deye nie zastępuje limitu przyłącza."],
+   next_action:"Sprawdź Kierunki mocy na ekranie Deye."
+ });
+ const html=card.shadowRoot.innerHTML;
+ for(const part of [
+   "1. Odczyty i kierunki","2. Fazy i przyłącze","3. Programy Deye TOU",
+   "4. Prognoza i plan","5. Bezpieczne uruchomienie",
+   "Surowa moc baterii","-1,4 kW","15 kW",
+   "Grid Charge OFF to obecna konfiguracja","Co zrobić teraz",
+   "Sprawdź Kierunki mocy","Uwagi do nastaw Deye"
+ ]){
+   assert.ok(html.includes(part),part);
+ }
+ assert.equal((html.match(/class="step"/g)||[]).length,5);
+ assert.match(card.copyPayload(),/NASTĘPNY KROK/);
+ assert.match(card.copyPayload(),/Wysłane polecenia do Deye: NIE/);
+});
+test("preflight escapes external text in group and next action",()=>{
+ const card=make({test:"preflight",status:"blokada",
+   steps:[{key:"meters",title:'<img src=x onerror="evil()">',
+    status:"wymaga",items:['<script>alert(1)</script>']}],
+   next_action:'<img src=x onerror="evil()">',notes:[]});
+ assert.doesNotMatch(card.shadowRoot.innerHTML,/<img|<script/);
+ assert.match(card.shadowRoot.innerHTML,/&lt;script/);
+});
 test("unsafe HA text is escaped in DOM",()=>{
  const card=make({test:"write_capability",status:"blokada",candidates:[
   {entity:"number.deye_program",label:'<img src=x onerror="evil()">',

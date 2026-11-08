@@ -18,6 +18,7 @@ from .grid_monitor import build_grid_readout, read_source
 from .deye_tou import inspect_tou
 from .tou_commissioning import audit_tou_map
 from .inverter_specs import comparison_for_laboratory
+from .preflight_review import build_preflight_steps
 
 DIAGNOSTIC_TESTS = {
     "meters": "Sprawdź odczyty sieci i baterii",
@@ -229,62 +230,43 @@ def inspect_test(kind: str, *, states, selected: dict, coordinator_data: dict,
         )
     if kind == "preflight":
         guard = build_grid_readout(states.get, selected, now)
-        solar = (coordinator_data.get("energy_2_0") or {}).get("pv_coverage") or {}
-        sim = (coordinator_data.get("energy_2_0") or {}).get("simulation_48h") or {}
-        plan = (coordinator_data.get("energy_2_0") or {}).get("optimized_schedule") or {}
-        problems = []
-        observed_tou = inspect_tou(states.async_all(), now)
-        tou_audit = audit_tou_map(observed_tou, plan=plan, get_state=states.get)
-        for blocker in tou_audit["blockers"]:
-            problems.append("TOU: " + blocker)
-        shaving = states.get("switch.deye_grid_peak_shaving")
-        if shaving is None or getattr(shaving, "state", None) != "on":
-            problems.append(
-                "Funkcja peak shaving Deye nie jest potwierdzona jako aktywna; "
-                "nie wolno traktować nastawy 8 kW jako zabezpieczenia przyłącza"
-            )
-        current_import_limit = states.get("number.deye_grid_max_import_power")
-        try:
-            configured_inverter_w = float(getattr(current_import_limit, "state", None))
-            contracted_kw = float(selected.get(CONF_GRID_LIMIT))
-        except (TypeError, ValueError):
-            configured_inverter_w, contracted_kw = None, None
-        if (configured_inverter_w is not None and contracted_kw is not None
-                and isfinite(configured_inverter_w)
-                and isfinite(contracted_kw)
-                and configured_inverter_w > contracted_kw * 1000):
-            problems.append(
-                "Nastawa importu Deye przekracza limit przyłącza ESTADI; "
-                "15 kW i pomiary 3 faz muszą pozostać nadrzędne"
-            )
-        if guard.get("state") != "ok":
-            problems.append("Grid Guard: " + str(guard.get("reason") or guard.get("state")))
-        if not guard.get("import_sign_confirmed"):
-            problems.append("Znak importu sieci Deye niepotwierdzony")
-        if not guard.get("charge_sign_confirmed"):
-            problems.append("Znak ładowania baterii niepotwierdzony")
-        if not guard.get("phase_checked"):
-            problems.append("Niepotwierdzony pomiar i limity trzech faz")
-        if not (sim.get("status") == "gotowa" and sim.get("forecast_hours") == 48):
-            problems.append("Symulacja 48h niekompletna")
-        if plan.get("status") != "wstepny_plan":
-            problems.append("Brak wstępnego planu ładowania")
-        # These missing physical verifications cannot be inferred from HA
-        # states or from the mere existence of number/select controls.
-        problems.extend([
-            "Niepotwierdzony protokół zapisu i odczyt zwrotny Deye",
-            "Brak pomiarowego testu zmiany mocy ładowania",
-            "Brak zatwierdzonych ograniczeń BMS",
-            "Brak procedury rollback po awarii lub zaniku komunikacji",
-        ])
+        energy = coordinator_data.get("energy_2_0") or {}
+        solar = energy.get("pv_coverage") or {}
+        sim = energy.get("simulation_48h") or {}
+        plan = energy.get("optimized_schedule") or {}
+        tou = inspect_tou(states.async_all(), now)
+        limit_state = states.get("number.deye_grid_max_import_power")
+        inverter_limit_w = getattr(limit_state, "state", None)
+        shaving_state = states.get("switch.deye_grid_peak_shaving")
+        shaving = getattr(shaving_state, "state", None)
+        review = build_preflight_steps(
+            guard=guard, inventory=tou, selected=selected, sim=sim,
+            plan=plan, inverter_limit_w=inverter_limit_w,
+            peak_shaving_state=shaving,
+        )
+        # Backward-compatible, deduplicated list. The new UI renders
+        # structured groups; legacy clients can still read 'blockers'.
+        blockers = [
+            message for group in review["groups"] for message in group["items"]
+            if group["status"] in ("wymaga", "blokada")
+        ]
         return _result(
-            kind, "blokada", "Sterowanie fizyczne pozostaje wyłączone",
-            blockers=problems, blocker_count=len(problems),
+            kind, "blokada",
+            "Deye: gotowość automatyki niepotwierdzona; odczyt nie oznacza zapisu",
+            blockers=blockers, blocker_count=len(blockers),
+            steps=review["groups"], notes=review["notes"],
+            next_action=review["next_action"],
+            stage_count=review["stage_count"],
+            battery_signed_kw_raw=guard.get("raw_battery_kw"),
+            battery_sensor_status=guard.get("raw_battery_status"),
+            grid_signed_kw_raw=guard.get("raw_grid_kw"),
             grid_guard=guard.get("state"),
             phase_status=guard.get("phase_status"),
             forecast_source=solar.get("source"),
             forecast_hours=sim.get("forecast_hours"),
             plan_status=plan.get("status"),
+            tou_read_fields=tou.get("odczytane_pola"),
+            tou_readback_ok=tou.get("status") == "odczytano_6_programow",
             write_test_approved=False, remote_control_enabled=False,
         )
     # Discover candidate controls on the SAME HA device as the configured
