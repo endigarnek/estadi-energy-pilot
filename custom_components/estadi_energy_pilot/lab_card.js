@@ -132,11 +132,45 @@
           'limity faz, test fizycznego odczytu zwrotnego i cofania zmian.</p>';
       }
       if (result.test === "preflight") {
-        const blockers = (result.blockers || []).map(s =>
-          '<li>'+esc(s)+'</li>').join("");
-        return '<h3>Warunki przed uruchomieniem fizycznego sterowania</h3>'+
-          '<p class="warning">Sterowanie Deye pozostaje wyłączone. Poniższych blokad nie można omijać bez testów na urządzeniu.</p>'+
-          '<ul class="blockers">'+blockers+'</ul>';
+        const groups=Array.isArray(result.steps)?result.steps:[];
+        if (!groups.length) {
+          const blockers=(result.blockers||[]).map(s=>'<li>'+esc(s)+'</li>').join("");
+          return '<h3>Warunki przed sterowaniem Deye</h3>'+
+            '<p class="warning">Sterowanie pozostaje wyłączone.</p>'+
+            '<ul class="blockers">'+blockers+'</ul>';
+        }
+        const stages=groups.map((group)=>{
+          const items=(group.items||[]).map(item=>'<li>'+esc(item)+'</li>').join("");
+          const state=group.status==="odczyt_ok"?"Odczyt OK":
+            group.status==="ustawiono"?"Konfiguracja dostępna":
+            group.status==="blokada"?"Wymaga testów":"Do sprawdzenia";
+          let evidence="";
+          if(group.key==="meters"){
+            const v=group.evidence||{};
+            const value=v.battery_kw_raw==null?"brak pomiaru":
+              String(v.battery_kw_raw).replace(".",",")+" kW";
+            evidence='<p class="evidence">Surowa moc baterii: <strong>'+
+              esc(value)+'</strong> · znak jeszcze nie oznacza automatycznie ładowania.</p>';
+          }
+          if(group.key==="phases"){
+            const v=group.evidence||{};
+            evidence='<p class="evidence">Limit przyłącza ESTADI: <strong>'+
+              esc(v.connection_limit_kw==null?"brak":v.connection_limit_kw+" kW")+
+              '</strong> · fazy: '+esc(v.phase_status||"niepotwierdzone")+'</p>';
+          }
+          return '<div class="step"><div class="step-head"><h4>'+esc(group.title)+
+            '</h4><span>'+esc(state)+'</span></div><ul>'+items+'</ul>'+
+            evidence+'</div>';
+        }).join("");
+        const notes=(result.notes||[]).map(v=>'<li>'+esc(v)+'</li>').join("");
+        return '<p class="note">5 etapów przygotowania. Odczyty nie są zgodą '+
+          'na wykonywanie poleceń. Grid Charge OFF to obecna konfiguracja, '+
+          'nie błąd falownika.</p>'+
+          '<div class="steps">'+stages+'</div>'+
+          '<div class="next"><strong>Co zrobić teraz</strong><p>'+
+          esc(result.next_action||"Sprawdź pomiary i kierunki mocy.")+'</p></div>'+
+          (notes?'<details class="info"><summary>Uwagi do nastaw Deye</summary>'+
+            '<ul>'+notes+'</ul></details>':'');
       }
       if (result.test === "forecast") {
         const values = [
@@ -297,7 +331,17 @@
             " ; nastawa konfigurowalna, bez potwierdzenia BMS");
         }
       } else if(result.test==="preflight") {
-        for(const blocker of result.blockers || []) lines.push("BLOKADA: "+blocker);
+        if(Array.isArray(result.steps)){
+          for(const stage of result.steps||[]){
+            lines.push(stage.title+" ["+stage.status+"]");
+            for(const item of stage.items||[])lines.push(" · "+item);
+          }
+          lines.push("NASTĘPNY KROK: "+plain(result.next_action));
+          for(const note of result.notes||[])lines.push("UWAGA: "+note);
+          lines.push("Surowa moc baterii: "+plain(result.battery_signed_kw_raw)+" kW");
+        } else {
+          for(const blocker of result.blockers||[]) lines.push("BLOKADA: "+blocker);
+        }
       }
       return lines.join("\n");
     }
@@ -364,8 +408,10 @@
         '.values span{display:block;font-size:10px;color:var(--muted)}.values b{font-size:12px;display:block;margin-top:6px;overflow-wrap:anywhere}',
         '.limits .limit{background:var(--soft);padding:11px;border-radius:10px}.limit span,.limit small{display:block;font-size:11px;color:var(--muted)}.limit strong{display:block;font-size:16px;margin:5px 0}.limit small{font-size:10px}',
         '.blockers{padding-left:22px;font-size:12px;line-height:1.6}.blockers li{margin-bottom:3px}',
+        '.steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.step{border:1px solid var(--line);border-radius:11px;padding:11px;min-width:0}.step-head{display:flex;gap:6px;justify-content:space-between;align-items:baseline;flex-wrap:wrap}.step-head h4{font-size:12px;margin:0}.step-head span{font-size:10px;color:var(--muted)}.step ul,.info ul{padding-left:18px;margin:8px 0 0;font-size:11px;line-height:1.55}.step li{margin-bottom:5px}.evidence{font-size:10px;color:var(--muted);margin:7px 0 0;line-height:1.5;overflow-wrap:anywhere}.next{padding:10px 0;border-top:1px solid var(--line);font-size:12px;line-height:1.6}.next strong{font-size:12px}.next p{margin:4px 0;overflow-wrap:anywhere}.info{font-size:11px;color:var(--muted);margin:6px 0}.info summary{cursor:pointer}',
         '.notice{font-size:12px;color:#269775;margin-top:9px}',
-        '@media(max-width:850px){.tests{grid-template-columns:repeat(2,minmax(0,1fr))}.values{grid-template-columns:repeat(2,minmax(0,1fr))}}',
+        '@media(max-width:850px){.tests,.steps{grid-template-columns:repeat(2,minmax(0,1fr))}.values{grid-template-columns:repeat(2,minmax(0,1fr))}}',
+        '@media(max-width:540px){.steps{grid-template-columns:1fr}}',
         '@media(max-width:450px){ha-card{padding:11px}.test{padding:9px;font-size:11px}.safe{font-size:10px}}'
       ].join("");
       this.shadowRoot.innerHTML='<style>'+css+'</style><ha-card>'+
