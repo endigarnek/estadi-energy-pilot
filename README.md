@@ -1,6 +1,17 @@
-# ESTADI Energy Pilot — wersja 0.5.6 (beta)
+# ESTADI Energy Pilot — wersja 0.5.7 (beta)
 
 **Własna integracja Home Assistant (HACS) do prognozowania ładowania magazynu energii i oceny trafności prognoz.** Wersja **doradcza**: odczytuje sensory, oblicza cele SOC, ale **nie steruje falownikiem Deye**.
+
+## 0.5.7 — gotowość sterowania w pięciu etapach, bez powtórzeń
+
+Na instalacji użytkownika test „Gotowość sterowania” pokazywał około 17 powtarzających się ostrzeżeń w jednej długiej liście. Nie wynikało to z siedemnastu niezależnych usterek: przy odczycie 24/24 TOU ustawienia Grid Charge OFF i sześć programów Disabled są **obecną konfiguracją**, a nie awarią Deye. Niepełna prognoza 48h utrudnia automatyczny plan, ale nie jest tym samym co bezpieczeństwo elektryczne.
+
+- Nowy, responsywny panel **5 etapów**: (1) Odczyty i kierunki; (2) Fazy i przyłącze; (3) TOU; (4) Prognoza i plan; (5) Bezpieczne uruchomienie. Każdy etap ma osobny stan i kilka konkretnych warunków. Dodatkowe uwagi do nastaw 31 kW / peak shaving 8 kW przeniesiono do rozwijanej sekcji informacyjnej.
+- W sekcji pierwszej pokazujemy **świeży surowy odczyt mocy baterii ze znakiem**; nie zgadujemy, czy ujemny oznacza ładowanie. Brak wybranego kierunku jest teraz wyjaśniony razem z procedurą porównania odczytu z ekranem Deye i ustawieniem go przez opcje zaawansowane integracji.
+- W sekcji przyłącza widać osobno **15 kW** i stan pomiarów L1/L2/L3. Sam Grid Guard nie jest zabezpieczeniem elektrycznym i nie odblokowuje fizycznego sterowania.
+- Gdy TOU jest kompletne (24/24), etap otrzymuje status „Odczyt OK”, nawet gdy obecnie Grid Charge pozostaje OFF — **sterowanie całym systemem jest nadal zablokowane**.
+- Końcowy moduł pokazuje **„Co zrobić teraz”**: kolejno kierunki, trzy fazy, prognoza lub potwierdzenie BMS/rollback. Eksport wyniku używa tych samych grup i nie powiela niejasnych blokad.
+- Żadne ustawienia Deye, BMS, TOU ani limity nie są zmieniane. Fizyczny zapis i testy wykonawcze nadal wyłączone.
 
 ## 0.5.6 — 24/24 poprawny odczyt ≠ zgoda na sterowanie
 
