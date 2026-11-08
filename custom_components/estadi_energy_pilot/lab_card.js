@@ -136,7 +136,7 @@
         if (!groups.length) {
           const blockers=(result.blockers||[]).map(s=>'<li>'+esc(s)+'</li>').join("");
           return '<h3>Warunki przed sterowaniem Deye</h3>'+
-            '<p class="warning">Sterowanie pozostaje wyłączone.</p>'+
+            '<p class="warning">Sterowanie Deye pozostaje wyłączone.</p>'+
             '<ul class="blockers">'+blockers+'</ul>';
         }
         const stages=groups.map((group)=>{
